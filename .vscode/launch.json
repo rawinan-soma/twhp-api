@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+  {
+    "name": "Attach NestJS debugger",
+    "port": 9229,
+    "request": "attach",
+    "skipFiles": [
+      "<node_internals>/**"
+    ],
+    "type": "node",
+    "restart": true,
+    "localRoot": "${workspaceFolder}",
+    "outFiles": [
+      "${workspaceFolder}/**/*.(m|c|)js",
+      "!**/node_modules/**",
+      "${workspaceFolder}/dist/**/*.js"
+    ]
+  }
+  ]
+}

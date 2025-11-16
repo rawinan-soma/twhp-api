@@ -1,0 +1,121 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Roles {
+  Factory
+  Provicial
+  Evaluator
+  DOED
+}
+
+model Accounts {
+  id        Int                @id @unique @default(autoincrement())
+  username  String             @unique
+  password  String
+  email     String             @unique
+  role      Roles
+  adminDoed AdminsDoed?
+  evaluator Evaluators?
+  provicial ProvicialOfficers?
+  factory Factories?
+}
+
+model AdminsDoed {
+  account    Accounts @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  account_id Int      @unique @id
+  first_name   String
+  last_name    String
+  phone_number String
+}
+
+enum EvaluatorLevels {
+  Mental
+  DOH
+  ODPC
+}
+
+model Evaluators {
+  account    Accounts        @relation(fields: [account_id], references: [id])
+  account_id Int             @id @unique
+  level      EvaluatorLevels
+
+  first_name   String
+  last_name    String
+  region       Int
+  phone_number String
+}
+
+model ProvicialOfficers {
+
+  account    Accounts @relation(fields: [account_id], references: [id])
+  account_id Int      @unique @id
+  first_name   String
+  last_name    String
+  phone_number String
+  province     Provinces @relation(fields: [province_id], references: [province_id])
+  province_id  Int
+}
+
+model Factories {
+
+  account Accounts @relation(fields: [account_id], references: [id])
+
+  account_id   Int    @unique @id
+  factory_type Int
+  name_th      String
+  name_en      String
+  tsic_code    String
+  address_no   String
+  soi          String
+  road         String
+  zipcode      String
+  phone_number String
+  fax_number   String
+
+  province    Provinces @relation(fields: [province_id], references: [province_id])
+  province_id Int
+
+  district    Districts @relation(fields: [district_id], references: [district_id])
+  district_id Int
+
+  subdistrict    Subdistricts @relation(fields: [subdistrict_id], references: [subdistrict_id])
+  subdistrict_id Int
+}
+
+model Provinces {
+  province_id   Int                 @id @unique
+  name_th       String
+  health_region Int
+  district      Districts[]
+  officer       ProvicialOfficers[]
+  factory       Factories[]
+}
+
+model Districts {
+  district_id Int            @id @unique
+  province    Provinces      @relation(fields: [province_id], references: [province_id])
+  province_id Int
+  name_th     String
+  subdistrict Subdistricts[]
+  factory     Factories[]
+}
+
+model Subdistricts {
+  subdistrict_id Int         @id @unique
+  name_th        String
+  district       Districts   @relation(fields: [district_id], references: [district_id])
+  district_id    Int
+  factory        Factories[]
+}
