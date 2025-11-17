@@ -69,22 +69,22 @@ async function seed() {
 
     await tx.subdistricts.createMany({ data: subdistricts });
 
-    await tx.accounts.create({
-      data: {
-        username: 'doed01',
-        password:
-          '$2a$12$RC/Pirt5C81LY/xHacGTDO4d7v2RPx18CEypubSjRDPbeP7GeUXBa',
-        email: 'doed01@mail.com',
-        role: 'DOED',
-        adminDoed: {
-          create: {
-            first_name: 'Doed',
-            last_name: 'Doed',
-            phone_number: '12345678',
-          },
-        },
-      },
-    });
+    //   await tx.accounts.create({
+    //     data: {
+    //       username: 'doed01',
+    //       password:
+    //         '$2a$12$RC/Pirt5C81LY/xHacGTDO4d7v2RPx18CEypubSjRDPbeP7GeUXBa',
+    //       email: 'doed01@mail.com',
+    //       role: 'DOED',
+    //       adminDoed: {
+    //         create: {
+    //           first_name: 'Doed',
+    //           last_name: 'Doed',
+    //           phone_number: '12345678',
+    //         },
+    //       },
+    //     },
+    //   });
   });
 }
 

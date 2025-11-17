@@ -2,7 +2,6 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
-  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -17,7 +16,7 @@ import { CreateFactoryDto } from './dto/create-factory-dto';
 
 @Injectable()
 export class AuthenticationService {
-  private readonly logger = new Logger(AuthenticationService.name);
+  // private readonly logger = new Logger(AuthenticationService.name);
   constructor(
     private readonly prismaService: PrismaService,
     private readonly jwt: JwtService,
@@ -36,7 +35,7 @@ export class AuthenticationService {
 
       return { username: user.username, role: user.role, id: user.id };
     } catch (err) {
-      this.logger.error(err);
+      // this.logger.error(err);
       if (err instanceof UnauthorizedException) {
         throw err;
       } else if (err instanceof PrismaClientKnownRequestError) {
@@ -60,7 +59,7 @@ export class AuthenticationService {
 
       return account;
     } catch (err) {
-      this.logger.error(err);
+      // this.logger.error(err);
       if (err instanceof NotFoundException) {
         throw err;
       } else if (err instanceof PrismaClientKnownRequestError) {
@@ -123,7 +122,7 @@ export class AuthenticationService {
           password: hashedPassword,
           role: 'Factory',
           username: dto.username,
-          factories: {
+          factory: {
             create: {
               address_no: dto.address_no,
               factory_type: dto.factory_type,
@@ -143,7 +142,7 @@ export class AuthenticationService {
         },
       });
     } catch (err) {
-      this.logger.error(err);
+      // this.logger.error(err);
       if (err instanceof BadRequestException) {
         throw err;
       } else if (err instanceof PrismaClientKnownRequestError) {
