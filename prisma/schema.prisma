@@ -47,7 +47,7 @@ enum EvaluatorLevels {
 }
 
 model Evaluators {
-  account    Accounts        @relation(fields: [account_id], references: [id])
+  account    Accounts        @relation(fields: [account_id], references: [id], onDelete: Cascade)
   account_id Int             @id @unique
   level      EvaluatorLevels
 
@@ -59,7 +59,7 @@ model Evaluators {
 
 model ProvicialOfficers {
 
-  account    Accounts @relation(fields: [account_id], references: [id])
+  account    Accounts @relation(fields: [account_id], references: [id], onDelete: Cascade)
   account_id Int      @unique @id
   first_name   String
   last_name    String
@@ -70,7 +70,7 @@ model ProvicialOfficers {
 
 model Factories {
 
-  account Accounts @relation(fields: [account_id], references: [id])
+  account Accounts @relation(fields: [account_id], references: [id], onDelete: Cascade)
 
   account_id   Int    @unique @id
   factory_type Int
@@ -78,11 +78,13 @@ model Factories {
   name_en      String
   tsic_code    String
   address_no   String
-  soi          String
-  road         String
+  soi          String?
+  road         String?
   zipcode      String
   phone_number String
-  fax_number   String
+  fax_number   String?
+
+  is_validate Boolean @default(false)
 
   province    Provinces @relation(fields: [province_id], references: [province_id])
   province_id Int

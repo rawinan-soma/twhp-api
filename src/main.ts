@@ -15,7 +15,7 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  app.enableCors();
+  app.enableCors({ credentials: true });
   app.setGlobalPrefix(String(config.get('ENDPOINT_PREFIX')));
   await app.listen(String(config.get('SERVER_PORT')));
 }

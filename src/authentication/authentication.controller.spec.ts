@@ -1,35 +1,22 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AuthenticationController } from './authentication.controller';
-import { AuthenticationService } from './authentication.service';
 import { PrismaService } from 'prisma/prisma.service';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
-import { LocalStrategy } from './local.strategy';
+import { AuthenticationModule } from './authentication.module';
 
 describe('AuthenticationController', () => {
   let app: INestApplication<App>;
-  let controller: AuthenticationController;
   let prisma: PrismaService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [AuthenticationController],
-      providers: [
-        AuthenticationService,
-        PrismaService,
-        JwtService,
-        ConfigService,
-        LocalStrategy,
-      ],
+      imports: [AuthenticationModule],
     }).compile();
 
     app = module.createNestApplication();
     await app.init();
 
-    controller = module.get<AuthenticationController>(AuthenticationController);
     prisma = module.get<PrismaService>(PrismaService);
 
     await prisma.accounts.deleteMany();
@@ -55,10 +42,6 @@ describe('AuthenticationController', () => {
     await prisma.accounts.deleteMany();
   });
 
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
-  });
-
   it('should succesful login with correct password', async () => {
     return await request(app.getHttpServer())
       .post('/authentication/login')
@@ -80,5 +63,19 @@ describe('AuthenticationController', () => {
       .expect((res) => {
         expect(res.body).toHaveProperty('error', 'Unauthorized');
       });
+  });
+
+  it('should login before logout', async () => {
+    const loginRes = await request(app.getHttpServer())
+      .post('/authentication/login')
+      .send({ username: 'doed01', password: '12345' })
+      .expect(200);
+
+    const cookie = loginRes.headers['set-cookie'];
+
+    return await request(app.getHttpServer())
+      .post('/authentication/logout')
+      .set('Cookie', cookie)
+      .expect(200);
   });
 });

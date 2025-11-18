@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Factories" ALTER COLUMN "soi" DROP NOT NULL,
+ALTER COLUMN "road" DROP NOT NULL;
