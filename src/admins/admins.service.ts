@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import {
   BadRequestException,
   Injectable,
@@ -10,8 +11,7 @@ import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AdminsService {
-  constructor(private readonly prisma: PrismaService) {}
-
+  constructor(private readonly prisma: PrismaService) { }
   async editAdminProfile(accountId: number, data: UpdateAdminDto) {
     try {
       const admin = await this.prisma.adminsDoed.findUnique({

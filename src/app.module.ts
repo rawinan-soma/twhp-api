@@ -6,6 +6,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthenticationModule } from './authentication/authentication.module';
 import { FactoriesModule } from './factories/factories.module';
 import { AdminsModule } from './admins/admins.module';
+import { EnrollsModule } from './enrolls/enrolls.module';
 import Joi from 'joi';
 
 @Module({
@@ -24,6 +25,7 @@ import Joi from 'joi';
     AuthenticationModule,
     FactoriesModule,
     AdminsModule,
+    EnrollsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

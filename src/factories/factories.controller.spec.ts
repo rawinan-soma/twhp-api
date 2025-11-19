@@ -139,6 +139,31 @@ describe('Factories', () => {
     });
   });
 
+  it('should not register existing factory', async () => {
+    await agent
+      .post('/factories/register')
+      .send({
+        username: 'factory1',
+        password: '12345',
+        email: 'factory_1@mail.com',
+        factory_type: 1,
+        name_th: 'โรงงานลำไย',
+        name_en: 'Factory Lamai',
+        soi: 'ซอยลำไย 8',
+        tsic_code: '889900',
+        address_no: '123/456',
+        road: 'ถนนลำไย',
+        zipcode: '25000',
+        phone_number: '099999999',
+        fax_number: '09999998',
+        subdistrict_id: 250101,
+      })
+      .expect(400)
+      .expect((res) => {
+        expect(res.body).toHaveProperty('message', 'factory already exists');
+      });
+  });
+
   it('should edit own factory data', async () => {
     await agent
       .patch('/factories')
@@ -183,8 +208,6 @@ describe('Factories', () => {
           'factory updated successfully',
         );
       });
-
-    await agent.post('/authentication/logout').expect(200);
 
     await agent
       .post('/authentication/login')

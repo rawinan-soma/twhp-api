@@ -29,7 +29,7 @@ export class AdminsController {
   constructor(
     private readonly adminsService: AdminsService,
     private readonly factoriesService: FactoriesService,
-  ) {}
+  ) { }
 
   @Patch()
   async editAdminProfile(

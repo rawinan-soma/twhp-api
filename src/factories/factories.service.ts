@@ -25,16 +25,6 @@ export class FactoriesService {
     }
   }
 
-  private async checkExistingFactoryById(accountId: number) {
-    const existedFactory = await this.prismaService.accounts.findUnique({
-      where: { id: accountId },
-    });
-
-    if (existedFactory) {
-      throw new BadRequestException('factory already exists');
-    }
-  }
-
   private async getFactoryLocation(subdistrict_id: number) {
     const location = await this.prismaService.subdistricts.findUnique({
       where: { subdistrict_id: subdistrict_id },

@@ -29,12 +29,12 @@ model Accounts {
   adminDoed AdminsDoed?
   evaluator Evaluators?
   provicial ProvicialOfficers?
-  factory Factories?
+  factory   Factories?
 }
 
 model AdminsDoed {
-  account    Accounts @relation(fields: [account_id], references: [id], onDelete: Cascade)
-  account_id Int      @unique @id
+  account      Accounts @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  account_id   Int      @id @unique
   first_name   String
   last_name    String
   phone_number String
@@ -51,16 +51,18 @@ model Evaluators {
   account_id Int             @id @unique
   level      EvaluatorLevels
 
-  first_name   String
-  last_name    String
-  region       Int
-  phone_number String
+  first_name    String
+  last_name     String
+  region        Int
+  phone_number  String
+  enroll_doh    enrolls[] @relation("doh")
+  enroll_odpc   enrolls[] @relation("odpc")
+  enroll_mental enrolls[] @relation("mental")
 }
 
 model ProvicialOfficers {
-
-  account    Accounts @relation(fields: [account_id], references: [id], onDelete: Cascade)
-  account_id Int      @unique @id
+  account      Accounts  @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  account_id   Int       @id @unique
   first_name   String
   last_name    String
   phone_number String
@@ -69,10 +71,9 @@ model ProvicialOfficers {
 }
 
 model Factories {
-
   account Accounts @relation(fields: [account_id], references: [id], onDelete: Cascade)
 
-  account_id   Int    @unique @id
+  account_id   Int       @id @unique
   factory_type Int
   name_th      String
   name_en      String
@@ -83,6 +84,7 @@ model Factories {
   zipcode      String
   phone_number String
   fax_number   String?
+  enroll       enrolls[]
 
   is_validate Boolean @default(false)
 
@@ -120,4 +122,58 @@ model Subdistricts {
   district       Districts   @relation(fields: [district_id], references: [district_id])
   district_id    Int
   factory        Factories[]
+}
+
+model enrolls {
+  id          Int       @id @unique @default(autoincrement())
+  enroll_date DateTime  @default(now())
+  factory_id  Int
+  factory     Factories @relation(fields: [factory_id], references: [account_id], onDelete: Cascade)
+
+  eval_doh_id Int
+  eval_doh    Evaluators @relation("doh", fields: [eval_doh_id], references: [account_id], onDelete: Cascade)
+
+  eval_odpc_id Int
+  eval_odpc    Evaluators @relation("odpc", fields: [eval_odpc_id], references: [account_id], onDelete: Cascade)
+
+  eval_mental_id Int
+  eval_mental    Evaluators @relation("mental", fields: [eval_mental_id], references: [account_id], onDelete: Cascade)
+
+  employee_th_m             Int
+  employee_mm_m             Int
+  employee_kh_m             Int
+  employee_la_m             Int
+  employee_vn_m             Int
+  employee_cn_m             Int
+  employee_ph_m             Int
+  employee_jp_m             Int
+  employee_in_m             Int
+  employee_other_m          Int
+  employee_th_f             Int
+  employee_mm_f             Int
+  employee_kh_f             Int
+  employee_la_f             Int
+  employee_vn_f             Int
+  employee_cn_f             Int
+  employee_ph_f             Int
+  employee_jp_f             Int
+  employee_in_f             Int
+  employee_other_f          Int
+  standard_HC               Boolean
+  standard_SAN              Boolean
+  standard_wellness         Boolean
+  standard_safety           Boolean
+  standard_TIS18001         Boolean
+  standard_ISO45001         Boolean
+  standard_ISO14001         Boolean
+  standard_zero             Boolean
+  standard_5S               Boolean
+  standard_HAS              Boolean
+  safety_officer_prefix     String
+  safety_officer_first_name String
+  safety_officer_last_name  String
+  safety_officer_position   String
+  safety_officer_email      String
+  safety_officer_phone      String
+  safety_officer_lineID     String
 }
