@@ -6,6 +6,7 @@ import {
 import { PrismaService } from 'prisma/prisma.service';
 import { UpdateAdminDto } from './dto/update-admin.dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AdminsService {
@@ -21,6 +22,10 @@ export class AdminsService {
         throw new BadRequestException('Admin not found');
       }
 
+      if (data.password) {
+        data.password = await bcrypt.hash(data.password, 12);
+      }
+
       const edittedAdmin = await this.prisma.adminsDoed.update({
         where: { account_id: accountId },
         data: {
@@ -34,9 +39,16 @@ export class AdminsService {
             },
           },
         },
+        include: {
+          account: { select: { email: true } },
+        },
       });
 
-      return edittedAdmin;
+      return {
+        ...edittedAdmin,
+        account: undefined,
+        email: edittedAdmin.account.email,
+      };
     } catch (err) {
       if (err instanceof BadRequestException) {
         throw err;
@@ -109,7 +121,7 @@ export class AdminsService {
       });
 
       if (!selectedFactory) {
-        throw new BadRequestException('Factory not found');
+        throw new BadRequestException('factory not found');
       }
 
       await this.prisma.factories.delete({
@@ -132,13 +144,18 @@ export class AdminsService {
     try {
       const factory = await this.prisma.factories.findUnique({
         where: { account_id: factoryId },
+        include: { account: { select: { username: true } } },
       });
 
       if (!factory) {
-        throw new BadRequestException('Factory not found');
+        throw new BadRequestException('factory not found');
       }
 
-      return factory;
+      return {
+        ...factory,
+        username: factory.account.username,
+        account: undefined,
+      };
     } catch (err) {
       if (err instanceof BadRequestException) {
         throw err;

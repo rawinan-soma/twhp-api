@@ -49,6 +49,7 @@ export class AuthenticationController {
     };
   }
 
+  @UseGuards(JwtGuard)
   @Post('logout')
   @HttpCode(200)
   logoutHandler(
@@ -61,13 +62,13 @@ export class AuthenticationController {
       this.authenticationService.getCookieOption('logout'),
     );
     return {
-      message: 'logout succesful',
+      message: 'logout successful',
     };
   }
 
   @UseGuards(JwtGuard)
   @Get()
   authenticate(@Req() request: RequestWithAccountData) {
-    return request.user?.id;
+    return this.authenticationService.getAccountById(request.user.id);
   }
 }

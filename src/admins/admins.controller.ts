@@ -9,23 +9,42 @@ import {
   ParseIntPipe,
   Patch,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { AdminsService } from './admins.service';
 import { UpdateAdminDto } from './dto/update-admin.dto';
 import { JwtGuard } from 'src/authentication/jwt.guard';
+import type { RequestWithAccountData } from 'src/authentication/request-with-account-data.interface';
+import { Roles } from 'src/authentication/roles.decorator';
+import { RolesGuard } from 'src/authentication/roles.guard';
+import { Role } from 'src/authentication/roles.enum';
+import { UpdateFactoryDto } from 'src/factories/dto/update-factory-dto';
+import { FactoriesService } from 'src/factories/factories.service';
 
-@UseGuards(JwtGuard)
+@UseGuards(JwtGuard, RolesGuard)
+@Roles(Role.DOED)
 @Controller('admins')
 export class AdminsController {
-  constructor(private readonly adminsService: AdminsService) {}
+  constructor(
+    private readonly adminsService: AdminsService,
+    private readonly factoriesService: FactoriesService,
+  ) {}
 
-  @Patch(':id')
+  @Patch()
   async editAdminProfile(
-    @Param('id', ParseIntPipe) accountId: number,
+    @Req() request: RequestWithAccountData,
     @Body() updateAdminDto: UpdateAdminDto,
   ) {
-    return this.adminsService.editAdminProfile(accountId, updateAdminDto);
+    return this.adminsService.editAdminProfile(request.user.id, updateAdminDto);
+  }
+
+  @Patch('factory/:id')
+  async editFactoryProfile(
+    @Param('id', ParseIntPipe) accountId: number,
+    @Body() dto: UpdateFactoryDto,
+  ) {
+    return await this.factoriesService.updateFactoryData(accountId, dto);
   }
 
   @Patch('factory/validate/:id')

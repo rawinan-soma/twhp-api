@@ -4,6 +4,7 @@ import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 import { AuthenticationModule } from './authentication.module';
+import cookieParser from 'cookie-parser';
 
 describe('AuthenticationController', () => {
   let app: INestApplication<App>;
@@ -15,6 +16,7 @@ describe('AuthenticationController', () => {
     }).compile();
 
     app = module.createNestApplication();
+    app.use(cookieParser());
     await app.init();
 
     prisma = module.get<PrismaService>(PrismaService);
@@ -66,16 +68,18 @@ describe('AuthenticationController', () => {
   });
 
   it('should login before logout', async () => {
-    const loginRes = await request(app.getHttpServer())
+    const agent = request.agent(app.getHttpServer());
+
+    await agent
       .post('/authentication/login')
       .send({ username: 'doed01', password: '12345' })
       .expect(200);
 
-    const cookie = loginRes.headers['set-cookie'];
+    const logoutRes = await agent.post('/authentication/logout').expect(200);
 
-    return await request(app.getHttpServer())
-      .post('/authentication/logout')
-      .set('Cookie', cookie)
-      .expect(200);
+    expect(logoutRes.headers['set-cookie'].toString()).toContain(
+      'Authentication=;',
+    );
+    expect(logoutRes.headers['set-cookie'].toString()).toContain('Max-Age=0;');
   });
 });
