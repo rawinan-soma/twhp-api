@@ -125,10 +125,11 @@ model Subdistricts {
 }
 
 model enrolls {
-  id          Int       @id @unique @default(autoincrement())
-  enroll_date DateTime  @default(now())
-  factory_id  Int
-  factory     Factories @relation(fields: [factory_id], references: [account_id], onDelete: Cascade)
+  id          Int      @id @unique @default(autoincrement())
+  enroll_date DateTime @default(now())
+
+  factory_id Int
+  factory    Factories @relation(fields: [factory_id], references: [account_id], onDelete: Cascade)
 
   eval_doh_id Int
   eval_doh    Evaluators @relation("doh", fields: [eval_doh_id], references: [account_id], onDelete: Cascade)
@@ -173,7 +174,7 @@ model enrolls {
   safety_officer_first_name String
   safety_officer_last_name  String
   safety_officer_position   String
-  safety_officer_email      String
-  safety_officer_phone      String
-  safety_officer_lineID     String
+  safety_officer_email      String?
+  safety_officer_phone      String?
+  safety_officer_lineID     String?
 }

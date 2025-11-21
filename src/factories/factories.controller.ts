@@ -8,12 +8,17 @@ import { UpdateFactoryDto } from './dto/update-factory-dto';
 import { RolesGuard } from 'src/authentication/roles.guard';
 import { Roles } from 'src/authentication/roles.decorator';
 import { Role } from 'src/authentication/roles.enum';
+import { EnrollsService } from '../enrolls/enrolls.service';
+import { CreateEnrollDto } from '../enrolls/dto/create-enroll.dto';
 
 @UseGuards(JwtGuard, RolesGuard)
 @Roles(Role.FACTORY)
 @Controller('factories')
 export class FactoriesController {
-  constructor(private readonly factoriesService: FactoriesService) {}
+  constructor(
+    private readonly factoriesService: FactoriesService,
+    private readonly enrollsService: EnrollsService,
+  ) {}
 
   @Public()
   @Post('register')
@@ -27,5 +32,13 @@ export class FactoriesController {
     @Body() dto: UpdateFactoryDto,
   ) {
     return await this.factoriesService.updateFactoryData(request.user.id, dto);
+  }
+
+  @Post('enroll')
+  async createNewEnrollment(
+    @Req() request: RequestWithAccountData,
+    @Body() dto: CreateEnrollDto,
+  ) {
+    return await this.enrollsService.createEnrollment(dto, request.user.id);
   }
 }

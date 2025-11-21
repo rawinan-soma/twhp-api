@@ -21,6 +21,7 @@ import { RolesGuard } from 'src/authentication/roles.guard';
 import { Role } from 'src/authentication/roles.enum';
 import { UpdateFactoryDto } from 'src/factories/dto/update-factory-dto';
 import { FactoriesService } from 'src/factories/factories.service';
+import { EnrollsService } from '../enrolls/enrolls.service';
 
 @UseGuards(JwtGuard, RolesGuard)
 @Roles(Role.DOED)
@@ -29,7 +30,8 @@ export class AdminsController {
   constructor(
     private readonly adminsService: AdminsService,
     private readonly factoriesService: FactoriesService,
-  ) { }
+    private readonly enrollsService: EnrollsService,
+  ) {}
 
   @Patch()
   async editAdminProfile(
@@ -66,5 +68,15 @@ export class AdminsController {
   @Get('factory')
   async getFactoryById(@Query('factory_id', ParseIntPipe) factoryId: number) {
     return this.adminsService.getFactoryById(factoryId);
+  }
+
+  @Get('enrolls')
+  async getAllEnrolls() {
+    return await this.enrollsService.getAllEnrolls();
+  }
+
+  @Get('enroll')
+  async getEnrollById(@Query('enroll_id', ParseIntPipe) enrollId: number) {
+    return await this.enrollsService.getEnrollById(enrollId);
   }
 }

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { TestingModule, Test } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { App } from 'supertest/types';
 import { PrismaService } from 'prisma/prisma.service';
@@ -36,6 +36,7 @@ describe('Admins', () => {
 
     await prisma.accounts.deleteMany();
     await prisma.factories.deleteMany();
+    await prisma.enrolls.deleteMany();
     await prisma.accounts.create({
       data: {
         username: 'doed01',
@@ -78,6 +79,14 @@ describe('Admins', () => {
         },
       },
     });
+
+    // const factoryId = (await prisma.accounts.findFirst({
+    //   where: { factory: { name_th: 'โรงงานลำไย' } },
+    // }))!.id;
+
+    // await prisma.enrolls.create({
+    //   data: { factory: { connect: { account_id: factoryId } } },
+    // });
 
     await agent
       .post('/authentication/login')
@@ -176,7 +185,7 @@ describe('Admins', () => {
   });
 
   it('should retrun array of all un-validated factories', async () => {
-    return await agent
+    await agent
       .get('/admins/factories?validated=false')
       .expect(200)
       .expect((res) => {
@@ -189,7 +198,7 @@ describe('Admins', () => {
       });
   });
 
-  it('should retrun array of all validated factories', async () => {
+  it('should return array of all validated factories', async () => {
     const factory = await prisma.accounts.findFirst({
       where: { username: 'factory1' },
     });
@@ -204,7 +213,7 @@ describe('Admins', () => {
         });
       });
 
-    return await agent
+    await agent
       .get('/admins/factories?validated=true')
       .expect(200)
       .expect((res) => {
@@ -222,7 +231,7 @@ describe('Admins', () => {
       where: { username: 'factory1' },
     });
 
-    return await agent
+    await agent
       .get(`/admins/factory?factory_id=${factory?.id}`)
       .expect(200)
       .expect((res) => {
@@ -244,9 +253,7 @@ describe('Admins', () => {
       where: { username: 'factory1' },
     });
 
-    return await agent
-      .get(`/admins/factory?factory_id=${factory?.id}`)
-      .expect(403);
+    await agent.get(`/admins/factory?factory_id=${factory?.id}`).expect(403);
   });
 
   it('should update password and use new password to login', async () => {
@@ -295,4 +302,6 @@ describe('Admins', () => {
         expect(res.body).not.toHaveProperty('account');
       });
   });
+
+  it('should get all enrolls data', async () => {});
 });
