@@ -8,7 +8,6 @@ import request from 'supertest';
 import { AuthenticationModule } from 'src/authentication/authentication.module';
 import cookieParser from 'cookie-parser';
 import TestAgent from 'supertest/lib/agent';
-import * as bcrypt from 'bcrypt';
 
 describe('Admins', () => {
   let app: INestApplication<App>;
@@ -81,122 +80,13 @@ describe('Admins', () => {
       },
     });
 
-    await prisma.accounts.create({
-      data: {
-        username: 'doh6',
-        password: await bcrypt.hash('12345', 12),
-        email: 'doh6@mail.com',
-        role: 'Evaluator',
-        evaluator: {
-          create: {
-            first_name: 'ศูนย์อนามัย6',
-            last_name: 'ศูนย์อนามัย6',
-            phone_number: '0900000000',
-            level: 'DOH',
-            region: 6,
-          },
-        },
-      },
-    });
+    // const factoryId = (await prisma.accounts.findFirst({
+    //   where: { factory: { name_th: 'โรงงานลำไย' } },
+    // }))!.id;
 
-    await prisma.accounts.create({
-      data: {
-        username: 'odpc6',
-        password: await bcrypt.hash('12345', 12),
-        email: 'odpc6@mail.com',
-        role: 'Evaluator',
-        evaluator: {
-          create: {
-            first_name: 'สคร6',
-            last_name: 'สคร6',
-            phone_number: '0900000000',
-            level: 'ODPC',
-            region: 6,
-          },
-        },
-      },
-    });
-
-    await prisma.accounts.create({
-      data: {
-        username: 'mental6',
-        password: await bcrypt.hash('12345', 12),
-        email: 'mental6@mail.com',
-        role: 'Evaluator',
-        evaluator: {
-          create: {
-            first_name: 'ศูนย์จิต6',
-            last_name: 'ศูนย์จิต6',
-            phone_number: '0900000000',
-            level: 'Mental',
-            region: 6,
-          },
-        },
-      },
-    });
-
-    const factoryId = (await prisma.accounts.findFirst({
-      where: { factory: { name_th: 'โรงงานลำไย' } },
-    }))!.id;
-
-    const location = await prisma.factories.findFirst({
-      where: { account_id: factoryId },
-      include: { province: true },
-    });
-
-    const evals = await prisma.evaluators.findMany({
-      where: { region: location?.province.health_region },
-    });
-
-    const eval_doh = evals.filter((e) => e.level === 'DOH')[0];
-    const eval_mental = evals.filter((e) => e.level === 'Mental')[0];
-    const eval_odpc = evals.filter((e) => e.level === 'ODPC')[0];
-
-    await prisma.enrolls.create({
-      data: {
-        factory: { connect: { account_id: factoryId } },
-        eval_doh: { connect: { account_id: eval_doh.account_id } },
-        eval_mental: { connect: { account_id: eval_mental.account_id } },
-        eval_odpc: { connect: { account_id: eval_odpc.account_id } },
-        employee_th_m: 25,
-        employee_mm_m: 10,
-        employee_kh_m: 5,
-        employee_la_m: 3,
-        employee_vn_m: 8,
-        employee_cn_m: 2,
-        employee_ph_m: 4,
-        employee_jp_m: 1,
-        employee_in_m: 6,
-        employee_other_m: 2,
-        employee_th_f: 30,
-        employee_mm_f: 12,
-        employee_kh_f: 7,
-        employee_la_f: 4,
-        employee_vn_f: 9,
-        employee_cn_f: 3,
-        employee_ph_f: 5,
-        employee_jp_f: 2,
-        employee_in_f: 8,
-        employee_other_f: 3,
-        standard_HC: true,
-        standard_SAN: true,
-        standard_wellness: false,
-        standard_safety: true,
-        standard_TIS18001: false,
-        standard_ISO45001: true,
-        standard_ISO14001: true,
-        standard_zero: false,
-        standard_5S: true,
-        standard_HAS: false,
-        safety_officer_prefix: 'นาย',
-        safety_officer_first_name: 'สมชาย',
-        safety_officer_last_name: 'ใจดี',
-        safety_officer_position: 'เจ้าหน้าที่ความปลอดภัย',
-        safety_officer_email: 'somchai.jaidee@company.com',
-        safety_officer_phone: '0812345678',
-        safety_officer_lineID: 'somchai_safety',
-      },
-    });
+    // await prisma.enrolls.create({
+    //   data: { factory: { connect: { account_id: factoryId } } },
+    // });
 
     await agent
       .post('/authentication/login')
