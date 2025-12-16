@@ -1,4 +1,4 @@
-import { Accounts } from '@prisma/client';
+import { Accounts } from 'prisma/generated/client';
 import { Request } from 'express';
 
 export interface RequestWithAccountData extends Request {
