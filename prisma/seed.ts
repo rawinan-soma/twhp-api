@@ -1,8 +1,13 @@
 import fs from 'fs';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from './generated/client';
 import { parse } from 'csv-parse/sync';
+import { PrismaPg } from '@prisma/adapter-pg';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({
+    connectionString: process.env.DATABASE_URL,
+  }),
+});
 async function seed() {
   const existingData = await prisma.provinces.count();
 
@@ -30,6 +35,7 @@ async function seed() {
     }));
 
     await tx.provinces.createMany({ data: provinces });
+    console.log('Provinces seeded');
 
     const districtFile = fs.readFileSync(
       './prisma/seed_data/districts.csv',
@@ -49,6 +55,7 @@ async function seed() {
     }));
 
     await tx.districts.createMany({ data: districts });
+    console.log('Districts seeded');
 
     const subdistrictFile = fs.readFileSync(
       './prisma/seed_data/sub_districts.csv',
@@ -68,6 +75,7 @@ async function seed() {
     }));
 
     await tx.subdistricts.createMany({ data: subdistricts });
+    console.log('Subdistricts seeded');
 
     //   await tx.accounts.create({
     //     data: {

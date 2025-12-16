@@ -4,7 +4,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { Prisma } from '../../prisma/generated/client';
 import { CreateEnrollDto } from './dto/create-enroll.dto';
 
 @Injectable()
@@ -17,7 +17,7 @@ export class EnrollsService {
         orderBy: { enroll_date: 'desc' },
       });
     } catch (err) {
-      if (err instanceof PrismaClientKnownRequestError) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
         throw new InternalServerErrorException();
@@ -37,7 +37,7 @@ export class EnrollsService {
     } catch (err) {
       if (err instanceof BadRequestException) {
         throw err;
-      } else if (err instanceof PrismaClientKnownRequestError) {
+      } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
         throw new InternalServerErrorException('unexpected error');
@@ -51,7 +51,7 @@ export class EnrollsService {
         where: { factory_id: factoryId },
       });
     } catch (err) {
-      if (err instanceof PrismaClientKnownRequestError) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
         throw new InternalServerErrorException('unexpected error');
@@ -122,7 +122,7 @@ export class EnrollsService {
     } catch (err) {
       if (err instanceof BadRequestException) {
         throw err;
-      } else if (err instanceof PrismaClientKnownRequestError) {
+      } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else throw new InternalServerErrorException('unexpected error');
     }

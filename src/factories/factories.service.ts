@@ -5,10 +5,10 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
-import { CreateFactoryDto } from './dto/create-factory-dto';
+import { CreateFactoryDto } from './dto/create-factory.dto';
 import * as bcrypt from 'bcrypt';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { UpdateFactoryDto } from './dto/update-factory-dto';
+import { Prisma } from '../../prisma/generated/client';
+import { UpdateFactoryDto } from './dto/update-factory.dto';
 
 @Injectable()
 export class FactoriesService {
@@ -93,7 +93,7 @@ export class FactoriesService {
       // this.logger.error(err);
       if (err instanceof BadRequestException) {
         throw err;
-      } else if (err instanceof PrismaClientKnownRequestError) {
+      } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
         throw new InternalServerErrorException('unexpected error');
@@ -149,7 +149,7 @@ export class FactoriesService {
       this.logger.error(err);
       if (err instanceof BadRequestException) {
         throw err;
-      } else if (err instanceof PrismaClientKnownRequestError) {
+      } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
         throw new InternalServerErrorException('unexpected error');

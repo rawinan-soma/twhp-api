@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 
 import * as bcrypt from 'bcrypt';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { Prisma } from '../../prisma/generated/client';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { TokenPayload } from './token-payload.interface';
@@ -37,7 +37,7 @@ export class AuthenticationService {
       // this.logger.error(err);
       if (err instanceof UnauthorizedException) {
         throw err;
-      } else if (err instanceof PrismaClientKnownRequestError) {
+      } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException('bad request by user');
       } else {
         throw new InternalServerErrorException('unexpected error');
@@ -53,7 +53,7 @@ export class AuthenticationService {
       });
 
       if (!account) {
-        throw new NotFoundException('account not found');
+        throw new NotFoundException('invalid credential');
       }
 
       return account;
@@ -61,7 +61,7 @@ export class AuthenticationService {
       // this.logger.error(err);
       if (err instanceof NotFoundException) {
         throw err;
-      } else if (err instanceof PrismaClientKnownRequestError) {
+      } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException('bad request by user');
       } else {
         throw new InternalServerErrorException('unexpected error');

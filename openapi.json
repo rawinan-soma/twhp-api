@@ -1,0 +1,1600 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/twhp/api/authentication/login": {
+      "post": {
+        "operationId": "AuthenticationController_loginHandler",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "username",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "message": "login succesful",
+                    "user": {
+                      "id": 1,
+                      "role": "DOED",
+                      "username": "aaa"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "bad request by user"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "invalid username or password"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unexpected error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "login เข้าสู่ระบบ",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/twhp/api/authentication/logout": {
+      "post": {
+        "operationId": "AuthenticationController_logoutHandler",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "logout successful"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "logout ออกจากระบบ",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/twhp/api/authentication": {
+      "get": {
+        "operationId": "AuthenticationController_authenticate",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "username": "aaa",
+                    "id": 1,
+                    "email": "example@mail.com",
+                    "role": "DOED"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unauthorized"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "ตรวจสอบการเข้าสู่ระบบ ถ้า login อยู่จะ return ข้อมูลตัวเองออกมา",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/twhp/api/factories/register": {
+      "post": {
+        "operationId": "FactoriesController_factoryRegisterHandler",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFactoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "factory created successfully",
+                    "factory": {
+                      "factory_id": "12345667890",
+                      "name": "โรงงานลำไย"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "factoryAlreadyExists": {
+                    "summary": "factory already exists",
+                    "value": {
+                      "message": "factory already exists"
+                    }
+                  },
+                  "invalidLocation": {
+                    "summary": "ระบุตำบลผิด",
+                    "value": {
+                      "message": "invalide subdistrict id"
+                    }
+                  },
+                  "other": {
+                    "summary": "bad request อื่นๆ",
+                    "value": {
+                      "message": "bad request อื่นๆ"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unexpected error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "ลงทะเบียนสถานประกอบการใหม่",
+        "tags": [
+          "Factories"
+        ]
+      }
+    },
+    "/twhp/api/factories": {
+      "patch": {
+        "operationId": "FactoriesController_updateFactoryHandler",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFactoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "factory updated successfully"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "notFound": {
+                    "summary": "ไม่พบข้อมูลสปก.",
+                    "value": {
+                      "message": "factory not found"
+                    }
+                  },
+                  "invalidLocation": {
+                    "summary": "ระบุตำบลผิด",
+                    "value": {
+                      "message": "invalid subdistrict id"
+                    }
+                  },
+                  "other": {
+                    "summary": "bad request อื่นๆ",
+                    "value": {
+                      "message": "bad request อื่นๆ"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unauthorized"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unexpected error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "อัพเดตข้อมูลสถานประกอบการ",
+        "tags": [
+          "Factories"
+        ]
+      }
+    },
+    "/twhp/api/factories/enroll": {
+      "post": {
+        "operationId": "FactoriesController_createNewEnrollment",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEnrollDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "create enrollment successfully.",
+                    "enrollment": {
+                      "enroll_id": 1,
+                      "factory_id": 123124134,
+                      "enrollment_date": "2025-12-15T06:32:52.387Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "bad request"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unauthorized"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unexpected error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "สมัครเข้าร่วมโครงการประเมิน",
+        "tags": [
+          "Factories"
+        ]
+      }
+    },
+    "/twhp/api/admins": {
+      "patch": {
+        "operationId": "AdminsController_editAdminProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAdminDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "account_id": 1,
+                    "first_name": "aaa",
+                    "last_name": "bbb",
+                    "phone_number": "0999999999",
+                    "email": "mail@mail.com"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "adminNotFound": {
+                    "summary": "ไม่มีข้อมูล admin",
+                    "value": {
+                      "message": "admin not found"
+                    }
+                  },
+                  "badRequest": {
+                    "summary": "bad request อื่นๆ",
+                    "value": {
+                      "message": "bad request อื่นๆ"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unauthorized"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unexpected error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "update ข้อมูล admin",
+        "tags": [
+          "Admins"
+        ]
+      }
+    },
+    "/twhp/api/admins/factory/{id}": {
+      "patch": {
+        "operationId": "AdminsController_editFactoryProfile",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFactoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "factory updated successfully"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "notFound": {
+                    "summary": "ไม่มีข้อมูลสปก.",
+                    "value": {
+                      "message": "factory not found"
+                    }
+                  },
+                  "other": {
+                    "summary": "bad request อื่นๆ",
+                    "value": {
+                      "message": "bad request อื่นๆ"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unauthorized"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unexpected error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "update ข้อมูลสถานประกอบการ",
+        "tags": [
+          "Admins"
+        ]
+      },
+      "delete": {
+        "operationId": "AdminsController_deleteFactory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "factory deleted successfully"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "factoryNotFound": {
+                    "summary": "ไม่มีสถานประกอบการ",
+                    "value": {
+                      "message": "factory not found"
+                    }
+                  },
+                  "other": {
+                    "summary": "bad request อื่นๆ",
+                    "value": {
+                      "message": "bad request อื่นๆ"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unauthorized"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unexpected error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "ลบข้อมูลสถานประกอบการ",
+        "tags": [
+          "Admins"
+        ]
+      }
+    },
+    "/twhp/api/admins/factory/validate/{id}": {
+      "patch": {
+        "operationId": "AdminsController_validateFactoryRegister",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "factory_id": 1,
+                    "factory_name": "โรงงานลำไย",
+                    "is_validate": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "examples": {
+                  "factoryNotFound": {
+                    "summary": "ไม่มีสถานประกอบการ",
+                    "value": {
+                      "message": "factory not found"
+                    }
+                  },
+                  "factoryAlreadyValidated": {
+                    "summary": "สถานประกอบการนั้นยืนยันไปแล้ว",
+                    "value": {
+                      "message": "factory already validated"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unauthorized"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unexpected error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "อนุมัติการลงทะเบียนของสถานประกอบการ",
+        "tags": [
+          "Admins"
+        ]
+      }
+    },
+    "/twhp/api/admins/factories": {
+      "get": {
+        "operationId": "AdminsController_getAllFactory",
+        "parameters": [
+          {
+            "name": "validated",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GetFactoriesResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unauthorized"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unexpected error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "ดึงข้อมูลสถานประกอบการทุกแห่ง เลือกได้ว่าจะเอาอนุมัติแล้วหรือไม่",
+        "tags": [
+          "Admins"
+        ]
+      }
+    },
+    "/twhp/api/admins/factory": {
+      "get": {
+        "operationId": "AdminsController_getFactoryById",
+        "parameters": [
+          {
+            "name": "factory_id",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetFactoriesResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "factoryNotFound": {
+                    "summary": "ไม่มีสถานประกอบการ",
+                    "value": {
+                      "message": "factory not found"
+                    }
+                  },
+                  "other": {
+                    "summary": "bad request อื่นๆ",
+                    "value": {
+                      "message": "bad request อื่นๆ"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unauthorized"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unexpected error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "ดึงข้อมูลสถานประกอบการตามเลขสถานประกอบการ",
+        "tags": [
+          "Admins"
+        ]
+      }
+    },
+    "/twhp/api/admins/enrolls": {
+      "get": {
+        "operationId": "AdminsController_getAllEnrolls",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GetEnrollResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unauthorized"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unexpected error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "ดึงข้อมูลการลงทะเบียนเข้าสู่โครงการประเมินทั้งหมด",
+        "tags": [
+          "Admins"
+        ]
+      }
+    },
+    "/twhp/api/admins/enroll": {
+      "get": {
+        "operationId": "AdminsController_getEnrollById",
+        "parameters": [
+          {
+            "name": "enroll_id",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetEnrollResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "enrollNotFound": {
+                    "summary": "ไม่มีการลงทะเบียน",
+                    "value": {
+                      "message": "enroll not found"
+                    }
+                  },
+                  "other": {
+                    "summary": "bad request อื่นๆ",
+                    "value": {
+                      "message": "bad request อื่นๆ"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unauthorized"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unexpected error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "ดึงข้อมูลการลงทะเบียนเข้าสู่โครงการประเมินตามเลขการลงทะเบียน",
+        "tags": [
+          "Admins"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Total worker health API",
+    "description": "",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "cookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "authentication"
+      }
+    },
+    "schemas": {
+      "CreateFactoryDto": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "factory_type": {
+            "type": "number"
+          },
+          "name_th": {
+            "type": "string"
+          },
+          "name_en": {
+            "type": "string"
+          },
+          "tsic_code": {
+            "type": "string"
+          },
+          "address_no": {
+            "type": "string"
+          },
+          "soi": {
+            "type": "string"
+          },
+          "road": {
+            "type": "string"
+          },
+          "zipcode": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
+          },
+          "fax_number": {
+            "type": "string"
+          },
+          "subdistrict_id": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "username",
+          "password",
+          "email",
+          "factory_type",
+          "name_th",
+          "name_en",
+          "tsic_code",
+          "address_no",
+          "soi",
+          "road",
+          "zipcode",
+          "phone_number",
+          "fax_number",
+          "subdistrict_id"
+        ]
+      },
+      "UpdateFactoryDto": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "factory_type": {
+            "type": "number"
+          },
+          "name_th": {
+            "type": "string"
+          },
+          "name_en": {
+            "type": "string"
+          },
+          "tsic_code": {
+            "type": "string"
+          },
+          "address_no": {
+            "type": "string"
+          },
+          "soi": {
+            "type": "string"
+          },
+          "road": {
+            "type": "string"
+          },
+          "zipcode": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
+          },
+          "fax_number": {
+            "type": "string"
+          },
+          "subdistrict_id": {
+            "type": "number"
+          }
+        }
+      },
+      "CreateEnrollDto": {
+        "type": "object",
+        "properties": {
+          "employee_th_m": {
+            "type": "number"
+          },
+          "employee_mm_m": {
+            "type": "number"
+          },
+          "employee_kh_m": {
+            "type": "number"
+          },
+          "employee_la_m": {
+            "type": "number"
+          },
+          "employee_vn_m": {
+            "type": "number"
+          },
+          "employee_cn_m": {
+            "type": "number"
+          },
+          "employee_ph_m": {
+            "type": "number"
+          },
+          "employee_jp_m": {
+            "type": "number"
+          },
+          "employee_in_m": {
+            "type": "number"
+          },
+          "employee_other_m": {
+            "type": "number"
+          },
+          "employee_th_f": {
+            "type": "number"
+          },
+          "employee_mm_f": {
+            "type": "number"
+          },
+          "employee_kh_f": {
+            "type": "number"
+          },
+          "employee_la_f": {
+            "type": "number"
+          },
+          "employee_vn_f": {
+            "type": "number"
+          },
+          "employee_cn_f": {
+            "type": "number"
+          },
+          "employee_ph_f": {
+            "type": "number"
+          },
+          "employee_jp_f": {
+            "type": "number"
+          },
+          "employee_in_f": {
+            "type": "number"
+          },
+          "employee_other_f": {
+            "type": "number"
+          },
+          "standard_HC": {
+            "type": "boolean"
+          },
+          "standard_SAN": {
+            "type": "boolean"
+          },
+          "standard_wellness": {
+            "type": "boolean"
+          },
+          "standard_safety": {
+            "type": "boolean"
+          },
+          "standard_TIS18001": {
+            "type": "boolean"
+          },
+          "standard_ISO45001": {
+            "type": "boolean"
+          },
+          "standard_ISO14001": {
+            "type": "boolean"
+          },
+          "standard_zero": {
+            "type": "boolean"
+          },
+          "standard_5S": {
+            "type": "boolean"
+          },
+          "standard_HAS": {
+            "type": "boolean"
+          },
+          "safety_officer_prefix": {
+            "type": "string"
+          },
+          "safety_officer_first_name": {
+            "type": "string"
+          },
+          "safety_officer_last_name": {
+            "type": "string"
+          },
+          "safety_officer_position": {
+            "type": "string"
+          },
+          "safety_officer_email": {
+            "type": "string"
+          },
+          "safety_officer_phone": {
+            "type": "string"
+          },
+          "safety_officer_lineID": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "employee_th_m",
+          "employee_mm_m",
+          "employee_kh_m",
+          "employee_la_m",
+          "employee_vn_m",
+          "employee_cn_m",
+          "employee_ph_m",
+          "employee_jp_m",
+          "employee_in_m",
+          "employee_other_m",
+          "employee_th_f",
+          "employee_mm_f",
+          "employee_kh_f",
+          "employee_la_f",
+          "employee_vn_f",
+          "employee_cn_f",
+          "employee_ph_f",
+          "employee_jp_f",
+          "employee_in_f",
+          "employee_other_f",
+          "standard_HC",
+          "standard_SAN",
+          "standard_wellness",
+          "standard_safety",
+          "standard_TIS18001",
+          "standard_ISO45001",
+          "standard_ISO14001",
+          "standard_zero",
+          "standard_5S",
+          "standard_HAS",
+          "safety_officer_prefix",
+          "safety_officer_first_name",
+          "safety_officer_last_name",
+          "safety_officer_position",
+          "safety_officer_email",
+          "safety_officer_phone",
+          "safety_officer_lineID"
+        ]
+      },
+      "UpdateAdminDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "password": {
+            "type": "string",
+            "nullable": true
+          },
+          "first_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "last_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone_number": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "first_name",
+          "last_name",
+          "phone_number"
+        ]
+      },
+      "GetFactoriesResponseDto": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "number"
+          },
+          "factory_type": {
+            "type": "number"
+          },
+          "name_th": {
+            "type": "string"
+          },
+          "name_en": {
+            "type": "string"
+          },
+          "tsic_code": {
+            "type": "string"
+          },
+          "address_no": {
+            "type": "string"
+          },
+          "soi": {
+            "type": "string",
+            "nullable": true
+          },
+          "road": {
+            "type": "string",
+            "nullable": true
+          },
+          "zipcode": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
+          },
+          "fax_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_validate": {
+            "type": "boolean"
+          },
+          "province_id": {
+            "type": "number"
+          },
+          "district_id": {
+            "type": "number"
+          },
+          "subdistrict_id": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "account_id",
+          "factory_type",
+          "name_th",
+          "name_en",
+          "tsic_code",
+          "address_no",
+          "soi",
+          "road",
+          "zipcode",
+          "phone_number",
+          "fax_number",
+          "is_validate",
+          "province_id",
+          "district_id",
+          "subdistrict_id"
+        ]
+      },
+      "GetEnrollResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "enroll_date": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2025-01-01T00:00:00.000Z"
+          },
+          "factory_id": {
+            "type": "number",
+            "example": 1
+          },
+          "eval_doh_id": {
+            "type": "number",
+            "example": 10
+          },
+          "eval_odpc_id": {
+            "type": "number",
+            "example": 11
+          },
+          "eval_mental_id": {
+            "type": "number",
+            "example": 12
+          },
+          "employee_th_m": {
+            "type": "number"
+          },
+          "employee_mm_m": {
+            "type": "number"
+          },
+          "employee_kh_m": {
+            "type": "number"
+          },
+          "employee_la_m": {
+            "type": "number"
+          },
+          "employee_vn_m": {
+            "type": "number"
+          },
+          "employee_cn_m": {
+            "type": "number"
+          },
+          "employee_ph_m": {
+            "type": "number"
+          },
+          "employee_jp_m": {
+            "type": "number"
+          },
+          "employee_in_m": {
+            "type": "number"
+          },
+          "employee_other_m": {
+            "type": "number"
+          },
+          "employee_th_f": {
+            "type": "number"
+          },
+          "employee_mm_f": {
+            "type": "number"
+          },
+          "employee_kh_f": {
+            "type": "number"
+          },
+          "employee_la_f": {
+            "type": "number"
+          },
+          "employee_vn_f": {
+            "type": "number"
+          },
+          "employee_cn_f": {
+            "type": "number"
+          },
+          "employee_ph_f": {
+            "type": "number"
+          },
+          "employee_jp_f": {
+            "type": "number"
+          },
+          "employee_in_f": {
+            "type": "number"
+          },
+          "employee_other_f": {
+            "type": "number"
+          },
+          "standard_HC": {
+            "type": "boolean"
+          },
+          "standard_SAN": {
+            "type": "boolean"
+          },
+          "standard_wellness": {
+            "type": "boolean"
+          },
+          "standard_safety": {
+            "type": "boolean"
+          },
+          "standard_TIS18001": {
+            "type": "boolean"
+          },
+          "standard_ISO45001": {
+            "type": "boolean"
+          },
+          "standard_ISO14001": {
+            "type": "boolean"
+          },
+          "standard_zero": {
+            "type": "boolean"
+          },
+          "standard_5S": {
+            "type": "boolean"
+          },
+          "standard_HAS": {
+            "type": "boolean"
+          },
+          "safety_officer_prefix": {
+            "type": "string",
+            "example": "Mr."
+          },
+          "safety_officer_first_name": {
+            "type": "string",
+            "example": "Somchai"
+          },
+          "safety_officer_last_name": {
+            "type": "string",
+            "example": "Jaidee"
+          },
+          "safety_officer_position": {
+            "type": "string",
+            "example": "Safety Officer"
+          },
+          "safety_officer_email": {
+            "type": "string",
+            "example": "somchai@example.com"
+          },
+          "safety_officer_phone": {
+            "type": "string",
+            "example": "0812345678"
+          },
+          "safety_officer_lineID": {
+            "type": "string",
+            "example": "somchai_line"
+          }
+        },
+        "required": [
+          "id",
+          "enroll_date",
+          "factory_id",
+          "eval_doh_id",
+          "eval_odpc_id",
+          "eval_mental_id",
+          "employee_th_m",
+          "employee_mm_m",
+          "employee_kh_m",
+          "employee_la_m",
+          "employee_vn_m",
+          "employee_cn_m",
+          "employee_ph_m",
+          "employee_jp_m",
+          "employee_in_m",
+          "employee_other_m",
+          "employee_th_f",
+          "employee_mm_f",
+          "employee_kh_f",
+          "employee_la_f",
+          "employee_vn_f",
+          "employee_cn_f",
+          "employee_ph_f",
+          "employee_jp_f",
+          "employee_in_f",
+          "employee_other_f",
+          "standard_HC",
+          "standard_SAN",
+          "standard_wellness",
+          "standard_safety",
+          "standard_TIS18001",
+          "standard_ISO45001",
+          "standard_ISO14001",
+          "standard_zero",
+          "standard_5S",
+          "standard_HAS",
+          "safety_officer_prefix",
+          "safety_officer_first_name",
+          "safety_officer_last_name",
+          "safety_officer_position"
+        ]
+      }
+    }
+  }
+}

@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 import {
   BadRequestException,
   Injectable,
@@ -6,12 +5,12 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { UpdateAdminDto } from './dto/update-admin.dto';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { Prisma } from '../../prisma/generated/client';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AdminsService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
   async editAdminProfile(accountId: number, data: UpdateAdminDto) {
     try {
       const admin = await this.prisma.adminsDoed.findUnique({
@@ -19,7 +18,7 @@ export class AdminsService {
       });
 
       if (!admin) {
-        throw new BadRequestException('Admin not found');
+        throw new BadRequestException('admin not found');
       }
 
       if (data.password) {
@@ -52,7 +51,7 @@ export class AdminsService {
     } catch (err) {
       if (err instanceof BadRequestException) {
         throw err;
-      } else if (err instanceof PrismaClientKnownRequestError) {
+      } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
         throw new InternalServerErrorException('unexpected error');
@@ -67,11 +66,11 @@ export class AdminsService {
       });
 
       if (!factory) {
-        throw new BadRequestException('Factory not found');
+        throw new BadRequestException('factory not found');
       }
 
       if (factory.is_validate) {
-        throw new BadRequestException('Factory already validated');
+        throw new BadRequestException('factory already validated');
       }
 
       const validatedFactory = await this.prisma.factories.update({
@@ -87,7 +86,7 @@ export class AdminsService {
     } catch (err) {
       if (err instanceof BadRequestException) {
         throw err;
-      } else if (err instanceof PrismaClientKnownRequestError) {
+      } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
         throw new InternalServerErrorException('unexpected error');
@@ -106,7 +105,7 @@ export class AdminsService {
     } catch (err) {
       if (err instanceof BadRequestException) {
         throw err;
-      } else if (err instanceof PrismaClientKnownRequestError) {
+      } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
         throw new InternalServerErrorException('unexpected error');
@@ -132,7 +131,7 @@ export class AdminsService {
     } catch (err) {
       if (err instanceof BadRequestException) {
         throw err;
-      } else if (err instanceof PrismaClientKnownRequestError) {
+      } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
         throw new InternalServerErrorException('unexpected error');
@@ -159,7 +158,7 @@ export class AdminsService {
     } catch (err) {
       if (err instanceof BadRequestException) {
         throw err;
-      } else if (err instanceof PrismaClientKnownRequestError) {
+      } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
         throw new InternalServerErrorException('unexpected error');
