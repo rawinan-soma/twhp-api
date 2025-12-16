@@ -1,7 +1,7 @@
 services:
   database:
     image: postgres:17-alpine
-    container_name: wnwp-db
+    container_name: twhp-db
     restart: always
     env_file:
       - docker.env
@@ -15,6 +15,41 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
+    networks:
+      - twhp
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: twhp-api
+    ports:
+      - 8888:3000
+    depends_on:
+      - database
+    networks:
+      - twhp
+    env_file:
+      - docker.env
+    volumes:
+      - assets:/app/assets
+    command: |
+      sh -c "
+        bun prisma migrate deploy
+        bun prisma db seed
+        bun run start:prod
+      "
+    healthcheck:
+      test: ['CMD', 'curl', 'http://localhost:3000/twhp/api/']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
 volumes:
   postgres_data-wnwp:
+  assets:
+
+networks:
+  twhp:
+    driver: bridge

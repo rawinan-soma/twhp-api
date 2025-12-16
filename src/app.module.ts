@@ -1,11 +1,8 @@
 import { Module } from '@nestjs/common';
-
-import { PrismaModule } from '../prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
-import { AuthenticationModule } from './authentication/authentication.module';
-import { FactoriesModule } from './factories/factories.module';
-import { AdminsModule } from './admins/admins.module';
-import { EnrollsModule } from './enrolls/enrolls.module';
+import { AuthenticationModule } from 'src/authentication/authentication.module';
+import { FactoriesModule } from 'src/factories/factories.module';
+import { AdminsModule } from 'src/admins/admins.module';
 import Joi from 'joi';
 
 @Module({
@@ -20,11 +17,9 @@ import Joi from 'joi';
         TOKEN_EXP: Joi.number().required(),
       }),
     }),
-    PrismaModule,
     AuthenticationModule,
     FactoriesModule,
     AdminsModule,
-    EnrollsModule,
   ],
   controllers: [],
   providers: [],

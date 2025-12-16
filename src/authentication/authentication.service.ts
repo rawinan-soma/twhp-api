@@ -12,6 +12,8 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { TokenPayload } from './token-payload.interface';
 import { PrismaService } from 'prisma/prisma.service';
+import { plainToInstance } from 'class-transformer';
+import { AccountResponseDto } from './account-response.dto';
 
 @Injectable()
 export class AuthenticationService {
@@ -50,13 +52,21 @@ export class AuthenticationService {
       const account = await this.prismaService.accounts.findUnique({
         where: { id: id },
         omit: { password: true },
+        include: {
+          adminDoed: true,
+          evaluator: true,
+          factory: true,
+          provicial: true,
+        },
       });
 
       if (!account) {
         throw new NotFoundException('invalid credential');
       }
 
-      return account;
+      return plainToInstance(AccountResponseDto, account, {
+        excludeExtraneousValues: true,
+      });
     } catch (err) {
       // this.logger.error(err);
       if (err instanceof NotFoundException) {

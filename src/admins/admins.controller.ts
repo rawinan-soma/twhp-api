@@ -20,7 +20,7 @@ import { Role } from 'src/authentication/roles.enum';
 import { RolesGuard } from 'src/authentication/roles.guard';
 import { UpdateFactoryDto } from 'src/factories/dto/update-factory.dto';
 import { FactoriesService } from 'src/factories/factories.service';
-import { EnrollsService } from '../enrolls/enrolls.service';
+import { EnrollsService } from 'src/enrolls/enrolls.service';
 import { AdminsService } from './admins.service';
 import { UpdateAdminDto } from './dto/update-admin.dto';
 import {
@@ -198,7 +198,7 @@ export class AdminsController {
     return this.adminsService.getAllFactories(validated);
   }
 
-  @Get('factory')
+  @Get('factory/:id')
   @ApiOkResponse({ type: GetFactoriesResponseDto })
   @ApiOperation({
     summary: 'ดึงข้อมูลสถานประกอบการตามเลขสถานประกอบการ',
@@ -221,7 +221,7 @@ export class AdminsController {
   @ApiUnauthorizedResponse({
     schema: { default: { message: 'unauthorized' } },
   })
-  async getFactoryById(@Query('factory_id', ParseIntPipe) factoryId: number) {
+  async getFactoryById(@Param('id', ParseIntPipe) factoryId: number) {
     return this.adminsService.getFactoryById(factoryId);
   }
 
@@ -240,7 +240,7 @@ export class AdminsController {
     return await this.enrollsService.getAllEnrolls();
   }
 
-  @Get('enroll')
+  @Get('enroll/:enroll_id')
   @ApiOperation({
     summary: 'ดึงข้อมูลการลงทะเบียนเข้าสู่โครงการประเมินตามเลขการลงทะเบียน',
   })
@@ -263,7 +263,7 @@ export class AdminsController {
   @ApiUnauthorizedResponse({
     schema: { default: { message: 'unauthorized' } },
   })
-  async getEnrollById(@Query('enroll_id', ParseIntPipe) enrollId: number) {
+  async getEnrollById(@Param('enroll_id', ParseIntPipe) enrollId: number) {
     return await this.enrollsService.getEnrollById(enrollId);
   }
 }

@@ -106,6 +106,11 @@
             }
           }
         },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
         "summary": "logout ออกจากระบบ",
         "tags": [
           "Authentication"
@@ -123,10 +128,16 @@
               "application/json": {
                 "schema": {
                   "example": {
-                    "username": "aaa",
+                    "adminDoed": {
+                      "account_id": 1,
+                      "first_name": "Doed",
+                      "last_name": "Doed",
+                      "phone_number": "12345678"
+                    },
+                    "email": "doed01@mail.com",
                     "id": 1,
-                    "email": "example@mail.com",
-                    "role": "DOED"
+                    "role": "DOED",
+                    "username": "admin"
                   }
                 }
               }
@@ -145,6 +156,11 @@
             }
           }
         },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
         "summary": "ตรวจสอบการเข้าสู่ระบบ ถ้า login อยู่จะ return ข้อมูลตัวเองออกมา",
         "tags": [
           "Authentication"
@@ -343,7 +359,7 @@
                     "enrollment": {
                       "enroll_id": 1,
                       "factory_id": 123124134,
-                      "enrollment_date": "2025-12-15T06:32:52.387Z"
+                      "enrollment_date": "2025-12-16T11:50:33.102Z"
                     }
                   }
                 }
@@ -658,6 +674,85 @@
         "tags": [
           "Admins"
         ]
+      },
+      "get": {
+        "operationId": "AdminsController_getFactoryById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetFactoriesResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "factoryNotFound": {
+                    "summary": "ไม่มีสถานประกอบการ",
+                    "value": {
+                      "message": "factory not found"
+                    }
+                  },
+                  "other": {
+                    "summary": "bad request อื่นๆ",
+                    "value": {
+                      "message": "bad request อื่นๆ"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unauthorized"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unexpected error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "ดึงข้อมูลสถานประกอบการตามเลขสถานประกอบการ",
+        "tags": [
+          "Admins"
+        ]
       }
     },
     "/twhp/api/admins/factory/validate/{id}": {
@@ -808,87 +903,6 @@
         ]
       }
     },
-    "/twhp/api/admins/factory": {
-      "get": {
-        "operationId": "AdminsController_getFactoryById",
-        "parameters": [
-          {
-            "name": "factory_id",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetFactoriesResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "examples": {
-                  "factoryNotFound": {
-                    "summary": "ไม่มีสถานประกอบการ",
-                    "value": {
-                      "message": "factory not found"
-                    }
-                  },
-                  "other": {
-                    "summary": "bad request อื่นๆ",
-                    "value": {
-                      "message": "bad request อื่นๆ"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "default": {
-                    "message": "unauthorized"
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "default": {
-                    "message": "unexpected error"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "ดึงข้อมูลสถานประกอบการตามเลขสถานประกอบการ",
-        "tags": [
-          "Admins"
-        ]
-      }
-    },
     "/twhp/api/admins/enrolls": {
       "get": {
         "operationId": "AdminsController_getAllEnrolls",
@@ -943,14 +957,14 @@
         ]
       }
     },
-    "/twhp/api/admins/enroll": {
+    "/twhp/api/admins/enroll/{enroll_id}": {
       "get": {
         "operationId": "AdminsController_getEnrollById",
         "parameters": [
           {
             "name": "enroll_id",
             "required": true,
-            "in": "query",
+            "in": "path",
             "schema": {
               "type": "number"
             }

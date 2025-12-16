@@ -17,8 +17,8 @@ import { UpdateFactoryDto } from './dto/update-factory.dto';
 import { RolesGuard } from 'src/authentication/roles.guard';
 import { Roles } from 'src/authentication/roles.decorator';
 import { Role } from 'src/authentication/roles.enum';
-import { EnrollsService } from '../enrolls/enrolls.service';
-import { CreateEnrollDto } from '../enrolls/dto/create-enroll.dto';
+import { EnrollsService } from 'src/enrolls/enrolls.service';
+import { CreateEnrollDto } from 'src/enrolls/dto/create-enroll.dto';
 import {
   ApiBadRequestResponse,
   ApiBody,

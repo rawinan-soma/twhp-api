@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { FactoriesService } from './factories.service';
 import { FactoriesController } from './factories.controller';
-import { PrismaService } from 'prisma/prisma.service';
-import { EnrollsService } from '../enrolls/enrolls.service';
+import { PrismaModule } from 'prisma/prisma.module';
+import { EnrollsModule } from 'src/enrolls/enrolls.module';
 
 @Module({
-  providers: [FactoriesService, PrismaService, EnrollsService],
+  imports: [PrismaModule, EnrollsModule],
+  providers: [FactoriesService],
   controllers: [FactoriesController],
   exports: [FactoriesService],
 })

@@ -1,5 +1,6 @@
 import {
   Body,
+  ClassSerializerInterceptor,
   Controller,
   Get,
   HttpCode,
@@ -7,6 +8,7 @@ import {
   Req,
   Res,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { AuthenticationService } from './authentication.service';
 import type { RequestWithAccountData } from './request-with-account-data.interface';
@@ -16,12 +18,12 @@ import type { Response } from 'express';
 import {
   ApiBadRequestResponse,
   ApiBody,
+  ApiCookieAuth,
   ApiInternalServerErrorResponse,
   ApiOkResponse,
   ApiOperation,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { Roles } from 'prisma/generated/enums';
 
 @Controller('authentication')
 export class AuthenticationController {
@@ -91,6 +93,7 @@ export class AuthenticationController {
   }
 
   @UseGuards(JwtGuard)
+  @ApiCookieAuth()
   @Post('logout')
   @HttpCode(200)
   @ApiOperation({ summary: 'logout ออกจากระบบ' })
@@ -110,6 +113,8 @@ export class AuthenticationController {
   }
 
   @UseGuards(JwtGuard)
+  @UseInterceptors(ClassSerializerInterceptor)
+  @ApiCookieAuth()
   @Get()
   @ApiOperation({
     summary: 'ตรวจสอบการเข้าสู่ระบบ ถ้า login อยู่จะ return ข้อมูลตัวเองออกมา',
@@ -117,10 +122,16 @@ export class AuthenticationController {
   @ApiOkResponse({
     schema: {
       example: {
-        username: 'aaa',
+        adminDoed: {
+          account_id: 1,
+          first_name: 'Doed',
+          last_name: 'Doed',
+          phone_number: '12345678',
+        },
+        email: 'doed01@mail.com',
         id: 1,
-        email: 'example@mail.com',
-        role: Roles.DOED,
+        role: 'DOED',
+        username: 'admin',
       },
     },
   })
