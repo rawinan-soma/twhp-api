@@ -56,7 +56,18 @@ export class AuthenticationController {
     },
   })
   @ApiUnauthorizedResponse({
-    schema: { default: { message: 'invalid username or password' } },
+    schema: {
+      examples: {
+        invalidUsernameOrPassword: {
+          summary: 'username หรือ password ผิด',
+          value: { message: 'invalid username or password' },
+        },
+        factoryNotValidated: {
+          summary: 'โรงงานยังไม่ได้รับการอนุมัติการลงทะเบียน',
+          value: { message: 'factory not validated' },
+        },
+      },
+    },
   })
   @ApiBadRequestResponse({
     schema: { default: { message: 'bad request by user' } },

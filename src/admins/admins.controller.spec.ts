@@ -281,7 +281,7 @@ describe('Admins', () => {
       });
 
     await agent
-      .get(`/admins/factory?factory_id=${factory!.id}`)
+      .get(`/admins/factory/${factory!.id}`)
       .expect(400)
       .expect((res) => {
         expect(res.body).toHaveProperty('message', 'factory not found');
@@ -340,7 +340,7 @@ describe('Admins', () => {
     });
 
     await agent
-      .get(`/admins/factory?factory_id=${factory?.id}`)
+      .get(`/admins/factory/${factory?.id}`)
       .expect(200)
       .expect((res) => {
         expect(res.body).toBeInstanceOf(Object);
@@ -353,6 +353,11 @@ describe('Admins', () => {
   it('should not access if current user is not DOED', async () => {
     await agent.post('/authentication/logout').expect(200);
 
+    await prisma.accounts.update({
+      where: { username: 'factory1' },
+      data: { factory: { update: { is_validate: true } } },
+    });
+
     await agent
       .post('/authentication/login')
       .send({ username: 'factory1', password: '12345' });
@@ -361,7 +366,7 @@ describe('Admins', () => {
       where: { username: 'factory1' },
     });
 
-    await agent.get(`/admins/factory?factory_id=${factory?.id}`).expect(403);
+    await agent.get(`/admins/factory/${factory?.id}`).expect(403);
   });
 
   it('should update password and use new password to login', async () => {
@@ -401,7 +406,7 @@ describe('Admins', () => {
       .expect(200);
 
     await agent
-      .get(`/admins/factory?factory_id=${factory?.id}`)
+      .get(`/admins/factory/${factory?.id}`)
       .expect(200)
       .expect((res) => {
         expect(res.body).toBeInstanceOf(Object);

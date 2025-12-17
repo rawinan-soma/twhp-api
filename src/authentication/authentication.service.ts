@@ -28,10 +28,15 @@ export class AuthenticationService {
     try {
       const user = await this.prismaService.accounts.findUnique({
         where: { username },
+        include: { factory: { select: { is_validate: true } } },
       });
 
       if (!user || !(await bcrypt.compare(password, user.password))) {
         throw new UnauthorizedException('invalid username or password');
+      }
+
+      if (user.role === 'Factory' && user.factory?.is_validate === false) {
+        throw new UnauthorizedException('factory not validated');
       }
 
       return { username: user.username, role: user.role, id: user.id };

@@ -62,8 +62,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "default": {
-                    "message": "invalid username or password"
+                  "examples": {
+                    "invalidUsernameOrPassword": {
+                      "summary": "username หรือ password ผิด",
+                      "value": {
+                        "message": "invalid username or password"
+                      }
+                    },
+                    "factoryNotValidated": {
+                      "summary": "โรงงานยังไม่ได้รับการอนุมัติการลงทะเบียน",
+                      "value": {
+                        "message": "factory not validated"
+                      }
+                    }
                   }
                 }
               }
@@ -359,7 +370,7 @@
                     "enrollment": {
                       "enroll_id": 1,
                       "factory_id": 123124134,
-                      "enrollment_date": "2025-12-16T11:50:33.102Z"
+                      "enrollment_date": "2025-12-17T06:08:06.287Z"
                     }
                   }
                 }

@@ -9,6 +9,7 @@ import TestAgent from 'supertest/lib/agent';
 import cookieParser from 'cookie-parser';
 import { App } from 'supertest/types';
 import * as bcrypt from 'bcrypt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 describe('Factories', () => {
   let app: INestApplication<App>;
@@ -17,7 +18,8 @@ describe('Factories', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [FactoriesModule, AuthenticationModule],
+      imports: [FactoriesModule, AuthenticationModule, ConfigModule],
+      providers: [ConfigService],
     }).compile();
 
     app = module.createNestApplication();
@@ -74,6 +76,7 @@ describe('Factories', () => {
             province_id: 25,
             district_id: 2501,
             subdistrict_id: 250101,
+            is_validate: true,
           },
         },
       },
@@ -141,6 +144,25 @@ describe('Factories', () => {
   afterEach(async () => {
     await prisma.accounts.deleteMany();
     await prisma.factories.deleteMany();
+  });
+
+  it('should not login if it is not validate by admins', async () => {
+    const factoryId = await prisma.factories.findFirst({
+      where: { account: { username: 'factory1' } },
+    });
+
+    await prisma.factories.update({
+      where: { account_id: factoryId?.account_id },
+      data: { is_validate: false },
+    });
+
+    await agent
+      .post('/authentication/login')
+      .send({ username: 'factory1', password: '12345' })
+      .expect(401)
+      .expect((res) => {
+        expect(res.body).toHaveProperty('message', 'factory not validated');
+      });
   });
 
   it('should register new factories', async () => {
