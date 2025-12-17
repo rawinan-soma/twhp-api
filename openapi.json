@@ -368,7 +368,7 @@
                     "enrollment": {
                       "enroll_id": 1,
                       "factory_id": 123124134,
-                      "enrollment_date": "2025-12-17T06:41:14.060Z"
+                      "enrollment_date": "2025-12-17T15:19:02.427Z"
                     }
                   }
                 }
@@ -1046,6 +1046,162 @@
           "Admins"
         ]
       }
+    },
+    "/twhp/api/locations/provinces": {
+      "get": {
+        "operationId": "LocationsController_getAllProvinces",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "province_id": {
+                        "type": "number",
+                        "example": 11
+                      },
+                      "name_th": {
+                        "type": "string",
+                        "example": "สมุทรปราการ"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unexpected error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Locations"
+        ]
+      }
+    },
+    "/twhp/api/locations/province/{provinceId}/districts": {
+      "get": {
+        "operationId": "LocationsController_getAllDistricts",
+        "parameters": [
+          {
+            "name": "provinceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "district_id": {
+                        "type": "number",
+                        "example": 1101
+                      },
+                      "name_th": {
+                        "type": "string",
+                        "example": "เมือง"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unexpected error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Locations"
+        ]
+      }
+    },
+    "/twhp/api/locations/district/{districtId}/subdistricts": {
+      "get": {
+        "operationId": "LocationsController_getAllSubdistricts",
+        "parameters": [
+          {
+            "name": "districtId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "subdistrict_id": {
+                        "type": "number",
+                        "example": 110101
+                      },
+                      "name_th": {
+                        "type": "string",
+                        "example": "หน้าเมือง"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": {
+                    "message": "unexpected error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Locations"
+        ]
+      }
     }
   },
   "info": {
@@ -1404,6 +1560,9 @@
           "province_id": {
             "type": "number"
           },
+          "province_name_th": {
+            "type": "string"
+          },
           "district_id": {
             "type": "number"
           },
@@ -1425,6 +1584,7 @@
           "fax_number",
           "is_validate",
           "province_id",
+          "province_name_th",
           "district_id",
           "subdistrict_id"
         ]

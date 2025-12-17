@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthenticationModule } from 'src/authentication/authentication.module';
 import { FactoriesModule } from 'src/factories/factories.module';
 import { AdminsModule } from 'src/admins/admins.module';
+import { LocationsModule } from './locations/locations.module';
 import Joi from 'joi';
 
 @Module({
@@ -20,6 +21,7 @@ import Joi from 'joi';
     AuthenticationModule,
     FactoriesModule,
     AdminsModule,
+    LocationsModule,
   ],
   controllers: [],
   providers: [],

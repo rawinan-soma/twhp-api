@@ -143,7 +143,10 @@ export class AdminsService {
     try {
       const factory = await this.prisma.factories.findUnique({
         where: { account_id: factoryId },
-        include: { account: { select: { username: true } } },
+        include: {
+          account: { select: { username: true } },
+          province: { select: { name_th: true } },
+        },
       });
 
       if (!factory) {
@@ -153,6 +156,7 @@ export class AdminsService {
       return {
         ...factory,
         username: factory.account.username,
+        province_name_th: factory.province.name_th,
         account: undefined,
       };
     } catch (err) {

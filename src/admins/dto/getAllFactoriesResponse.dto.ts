@@ -41,6 +41,9 @@ export class GetFactoriesResponseDto {
   province_id: number;
 
   @ApiProperty()
+  province_name_th: string;
+
+  @ApiProperty()
   district_id: number;
 
   @ApiProperty()
