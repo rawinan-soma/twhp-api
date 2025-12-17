@@ -61,19 +61,17 @@
             "description": "",
             "content": {
               "application/json": {
-                "schema": {
-                  "examples": {
-                    "invalidUsernameOrPassword": {
-                      "summary": "username หรือ password ผิด",
-                      "value": {
-                        "message": "invalid username or password"
-                      }
-                    },
-                    "factoryNotValidated": {
-                      "summary": "โรงงานยังไม่ได้รับการอนุมัติการลงทะเบียน",
-                      "value": {
-                        "message": "factory not validated"
-                      }
+                "examples": {
+                  "invalidUsernameOrPassword": {
+                    "summary": "username หรือ password ผิด",
+                    "value": {
+                      "message": "invalid username or password"
+                    }
+                  },
+                  "factoryNotValidated": {
+                    "summary": "โรงงานยังไม่ได้รับการอนุมัติการลงทะเบียน",
+                    "value": {
+                      "message": "factory not validated"
                     }
                   }
                 }
@@ -370,7 +368,7 @@
                     "enrollment": {
                       "enroll_id": 1,
                       "factory_id": 123124134,
-                      "enrollment_date": "2025-12-17T06:08:06.287Z"
+                      "enrollment_date": "2025-12-17T06:41:14.060Z"
                     }
                   }
                 }
