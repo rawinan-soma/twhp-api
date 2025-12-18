@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateFactoryDto {
   @ApiProperty()
@@ -34,12 +34,14 @@ export class CreateFactoryDto {
   @IsString()
   address_no: string;
 
-  @ApiProperty()
+  @ApiProperty({ nullable: true })
   @IsString()
+  @IsOptional()
   soi: string;
 
-  @ApiProperty()
+  @ApiProperty({ nullable: true })
   @IsString()
+  @IsOptional()
   road: string;
 
   @ApiProperty()
@@ -50,8 +52,9 @@ export class CreateFactoryDto {
   @IsString()
   phone_number: string;
 
-  @ApiProperty()
+  @ApiProperty({ nullable: true })
   @IsString()
+  @IsOptional()
   fax_number: string;
 
   @ApiProperty()

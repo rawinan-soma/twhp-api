@@ -146,6 +146,8 @@ export class AdminsService {
         include: {
           account: { select: { username: true } },
           province: { select: { name_th: true } },
+          district: { select: { name_th: true } },
+          subdistrict: { select: { name_th: true } },
         },
       });
 
@@ -157,6 +159,11 @@ export class AdminsService {
         ...factory,
         username: factory.account.username,
         province_name_th: factory.province.name_th,
+        district_name_th: factory.district.name_th,
+        subdistrict_name_th: factory.subdistrict.name_th,
+        province: undefined,
+        district: undefined,
+        subdistrict: undefined,
         account: undefined,
       };
     } catch (err) {

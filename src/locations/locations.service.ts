@@ -14,6 +14,7 @@ export class LocationsService {
     try {
       const province = await this.prismaService.provinces.findMany({
         select: { name_th: true, province_id: true },
+        orderBy: { name_th: 'asc' },
       });
       return province;
     } catch (err) {
