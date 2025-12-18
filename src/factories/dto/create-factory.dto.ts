@@ -37,12 +37,12 @@ export class CreateFactoryDto {
   @ApiProperty({ nullable: true })
   @IsString()
   @IsOptional()
-  soi: string;
+  soi?: string;
 
   @ApiProperty({ nullable: true })
   @IsString()
   @IsOptional()
-  road: string;
+  road?: string;
 
   @ApiProperty()
   @IsString()
@@ -55,7 +55,7 @@ export class CreateFactoryDto {
   @ApiProperty({ nullable: true })
   @IsString()
   @IsOptional()
-  fax_number: string;
+  fax_number?: string;
 
   @ApiProperty()
   @IsNumber()

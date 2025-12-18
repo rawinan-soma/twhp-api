@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Patch,
@@ -130,7 +131,16 @@ export class FactoriesController {
     },
   })
   @ApiBadRequestResponse({
-    schema: { default: { message: 'bad request' } },
+    examples: {
+      existingEnroll: {
+        summary: 'มีการสมัครแล้วในปีงบประมาณนั้น',
+        value: { message: 'already enroll in this fiscal year' },
+      },
+      badrequest: {
+        summary: 'bad request อื่นๆ',
+        value: { message: 'bad request' },
+      },
+    },
   })
   @ApiUnauthorizedResponse({
     schema: { default: { message: 'unauthorized' } },
@@ -143,5 +153,12 @@ export class FactoriesController {
     @Body() dto: CreateEnrollDto,
   ) {
     return await this.enrollsService.createEnrollment(dto, request.user.id);
+  }
+
+  @Get('enroll')
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'เรียกดูการเข้าร่วมโครงการในปีงบประมาณนั้น' })
+  async getEnrollmentinFiscalYear(@Req() request: RequestWithAccountData) {
+    return await this.enrollsService.getEnrollmentInFiscalYear(request.user.id);
   }
 }

@@ -7,15 +7,32 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../../prisma/generated/client';
 import { CreateEnrollDto } from './dto/create-enroll.dto';
 
+const currentYear = new Date().getFullYear();
+const now = new Date();
+const fiscalYearStart =
+  now >= new Date(currentYear, 9, 1)
+    ? new Date(currentYear, 9, 1)
+    : new Date(currentYear - 1, 9, 1);
+const fiscalYearEnd = new Date(fiscalYearStart.getFullYear() + 1, 9, 1);
+
 @Injectable()
 export class EnrollsService {
   constructor(private readonly prismaService: PrismaService) {}
 
   async getAllEnrolls() {
     try {
-      return await this.prismaService.enrolls.findMany({
+      const enrolls = await this.prismaService.enrolls.findMany({
         orderBy: { enroll_date: 'desc' },
+        where: { enroll_date: { gte: fiscalYearStart, lt: fiscalYearEnd } },
+        include: { factory: { select: { name_th: true } } },
       });
+
+      const result = enrolls.map(({ factory, ...rest }) => ({
+        ...rest,
+        factory_name_th: factory.name_th,
+      }));
+
+      return result;
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
@@ -94,9 +111,47 @@ export class EnrollsService {
     };
   }
 
+  async findEnrollmentInFiscalYear(factoryId: number) {
+    const existingEnrollment = await this.prismaService.enrolls.findFirst({
+      where: {
+        factory_id: factoryId,
+        enroll_date: {
+          gte: fiscalYearStart,
+          lt: fiscalYearEnd,
+        },
+      },
+    });
+
+    return existingEnrollment;
+  }
+
+  async getEnrollmentInFiscalYear(factoryId: number) {
+    try {
+      const enrollment = await this.findEnrollmentInFiscalYear(factoryId);
+      if (!enrollment) {
+        throw new BadRequestException('no enrollment in this year');
+      }
+      return enrollment;
+    } catch (err) {
+      if (err instanceof BadRequestException) {
+        throw err;
+      } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
+        throw new BadRequestException('bad request by user');
+      } else {
+        throw new InternalServerErrorException('unexpected error');
+      }
+    }
+  }
+
   async createEnrollment(dto: CreateEnrollDto, factoryId: number) {
     try {
       const evaluators = await this.getEvaluator(factoryId);
+      const existingEnrollment =
+        await this.getEnrollmentInFiscalYear(factoryId);
+
+      if (existingEnrollment) {
+        throw new BadRequestException('already enroll in this fiscal year');
+      }
       const newEnrollment = await this.prismaService.enrolls.create({
         data: {
           ...dto,

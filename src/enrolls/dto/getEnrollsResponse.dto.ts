@@ -13,6 +13,10 @@ export class GetEnrollResponseDto {
   @IsInt()
   id: number;
 
+  @ApiProperty()
+  @IsString()
+  factory_name_th: string;
+
   @ApiProperty({ example: '2025-01-01T00:00:00.000Z' })
   @IsDateString()
   enroll_date: Date;

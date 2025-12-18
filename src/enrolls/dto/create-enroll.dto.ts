@@ -141,15 +141,15 @@ export class CreateEnrollDto {
   @ApiProperty({ nullable: true })
   @IsString()
   @IsOptional()
-  safety_officer_email: string;
+  safety_officer_email?: string;
 
   @ApiProperty({ nullable: true })
   @IsString()
   @IsOptional()
-  safety_officer_phone: string;
+  safety_officer_phone?: string;
 
   @ApiProperty({ nullable: true })
   @IsString()
   @IsOptional()
-  safety_officer_lineID: string;
+  safety_officer_lineID?: string;
 }
