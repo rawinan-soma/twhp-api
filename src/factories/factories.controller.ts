@@ -30,6 +30,7 @@ import {
   ApiOperation,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { GetEnrollResponseDto } from 'src/enrolls/dto/getEnrollsResponse.dto';
 
 @UseGuards(JwtGuard, RolesGuard)
 @Roles(Role.FACTORY)
@@ -158,6 +159,7 @@ export class FactoriesController {
   @Get('enroll')
   @ApiCookieAuth()
   @ApiOperation({ summary: 'เรียกดูการเข้าร่วมโครงการในปีงบประมาณนั้น' })
+  @ApiOkResponse({ type: GetEnrollResponseDto })
   async getEnrollmentinFiscalYear(@Req() request: RequestWithAccountData) {
     return await this.enrollsService.getEnrollmentInFiscalYear(request.user.id);
   }

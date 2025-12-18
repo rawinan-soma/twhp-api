@@ -128,14 +128,10 @@ export class EnrollsService {
   async getEnrollmentInFiscalYear(factoryId: number) {
     try {
       const enrollment = await this.findEnrollmentInFiscalYear(factoryId);
-      if (!enrollment) {
-        throw new BadRequestException('no enrollment in this year');
-      }
+
       return enrollment;
     } catch (err) {
-      if (err instanceof BadRequestException) {
-        throw err;
-      } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException('bad request by user');
       } else {
         throw new InternalServerErrorException('unexpected error');
