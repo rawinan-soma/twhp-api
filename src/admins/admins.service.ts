@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { UpdateAdminDto } from './dto/update-admin.dto';
@@ -11,6 +12,7 @@ import { EnrollsService } from 'src/enrolls/enrolls.service';
 
 @Injectable()
 export class AdminsService {
+  private readonly logger = new Logger(AdminsService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly enroll: EnrollsService,
@@ -58,6 +60,7 @@ export class AdminsService {
       } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
+        this.logger.error(err);
         throw new InternalServerErrorException('unexpected error');
       }
     }
@@ -93,6 +96,7 @@ export class AdminsService {
       } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
+        this.logger.error(err);
         throw new InternalServerErrorException('unexpected error');
       }
     }
@@ -132,6 +136,7 @@ export class AdminsService {
       } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
+        this.logger.error(err);
         throw new InternalServerErrorException('unexpected error');
       }
     }
@@ -158,6 +163,7 @@ export class AdminsService {
       } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
+        this.logger.error(err);
         throw new InternalServerErrorException('unexpected error');
       }
     }
@@ -196,6 +202,7 @@ export class AdminsService {
       } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
+        this.logger.error(err);
         throw new InternalServerErrorException('unexpected error');
       }
     }

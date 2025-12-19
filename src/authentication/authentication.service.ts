@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -17,7 +18,7 @@ import { AccountResponseDto } from './account-response.dto';
 
 @Injectable()
 export class AuthenticationService {
-  // private readonly logger = new Logger(AuthenticationService.name);
+  private readonly logger = new Logger(AuthenticationService.name);
   constructor(
     private readonly prismaService: PrismaService,
     private readonly jwt: JwtService,
@@ -41,12 +42,12 @@ export class AuthenticationService {
 
       return { username: user.username, role: user.role, id: user.id };
     } catch (err) {
-      // this.logger.error(err);
       if (err instanceof UnauthorizedException) {
         throw err;
       } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException('bad request by user');
       } else {
+        this.logger.error(err);
         throw new InternalServerErrorException('unexpected error');
       }
     }
@@ -73,12 +74,12 @@ export class AuthenticationService {
         excludeExtraneousValues: true,
       });
     } catch (err) {
-      // this.logger.error(err);
       if (err instanceof NotFoundException) {
         throw err;
       } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException('bad request by user');
       } else {
+        this.logger.error(err);
         throw new InternalServerErrorException('unexpected error');
       }
     }
@@ -95,7 +96,7 @@ export class AuthenticationService {
     if (tokenType === 'logout') {
       return {
         httpOnly: true,
-        secure: false,
+        secure: true,
         sameSite: 'lax' as const,
         path: '/',
         maxAge: 0,
@@ -103,7 +104,7 @@ export class AuthenticationService {
     }
     return {
       httpOnly: true,
-      secure: false,
+      secure: true,
       sameSite: 'lax' as const,
       path: '/',
       maxAge: Number(this.config.get<string>('TOKEN_EXP')) * 1000,

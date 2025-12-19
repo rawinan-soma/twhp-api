@@ -90,12 +90,12 @@ export class FactoriesService {
         },
       };
     } catch (err) {
-      // this.logger.error(err);
       if (err instanceof BadRequestException) {
         throw err;
       } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
+        this.logger.error(err);
         throw new InternalServerErrorException('unexpected error');
       }
     }
@@ -146,12 +146,12 @@ export class FactoriesService {
 
       return { message: 'factory updated successfully' };
     } catch (err) {
-      this.logger.error(err);
       if (err instanceof BadRequestException) {
         throw err;
       } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
+        this.logger.error(err);
         throw new InternalServerErrorException('unexpected error');
       }
     }

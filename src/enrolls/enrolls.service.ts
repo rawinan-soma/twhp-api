@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../../prisma/generated/client';
@@ -9,6 +10,8 @@ import { CreateEnrollDto } from './dto/create-enroll.dto';
 
 @Injectable()
 export class EnrollsService {
+  private readonly logger = new Logger(EnrollsService.name);
+
   constructor(private readonly prismaService: PrismaService) {}
 
   public getFiscalYear() {
@@ -44,6 +47,7 @@ export class EnrollsService {
       if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
+        this.logger.error(err);
         throw new InternalServerErrorException();
       }
     }
@@ -64,6 +68,7 @@ export class EnrollsService {
       } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
+        this.logger.error(err);
         throw new InternalServerErrorException('unexpected error');
       }
     }
@@ -78,6 +83,7 @@ export class EnrollsService {
       if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
       } else {
+        this.logger.error(err);
         throw new InternalServerErrorException('unexpected error');
       }
     }
@@ -146,6 +152,7 @@ export class EnrollsService {
       if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException('bad request by user');
       } else {
+        this.logger.error(err);
         throw new InternalServerErrorException('unexpected error');
       }
     }
@@ -187,7 +194,10 @@ export class EnrollsService {
         throw err;
       } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
         throw new BadRequestException(err.message);
-      } else throw new InternalServerErrorException('unexpected error');
+      } else {
+        this.logger.error(err);
+        throw new InternalServerErrorException('unexpected error');
+      }
     }
   }
 }

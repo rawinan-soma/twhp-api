@@ -6,12 +6,14 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import 'reflect-metadata';
 import * as fs from 'fs';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
   app.use(cookieParser());
+  app.use(helmet());
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -40,7 +42,11 @@ async function bootstrap() {
     JSON.stringify(documentFactory, null, 2),
     'utf8',
   );
-
+  app.enableCors({
+    origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+  });
   await app.listen(String(config.get('SERVER_PORT')));
 }
 void bootstrap();
