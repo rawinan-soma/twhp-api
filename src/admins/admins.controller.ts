@@ -29,6 +29,7 @@ import {
   ApiInternalServerErrorResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { GetFactoriesResponseDto } from './dto/getAllFactoriesResponse.dto';
@@ -187,6 +188,8 @@ export class AdminsController {
   @ApiOperation({
     summary: 'ดึงข้อมูลสถานประกอบการทุกแห่ง เลือกได้ว่าจะเอาอนุมัติแล้วหรือไม่',
   })
+  @ApiQuery({ name: 'validated', required: true, type: Boolean })
+  @ApiQuery({ name: 'enrolled', required: false, type: Boolean })
   @ApiOkResponse({ type: GetFactoriesResponseDto, isArray: true })
   @ApiUnauthorizedResponse({
     schema: { default: { message: 'unauthorized' } },
@@ -194,8 +197,13 @@ export class AdminsController {
   @ApiInternalServerErrorResponse({
     schema: { default: { message: 'unexpected error' } },
   })
-  async getAllFactory(@Query('validated', ParseBoolPipe) validated: boolean) {
-    return this.adminsService.getAllFactories(validated);
+  // TODO: Test new query
+  async getAllFactory(
+    @Query('validated', ParseBoolPipe) validated: boolean,
+    @Query('enrolled', new ParseBoolPipe({ optional: true }))
+    enrolled?: boolean,
+  ) {
+    return this.adminsService.getAllFactories(validated, enrolled);
   }
 
   @Get('factory/:id')

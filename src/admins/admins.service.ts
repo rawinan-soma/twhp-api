@@ -7,10 +7,14 @@ import { PrismaService } from 'prisma/prisma.service';
 import { UpdateAdminDto } from './dto/update-admin.dto';
 import { Prisma } from '../../prisma/generated/client';
 import * as bcrypt from 'bcrypt';
+import { EnrollsService } from 'src/enrolls/enrolls.service';
 
 @Injectable()
 export class AdminsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly enroll: EnrollsService,
+  ) {}
   async editAdminProfile(accountId: number, data: UpdateAdminDto) {
     try {
       const admin = await this.prisma.adminsDoed.findUnique({
@@ -94,8 +98,28 @@ export class AdminsService {
     }
   }
 
-  async getAllFactories(isValidate: boolean) {
+  async getAllFactories(isValidate: boolean, enrolled?: boolean) {
     try {
+      if (enrolled && enrolled === true) {
+        const { fiscalYearStart, fiscalYearEnd } = this.enroll.getFiscalYear();
+        const factories = await this.prisma.factories.findMany({
+          where: {
+            is_validate: true,
+            enroll: {
+              some: {
+                enroll_date: {
+                  gte: fiscalYearStart,
+                  lt: fiscalYearEnd,
+                },
+              },
+            },
+          },
+          orderBy: { account_id: 'asc' },
+        });
+
+        return factories;
+      }
+
       const factories = await this.prisma.factories.findMany({
         where: { is_validate: isValidate },
         orderBy: { account_id: 'asc' },

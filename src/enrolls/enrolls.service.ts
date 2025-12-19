@@ -7,23 +7,30 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../../prisma/generated/client';
 import { CreateEnrollDto } from './dto/create-enroll.dto';
 
-const currentYear = new Date().getFullYear();
-const now = new Date();
-const fiscalYearStart =
-  now >= new Date(currentYear, 9, 1)
-    ? new Date(currentYear, 9, 1)
-    : new Date(currentYear - 1, 9, 1);
-const fiscalYearEnd = new Date(fiscalYearStart.getFullYear() + 1, 9, 1);
-
 @Injectable()
 export class EnrollsService {
   constructor(private readonly prismaService: PrismaService) {}
 
+  public getFiscalYear() {
+    const currentYear = new Date().getFullYear();
+    const now = new Date();
+    const fiscalYearStart =
+      now >= new Date(currentYear, 9, 1)
+        ? new Date(currentYear, 9, 1)
+        : new Date(currentYear - 1, 9, 1);
+    const fiscalYearEnd = new Date(fiscalYearStart.getFullYear() + 1, 9, 1);
+
+    return { fiscalYearStart, fiscalYearEnd };
+  }
+
   async getAllEnrolls() {
     try {
+      const { fiscalYearStart, fiscalYearEnd } = this.getFiscalYear();
       const enrolls = await this.prismaService.enrolls.findMany({
         orderBy: { enroll_date: 'desc' },
-        where: { enroll_date: { gte: fiscalYearStart, lt: fiscalYearEnd } },
+        where: {
+          enroll_date: { gte: fiscalYearStart, lt: fiscalYearEnd },
+        },
         include: { factory: { select: { name_th: true } } },
       });
 
@@ -112,6 +119,7 @@ export class EnrollsService {
   }
 
   async findEnrollmentInFiscalYear(factoryId: number) {
+    const { fiscalYearStart, fiscalYearEnd } = this.getFiscalYear();
     const existingEnrollment = await this.prismaService.enrolls.findFirst({
       where: {
         factory_id: factoryId,
@@ -129,6 +137,10 @@ export class EnrollsService {
     try {
       const enrollment = await this.findEnrollmentInFiscalYear(factoryId);
 
+      if (!enrollment) {
+        return { message: 'no enrollment found' };
+      }
+
       return enrollment;
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError) {
@@ -143,7 +155,7 @@ export class EnrollsService {
     try {
       const evaluators = await this.getEvaluator(factoryId);
       const existingEnrollment =
-        await this.getEnrollmentInFiscalYear(factoryId);
+        await this.findEnrollmentInFiscalYear(factoryId);
 
       if (existingEnrollment) {
         throw new BadRequestException('already enroll in this fiscal year');

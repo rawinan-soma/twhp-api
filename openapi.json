@@ -368,7 +368,7 @@
                     "enrollment": {
                       "enroll_id": 1,
                       "factory_id": 123124134,
-                      "enrollment_date": "2025-12-18T04:24:13.483Z"
+                      "enrollment_date": "2025-12-19T04:23:13.332Z"
                     }
                   }
                 }
@@ -379,9 +379,18 @@
             "description": "",
             "content": {
               "application/json": {
-                "schema": {
-                  "default": {
-                    "message": "bad request"
+                "examples": {
+                  "existingEnroll": {
+                    "summary": "มีการสมัครแล้วในปีงบประมาณนั้น",
+                    "value": {
+                      "message": "already enroll in this fiscal year"
+                    }
+                  },
+                  "badrequest": {
+                    "summary": "bad request อื่นๆ",
+                    "value": {
+                      "message": "bad request"
+                    }
                   }
                 }
               }
@@ -418,6 +427,31 @@
           }
         ],
         "summary": "สมัครเข้าร่วมโครงการประเมิน",
+        "tags": [
+          "Factories"
+        ]
+      },
+      "get": {
+        "operationId": "FactoriesController_getEnrollmentinFiscalYear",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetEnrollResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "เรียกดูการเข้าร่วมโครงการในปีงบประมาณนั้น",
         "tags": [
           "Factories"
         ]
@@ -856,6 +890,14 @@
           {
             "name": "validated",
             "required": true,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "enrolled",
+            "required": false,
             "in": "query",
             "schema": {
               "type": "boolean"
@@ -1492,125 +1534,14 @@
           "safety_officer_lineID"
         ]
       },
-      "UpdateAdminDto": {
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": "string",
-            "nullable": true
-          },
-          "password": {
-            "type": "string",
-            "nullable": true
-          },
-          "first_name": {
-            "type": "string",
-            "nullable": true
-          },
-          "last_name": {
-            "type": "string",
-            "nullable": true
-          },
-          "phone_number": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "email",
-          "password",
-          "first_name",
-          "last_name",
-          "phone_number"
-        ]
-      },
-      "GetFactoriesResponseDto": {
-        "type": "object",
-        "properties": {
-          "account_id": {
-            "type": "number"
-          },
-          "factory_type": {
-            "type": "number"
-          },
-          "name_th": {
-            "type": "string"
-          },
-          "name_en": {
-            "type": "string"
-          },
-          "tsic_code": {
-            "type": "string"
-          },
-          "address_no": {
-            "type": "string"
-          },
-          "soi": {
-            "type": "string",
-            "nullable": true
-          },
-          "road": {
-            "type": "string",
-            "nullable": true
-          },
-          "zipcode": {
-            "type": "string"
-          },
-          "phone_number": {
-            "type": "string"
-          },
-          "fax_number": {
-            "type": "string",
-            "nullable": true
-          },
-          "is_validate": {
-            "type": "boolean"
-          },
-          "province_id": {
-            "type": "number"
-          },
-          "province_name_th": {
-            "type": "string"
-          },
-          "district_name_th": {
-            "type": "string"
-          },
-          "subdistrict_name_th": {
-            "type": "string"
-          },
-          "district_id": {
-            "type": "number"
-          },
-          "subdistrict_id": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "account_id",
-          "factory_type",
-          "name_th",
-          "name_en",
-          "tsic_code",
-          "address_no",
-          "soi",
-          "road",
-          "zipcode",
-          "phone_number",
-          "fax_number",
-          "is_validate",
-          "province_id",
-          "province_name_th",
-          "district_name_th",
-          "subdistrict_name_th",
-          "district_id",
-          "subdistrict_id"
-        ]
-      },
       "GetEnrollResponseDto": {
         "type": "object",
         "properties": {
           "id": {
             "type": "number"
+          },
+          "factory_name_th": {
+            "type": "string"
           },
           "enroll_date": {
             "format": "date-time",
@@ -1754,6 +1685,7 @@
         },
         "required": [
           "id",
+          "factory_name_th",
           "enroll_date",
           "factory_id",
           "eval_doh_id",
@@ -1793,6 +1725,120 @@
           "safety_officer_first_name",
           "safety_officer_last_name",
           "safety_officer_position"
+        ]
+      },
+      "UpdateAdminDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "password": {
+            "type": "string",
+            "nullable": true
+          },
+          "first_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "last_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone_number": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "first_name",
+          "last_name",
+          "phone_number"
+        ]
+      },
+      "GetFactoriesResponseDto": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "number"
+          },
+          "factory_type": {
+            "type": "number"
+          },
+          "name_th": {
+            "type": "string"
+          },
+          "name_en": {
+            "type": "string"
+          },
+          "tsic_code": {
+            "type": "string"
+          },
+          "address_no": {
+            "type": "string"
+          },
+          "soi": {
+            "type": "string",
+            "nullable": true
+          },
+          "road": {
+            "type": "string",
+            "nullable": true
+          },
+          "zipcode": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
+          },
+          "fax_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_validate": {
+            "type": "boolean"
+          },
+          "province_id": {
+            "type": "number"
+          },
+          "province_name_th": {
+            "type": "string"
+          },
+          "district_name_th": {
+            "type": "string"
+          },
+          "subdistrict_name_th": {
+            "type": "string"
+          },
+          "district_id": {
+            "type": "number"
+          },
+          "subdistrict_id": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "account_id",
+          "factory_type",
+          "name_th",
+          "name_en",
+          "tsic_code",
+          "address_no",
+          "soi",
+          "road",
+          "zipcode",
+          "phone_number",
+          "fax_number",
+          "is_validate",
+          "province_id",
+          "province_name_th",
+          "district_name_th",
+          "subdistrict_name_th",
+          "district_id",
+          "subdistrict_id"
         ]
       }
     }
