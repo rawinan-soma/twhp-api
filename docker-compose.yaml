@@ -1,55 +1,59 @@
 services:
-    database:
-        image: postgres:17-alpine
-        container_name: twhp-db
-        restart: always
-        env_file:
-            - docker.env
-        ports:
-            - 5660:5432
-        volumes:
-            - postgres_data-wnwp:/var/lib/postgresql/data
-        healthcheck:
-            test: ['CMD-SHELL', 'pg_isready -h localhost -p 5432 -U admin -d twhp']
-            interval: 10s
-            timeout: 5s
-            retries: 5
-            start_period: 5s
-        networks:
-            - twhp
+  database:
+    image: postgres:17-alpine
+    container_name: twhp-db
+    restart: always
+    env_file:
+      - docker.env
+    ports:
+      - 5660:5432
+    volumes:
+      - postgres_data-wnwp:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -h ${POSTGRES_HOST:-localhost} -p ${POSTGRES_PORT:-5432} -U ${POSTGRES_USER} -d ${POSTGRES_DB}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - twhp
 
-    api:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        container_name: twhp-api
-        ports:
-            - 8888:3000
-        depends_on:
-            - database
-        networks:
-            - twhp
-        env_file:
-            - docker.env
-        volumes:
-            - assets:/app/assets
-        command: |
-            sh -c "
-              bun prisma migrate deploy
-              bun prisma db seed
-              bun run start:prod
-            "
-        healthcheck:
-            test: ['CMD', 'curl', 'http://localhost:3000/twhp/api/']
-            interval: 10s
-            timeout: 5s
-            retries: 5
-            start_period: 5s
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: twhp-api
+    ports:
+      - 8888:3000
+    depends_on:
+      - database
+    networks:
+      - twhp
+    env_file:
+      - docker.env
+    volumes:
+      - assets:/app/assets
+    command: |
+      sh -c "
+        bun prisma migrate deploy
+        bun prisma db seed
+        bun run start:prod
+      "
+    healthcheck:
+      test: ['CMD', 'curl', 'http://localhost:3000/twhp/api/']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
 volumes:
-    postgres_data-wnwp:
-    assets:
+  postgres_data-wnwp:
+  assets:
 
 networks:
-    twhp:
-        driver: bridge
+  twhp:
+    driver: bridge
