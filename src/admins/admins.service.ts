@@ -119,17 +119,35 @@ export class AdminsService {
             },
           },
           orderBy: { account_id: 'asc' },
+          include: {
+            province: true,
+            district: true,
+            subdistrict: true,
+          },
         });
 
-        return factories;
+        return factories.map(
+          ({ province, district, subdistrict, ...rest }) => ({
+            province_name_th: province.name_th,
+            district_name_th: district.name_th,
+            subdistrict_name_th: subdistrict.name_th,
+            ...rest,
+          }),
+        );
       }
 
       const factories = await this.prisma.factories.findMany({
         where: { is_validate: isValidate },
+        include: { province: true, district: true, subdistrict: true },
         orderBy: { account_id: 'asc' },
       });
 
-      return factories;
+      return factories.map(({ province, district, subdistrict, ...rest }) => ({
+        province_name_th: province.name_th,
+        district_name_th: district.name_th,
+        subdistrict_name_th: subdistrict.name_th,
+        ...rest,
+      }));
     } catch (err) {
       if (err instanceof BadRequestException) {
         throw err;

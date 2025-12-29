@@ -57,11 +57,22 @@ export class EnrollsService {
     try {
       const enroll = await this.prismaService.enrolls.findUnique({
         where: { id: enrollId },
+        include: {
+          factory: {
+            include: { province: true, district: true, subdistrict: true },
+          },
+        },
       });
       if (!enroll) {
         throw new BadRequestException('enroll not found');
       }
-      return enroll;
+
+      return {
+        ...enroll,
+        province_name_th: enroll.factory.province.name_th,
+        district_name_th: enroll.factory.district.name_th,
+        subdistrict_name_th: enroll.factory.subdistrict.name_th,
+      };
     } catch (err) {
       if (err instanceof BadRequestException) {
         throw err;
