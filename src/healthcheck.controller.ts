@@ -14,12 +14,12 @@ export class HealthcheckController {
     private readonly prisma: PrismaService,
   ) {}
 
-  @Get('/api')
+  @Get('api')
   checkApiHealth() {
     return 'API is healthy';
   }
 
-  @Get('/prisma')
+  @Get('prisma')
   @HealthCheck()
   checkPrismaHealth() {
     return this.db.pingCheck('prisma', this.prisma);
