@@ -20,7 +20,7 @@ services:
       retries: 5
       start_period: 5s
     networks:
-      - twhp
+      - twhp-internal
 
   api:
     build:
@@ -32,7 +32,8 @@ services:
     depends_on:
       - database
     networks:
-      - twhp
+      - twhp-internal
+      - twhp-shared
     env_file:
       - docker.env
     volumes:
@@ -44,7 +45,7 @@ services:
         bun run start:prod
       "
     healthcheck:
-      test: ['CMD', 'curl', 'http://localhost:3000/twhp/api/']
+      test: ['CMD', 'curl', 'http://localhost:3000/twhp/api/document']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -55,5 +56,7 @@ volumes:
   assets:
 
 networks:
-  twhp:
+  twhp-shared:
+    external: true
+  twhp-internal:
     driver: bridge
