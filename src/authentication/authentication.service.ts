@@ -93,10 +93,11 @@ export class AuthenticationService {
   }
 
   getCookieOption(tokenType: 'Authentication' | 'logout') {
+    const cookieSecure = this.config.get<string>('COOKIE_SECURE') === 'true';
     if (tokenType === 'logout') {
       return {
         httpOnly: true,
-        secure: this.config.get<boolean>('COOKIE_SECURE'),
+        secure: cookieSecure,
         sameSite: 'lax' as const,
         path: '/',
         maxAge: 0,
@@ -104,7 +105,7 @@ export class AuthenticationService {
     }
     return {
       httpOnly: true,
-      secure: this.config.get<boolean>('COOKIE_SECURE'),
+      secure: cookieSecure,
       sameSite: 'lax' as const,
       path: '/',
       maxAge: Number(this.config.get<string>('TOKEN_EXP')) * 1000,
