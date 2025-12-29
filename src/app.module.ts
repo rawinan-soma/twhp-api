@@ -16,6 +16,7 @@ import Joi from 'joi';
         ENDPOINT_PREFIX: Joi.string().required(),
         JWT_SECRET: Joi.string().required(),
         TOKEN_EXP: Joi.number().required(),
+        COOKIE_SECURE: Joi.boolean().required(),
       }),
     }),
     AuthenticationModule,
