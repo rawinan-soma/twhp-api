@@ -5,6 +5,11 @@ import { FactoriesModule } from 'src/factories/factories.module';
 import { AdminsModule } from 'src/admins/admins.module';
 import { LocationsModule } from './locations/locations.module';
 import Joi from 'joi';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { HealthcheckController } from './healthcheck.controller';
+import { PrismaModule } from 'prisma/prisma.module';
+import { TerminusModule } from '@nestjs/terminus';
 
 @Module({
   imports: [
@@ -18,12 +23,22 @@ import Joi from 'joi';
         TOKEN_EXP: Joi.number().required(),
       }),
     }),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 6000,
+          limit: 10,
+        },
+      ],
+    }),
+    PrismaModule,
     AuthenticationModule,
     FactoriesModule,
     AdminsModule,
     LocationsModule,
+    TerminusModule,
   ],
-  controllers: [],
-  providers: [],
+  controllers: [HealthcheckController],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
