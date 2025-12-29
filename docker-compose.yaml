@@ -45,7 +45,7 @@ services:
         bun run start:prod
       "
     healthcheck:
-      test: ['CMD', 'curl', 'http://localhost:3000/twhp/api/health/api']
+      test: ['CMD', 'curl', 'http://localhost:3300/twhp/api/health/api']
       interval: 10s
       timeout: 5s
       retries: 5
