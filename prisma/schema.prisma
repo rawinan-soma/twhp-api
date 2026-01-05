@@ -16,21 +16,21 @@ datasource db {
 
 enum Roles {
   Factory
-  Provicial
+  Provincial
   Evaluator
   DOED
 }
 
 model Accounts {
-  id        Int                @id @unique @default(autoincrement())
-  username  String             @unique
-  password  String
-  email     String             @unique
-  role      Roles
-  adminDoed AdminsDoed?
-  evaluator Evaluators?
-  provicial ProvicialOfficers?
-  factory   Factories?
+  id         Int                 @id @unique @default(autoincrement())
+  username   String              @unique
+  password   String
+  email      String              @unique
+  role       Roles
+  adminDoed  AdminsDoed?
+  evaluator  Evaluators?
+  provincial ProvincialOfficers?
+  factory    Factories?
 }
 
 model AdminsDoed {
@@ -61,7 +61,7 @@ model Evaluators {
   enroll_mental enrolls[] @relation("mental")
 }
 
-model ProvicialOfficers {
+model ProvincialOfficers {
   account      Accounts  @relation(fields: [account_id], references: [id], onDelete: Cascade)
   account_id   Int       @id @unique
   first_name   String
@@ -100,11 +100,11 @@ model Factories {
 }
 
 model Provinces {
-  province_id   Int                 @id @unique
+  province_id   Int                  @id @unique
   name_th       String
   health_region Int
   district      Districts[]
-  officer       ProvicialOfficers[]
+  officer       ProvincialOfficers[]
   factory       Factories[]
 }
 
