@@ -54,7 +54,7 @@ export const ModelName = {
   Accounts: 'Accounts',
   AdminsDoed: 'AdminsDoed',
   Evaluators: 'Evaluators',
-  ProvicialOfficers: 'ProvicialOfficers',
+  ProvincialOfficers: 'ProvincialOfficers',
   Factories: 'Factories',
   Provinces: 'Provinces',
   Districts: 'Districts',
@@ -111,7 +111,7 @@ export const EvaluatorsScalarFieldEnum = {
 export type EvaluatorsScalarFieldEnum = (typeof EvaluatorsScalarFieldEnum)[keyof typeof EvaluatorsScalarFieldEnum]
 
 
-export const ProvicialOfficersScalarFieldEnum = {
+export const ProvincialOfficersScalarFieldEnum = {
   account_id: 'account_id',
   first_name: 'first_name',
   last_name: 'last_name',
@@ -119,7 +119,7 @@ export const ProvicialOfficersScalarFieldEnum = {
   province_id: 'province_id'
 } as const
 
-export type ProvicialOfficersScalarFieldEnum = (typeof ProvicialOfficersScalarFieldEnum)[keyof typeof ProvicialOfficersScalarFieldEnum]
+export type ProvincialOfficersScalarFieldEnum = (typeof ProvincialOfficersScalarFieldEnum)[keyof typeof ProvincialOfficersScalarFieldEnum]
 
 
 export const FactoriesScalarFieldEnum = {

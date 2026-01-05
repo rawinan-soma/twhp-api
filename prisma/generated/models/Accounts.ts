@@ -218,7 +218,7 @@ export type AccountsWhereInput = {
   role?: Prisma.EnumRolesFilter<"Accounts"> | $Enums.Roles
   adminDoed?: Prisma.XOR<Prisma.AdminsDoedNullableScalarRelationFilter, Prisma.AdminsDoedWhereInput> | null
   evaluator?: Prisma.XOR<Prisma.EvaluatorsNullableScalarRelationFilter, Prisma.EvaluatorsWhereInput> | null
-  provicial?: Prisma.XOR<Prisma.ProvicialOfficersNullableScalarRelationFilter, Prisma.ProvicialOfficersWhereInput> | null
+  provincial?: Prisma.XOR<Prisma.ProvincialOfficersNullableScalarRelationFilter, Prisma.ProvincialOfficersWhereInput> | null
   factory?: Prisma.XOR<Prisma.FactoriesNullableScalarRelationFilter, Prisma.FactoriesWhereInput> | null
 }
 
@@ -230,7 +230,7 @@ export type AccountsOrderByWithRelationInput = {
   role?: Prisma.SortOrder
   adminDoed?: Prisma.AdminsDoedOrderByWithRelationInput
   evaluator?: Prisma.EvaluatorsOrderByWithRelationInput
-  provicial?: Prisma.ProvicialOfficersOrderByWithRelationInput
+  provincial?: Prisma.ProvincialOfficersOrderByWithRelationInput
   factory?: Prisma.FactoriesOrderByWithRelationInput
 }
 
@@ -245,7 +245,7 @@ export type AccountsWhereUniqueInput = Prisma.AtLeast<{
   role?: Prisma.EnumRolesFilter<"Accounts"> | $Enums.Roles
   adminDoed?: Prisma.XOR<Prisma.AdminsDoedNullableScalarRelationFilter, Prisma.AdminsDoedWhereInput> | null
   evaluator?: Prisma.XOR<Prisma.EvaluatorsNullableScalarRelationFilter, Prisma.EvaluatorsWhereInput> | null
-  provicial?: Prisma.XOR<Prisma.ProvicialOfficersNullableScalarRelationFilter, Prisma.ProvicialOfficersWhereInput> | null
+  provincial?: Prisma.XOR<Prisma.ProvincialOfficersNullableScalarRelationFilter, Prisma.ProvincialOfficersWhereInput> | null
   factory?: Prisma.XOR<Prisma.FactoriesNullableScalarRelationFilter, Prisma.FactoriesWhereInput> | null
 }, "id" | "id" | "username" | "email">
 
@@ -280,7 +280,7 @@ export type AccountsCreateInput = {
   role: $Enums.Roles
   adminDoed?: Prisma.AdminsDoedCreateNestedOneWithoutAccountInput
   evaluator?: Prisma.EvaluatorsCreateNestedOneWithoutAccountInput
-  provicial?: Prisma.ProvicialOfficersCreateNestedOneWithoutAccountInput
+  provincial?: Prisma.ProvincialOfficersCreateNestedOneWithoutAccountInput
   factory?: Prisma.FactoriesCreateNestedOneWithoutAccountInput
 }
 
@@ -292,7 +292,7 @@ export type AccountsUncheckedCreateInput = {
   role: $Enums.Roles
   adminDoed?: Prisma.AdminsDoedUncheckedCreateNestedOneWithoutAccountInput
   evaluator?: Prisma.EvaluatorsUncheckedCreateNestedOneWithoutAccountInput
-  provicial?: Prisma.ProvicialOfficersUncheckedCreateNestedOneWithoutAccountInput
+  provincial?: Prisma.ProvincialOfficersUncheckedCreateNestedOneWithoutAccountInput
   factory?: Prisma.FactoriesUncheckedCreateNestedOneWithoutAccountInput
 }
 
@@ -303,7 +303,7 @@ export type AccountsUpdateInput = {
   role?: Prisma.EnumRolesFieldUpdateOperationsInput | $Enums.Roles
   adminDoed?: Prisma.AdminsDoedUpdateOneWithoutAccountNestedInput
   evaluator?: Prisma.EvaluatorsUpdateOneWithoutAccountNestedInput
-  provicial?: Prisma.ProvicialOfficersUpdateOneWithoutAccountNestedInput
+  provincial?: Prisma.ProvincialOfficersUpdateOneWithoutAccountNestedInput
   factory?: Prisma.FactoriesUpdateOneWithoutAccountNestedInput
 }
 
@@ -315,7 +315,7 @@ export type AccountsUncheckedUpdateInput = {
   role?: Prisma.EnumRolesFieldUpdateOperationsInput | $Enums.Roles
   adminDoed?: Prisma.AdminsDoedUncheckedUpdateOneWithoutAccountNestedInput
   evaluator?: Prisma.EvaluatorsUncheckedUpdateOneWithoutAccountNestedInput
-  provicial?: Prisma.ProvicialOfficersUncheckedUpdateOneWithoutAccountNestedInput
+  provincial?: Prisma.ProvincialOfficersUncheckedUpdateOneWithoutAccountNestedInput
   factory?: Prisma.FactoriesUncheckedUpdateOneWithoutAccountNestedInput
 }
 
@@ -423,18 +423,18 @@ export type AccountsUpdateOneRequiredWithoutEvaluatorNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.AccountsUpdateToOneWithWhereWithoutEvaluatorInput, Prisma.AccountsUpdateWithoutEvaluatorInput>, Prisma.AccountsUncheckedUpdateWithoutEvaluatorInput>
 }
 
-export type AccountsCreateNestedOneWithoutProvicialInput = {
-  create?: Prisma.XOR<Prisma.AccountsCreateWithoutProvicialInput, Prisma.AccountsUncheckedCreateWithoutProvicialInput>
-  connectOrCreate?: Prisma.AccountsCreateOrConnectWithoutProvicialInput
+export type AccountsCreateNestedOneWithoutProvincialInput = {
+  create?: Prisma.XOR<Prisma.AccountsCreateWithoutProvincialInput, Prisma.AccountsUncheckedCreateWithoutProvincialInput>
+  connectOrCreate?: Prisma.AccountsCreateOrConnectWithoutProvincialInput
   connect?: Prisma.AccountsWhereUniqueInput
 }
 
-export type AccountsUpdateOneRequiredWithoutProvicialNestedInput = {
-  create?: Prisma.XOR<Prisma.AccountsCreateWithoutProvicialInput, Prisma.AccountsUncheckedCreateWithoutProvicialInput>
-  connectOrCreate?: Prisma.AccountsCreateOrConnectWithoutProvicialInput
-  upsert?: Prisma.AccountsUpsertWithoutProvicialInput
+export type AccountsUpdateOneRequiredWithoutProvincialNestedInput = {
+  create?: Prisma.XOR<Prisma.AccountsCreateWithoutProvincialInput, Prisma.AccountsUncheckedCreateWithoutProvincialInput>
+  connectOrCreate?: Prisma.AccountsCreateOrConnectWithoutProvincialInput
+  upsert?: Prisma.AccountsUpsertWithoutProvincialInput
   connect?: Prisma.AccountsWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.AccountsUpdateToOneWithWhereWithoutProvicialInput, Prisma.AccountsUpdateWithoutProvicialInput>, Prisma.AccountsUncheckedUpdateWithoutProvicialInput>
+  update?: Prisma.XOR<Prisma.XOR<Prisma.AccountsUpdateToOneWithWhereWithoutProvincialInput, Prisma.AccountsUpdateWithoutProvincialInput>, Prisma.AccountsUncheckedUpdateWithoutProvincialInput>
 }
 
 export type AccountsCreateNestedOneWithoutFactoryInput = {
@@ -457,7 +457,7 @@ export type AccountsCreateWithoutAdminDoedInput = {
   email: string
   role: $Enums.Roles
   evaluator?: Prisma.EvaluatorsCreateNestedOneWithoutAccountInput
-  provicial?: Prisma.ProvicialOfficersCreateNestedOneWithoutAccountInput
+  provincial?: Prisma.ProvincialOfficersCreateNestedOneWithoutAccountInput
   factory?: Prisma.FactoriesCreateNestedOneWithoutAccountInput
 }
 
@@ -468,7 +468,7 @@ export type AccountsUncheckedCreateWithoutAdminDoedInput = {
   email: string
   role: $Enums.Roles
   evaluator?: Prisma.EvaluatorsUncheckedCreateNestedOneWithoutAccountInput
-  provicial?: Prisma.ProvicialOfficersUncheckedCreateNestedOneWithoutAccountInput
+  provincial?: Prisma.ProvincialOfficersUncheckedCreateNestedOneWithoutAccountInput
   factory?: Prisma.FactoriesUncheckedCreateNestedOneWithoutAccountInput
 }
 
@@ -494,7 +494,7 @@ export type AccountsUpdateWithoutAdminDoedInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumRolesFieldUpdateOperationsInput | $Enums.Roles
   evaluator?: Prisma.EvaluatorsUpdateOneWithoutAccountNestedInput
-  provicial?: Prisma.ProvicialOfficersUpdateOneWithoutAccountNestedInput
+  provincial?: Prisma.ProvincialOfficersUpdateOneWithoutAccountNestedInput
   factory?: Prisma.FactoriesUpdateOneWithoutAccountNestedInput
 }
 
@@ -505,7 +505,7 @@ export type AccountsUncheckedUpdateWithoutAdminDoedInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumRolesFieldUpdateOperationsInput | $Enums.Roles
   evaluator?: Prisma.EvaluatorsUncheckedUpdateOneWithoutAccountNestedInput
-  provicial?: Prisma.ProvicialOfficersUncheckedUpdateOneWithoutAccountNestedInput
+  provincial?: Prisma.ProvincialOfficersUncheckedUpdateOneWithoutAccountNestedInput
   factory?: Prisma.FactoriesUncheckedUpdateOneWithoutAccountNestedInput
 }
 
@@ -515,7 +515,7 @@ export type AccountsCreateWithoutEvaluatorInput = {
   email: string
   role: $Enums.Roles
   adminDoed?: Prisma.AdminsDoedCreateNestedOneWithoutAccountInput
-  provicial?: Prisma.ProvicialOfficersCreateNestedOneWithoutAccountInput
+  provincial?: Prisma.ProvincialOfficersCreateNestedOneWithoutAccountInput
   factory?: Prisma.FactoriesCreateNestedOneWithoutAccountInput
 }
 
@@ -526,7 +526,7 @@ export type AccountsUncheckedCreateWithoutEvaluatorInput = {
   email: string
   role: $Enums.Roles
   adminDoed?: Prisma.AdminsDoedUncheckedCreateNestedOneWithoutAccountInput
-  provicial?: Prisma.ProvicialOfficersUncheckedCreateNestedOneWithoutAccountInput
+  provincial?: Prisma.ProvincialOfficersUncheckedCreateNestedOneWithoutAccountInput
   factory?: Prisma.FactoriesUncheckedCreateNestedOneWithoutAccountInput
 }
 
@@ -552,7 +552,7 @@ export type AccountsUpdateWithoutEvaluatorInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumRolesFieldUpdateOperationsInput | $Enums.Roles
   adminDoed?: Prisma.AdminsDoedUpdateOneWithoutAccountNestedInput
-  provicial?: Prisma.ProvicialOfficersUpdateOneWithoutAccountNestedInput
+  provincial?: Prisma.ProvincialOfficersUpdateOneWithoutAccountNestedInput
   factory?: Prisma.FactoriesUpdateOneWithoutAccountNestedInput
 }
 
@@ -563,11 +563,11 @@ export type AccountsUncheckedUpdateWithoutEvaluatorInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumRolesFieldUpdateOperationsInput | $Enums.Roles
   adminDoed?: Prisma.AdminsDoedUncheckedUpdateOneWithoutAccountNestedInput
-  provicial?: Prisma.ProvicialOfficersUncheckedUpdateOneWithoutAccountNestedInput
+  provincial?: Prisma.ProvincialOfficersUncheckedUpdateOneWithoutAccountNestedInput
   factory?: Prisma.FactoriesUncheckedUpdateOneWithoutAccountNestedInput
 }
 
-export type AccountsCreateWithoutProvicialInput = {
+export type AccountsCreateWithoutProvincialInput = {
   username: string
   password: string
   email: string
@@ -577,7 +577,7 @@ export type AccountsCreateWithoutProvicialInput = {
   factory?: Prisma.FactoriesCreateNestedOneWithoutAccountInput
 }
 
-export type AccountsUncheckedCreateWithoutProvicialInput = {
+export type AccountsUncheckedCreateWithoutProvincialInput = {
   id?: number
   username: string
   password: string
@@ -588,23 +588,23 @@ export type AccountsUncheckedCreateWithoutProvicialInput = {
   factory?: Prisma.FactoriesUncheckedCreateNestedOneWithoutAccountInput
 }
 
-export type AccountsCreateOrConnectWithoutProvicialInput = {
+export type AccountsCreateOrConnectWithoutProvincialInput = {
   where: Prisma.AccountsWhereUniqueInput
-  create: Prisma.XOR<Prisma.AccountsCreateWithoutProvicialInput, Prisma.AccountsUncheckedCreateWithoutProvicialInput>
+  create: Prisma.XOR<Prisma.AccountsCreateWithoutProvincialInput, Prisma.AccountsUncheckedCreateWithoutProvincialInput>
 }
 
-export type AccountsUpsertWithoutProvicialInput = {
-  update: Prisma.XOR<Prisma.AccountsUpdateWithoutProvicialInput, Prisma.AccountsUncheckedUpdateWithoutProvicialInput>
-  create: Prisma.XOR<Prisma.AccountsCreateWithoutProvicialInput, Prisma.AccountsUncheckedCreateWithoutProvicialInput>
+export type AccountsUpsertWithoutProvincialInput = {
+  update: Prisma.XOR<Prisma.AccountsUpdateWithoutProvincialInput, Prisma.AccountsUncheckedUpdateWithoutProvincialInput>
+  create: Prisma.XOR<Prisma.AccountsCreateWithoutProvincialInput, Prisma.AccountsUncheckedCreateWithoutProvincialInput>
   where?: Prisma.AccountsWhereInput
 }
 
-export type AccountsUpdateToOneWithWhereWithoutProvicialInput = {
+export type AccountsUpdateToOneWithWhereWithoutProvincialInput = {
   where?: Prisma.AccountsWhereInput
-  data: Prisma.XOR<Prisma.AccountsUpdateWithoutProvicialInput, Prisma.AccountsUncheckedUpdateWithoutProvicialInput>
+  data: Prisma.XOR<Prisma.AccountsUpdateWithoutProvincialInput, Prisma.AccountsUncheckedUpdateWithoutProvincialInput>
 }
 
-export type AccountsUpdateWithoutProvicialInput = {
+export type AccountsUpdateWithoutProvincialInput = {
   username?: Prisma.StringFieldUpdateOperationsInput | string
   password?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -614,7 +614,7 @@ export type AccountsUpdateWithoutProvicialInput = {
   factory?: Prisma.FactoriesUpdateOneWithoutAccountNestedInput
 }
 
-export type AccountsUncheckedUpdateWithoutProvicialInput = {
+export type AccountsUncheckedUpdateWithoutProvincialInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   username?: Prisma.StringFieldUpdateOperationsInput | string
   password?: Prisma.StringFieldUpdateOperationsInput | string
@@ -632,7 +632,7 @@ export type AccountsCreateWithoutFactoryInput = {
   role: $Enums.Roles
   adminDoed?: Prisma.AdminsDoedCreateNestedOneWithoutAccountInput
   evaluator?: Prisma.EvaluatorsCreateNestedOneWithoutAccountInput
-  provicial?: Prisma.ProvicialOfficersCreateNestedOneWithoutAccountInput
+  provincial?: Prisma.ProvincialOfficersCreateNestedOneWithoutAccountInput
 }
 
 export type AccountsUncheckedCreateWithoutFactoryInput = {
@@ -643,7 +643,7 @@ export type AccountsUncheckedCreateWithoutFactoryInput = {
   role: $Enums.Roles
   adminDoed?: Prisma.AdminsDoedUncheckedCreateNestedOneWithoutAccountInput
   evaluator?: Prisma.EvaluatorsUncheckedCreateNestedOneWithoutAccountInput
-  provicial?: Prisma.ProvicialOfficersUncheckedCreateNestedOneWithoutAccountInput
+  provincial?: Prisma.ProvincialOfficersUncheckedCreateNestedOneWithoutAccountInput
 }
 
 export type AccountsCreateOrConnectWithoutFactoryInput = {
@@ -669,7 +669,7 @@ export type AccountsUpdateWithoutFactoryInput = {
   role?: Prisma.EnumRolesFieldUpdateOperationsInput | $Enums.Roles
   adminDoed?: Prisma.AdminsDoedUpdateOneWithoutAccountNestedInput
   evaluator?: Prisma.EvaluatorsUpdateOneWithoutAccountNestedInput
-  provicial?: Prisma.ProvicialOfficersUpdateOneWithoutAccountNestedInput
+  provincial?: Prisma.ProvincialOfficersUpdateOneWithoutAccountNestedInput
 }
 
 export type AccountsUncheckedUpdateWithoutFactoryInput = {
@@ -680,7 +680,7 @@ export type AccountsUncheckedUpdateWithoutFactoryInput = {
   role?: Prisma.EnumRolesFieldUpdateOperationsInput | $Enums.Roles
   adminDoed?: Prisma.AdminsDoedUncheckedUpdateOneWithoutAccountNestedInput
   evaluator?: Prisma.EvaluatorsUncheckedUpdateOneWithoutAccountNestedInput
-  provicial?: Prisma.ProvicialOfficersUncheckedUpdateOneWithoutAccountNestedInput
+  provincial?: Prisma.ProvincialOfficersUncheckedUpdateOneWithoutAccountNestedInput
 }
 
 
@@ -693,7 +693,7 @@ export type AccountsSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   role?: boolean
   adminDoed?: boolean | Prisma.Accounts$adminDoedArgs<ExtArgs>
   evaluator?: boolean | Prisma.Accounts$evaluatorArgs<ExtArgs>
-  provicial?: boolean | Prisma.Accounts$provicialArgs<ExtArgs>
+  provincial?: boolean | Prisma.Accounts$provincialArgs<ExtArgs>
   factory?: boolean | Prisma.Accounts$factoryArgs<ExtArgs>
 }, ExtArgs["result"]["accounts"]>
 
@@ -725,7 +725,7 @@ export type AccountsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs =
 export type AccountsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   adminDoed?: boolean | Prisma.Accounts$adminDoedArgs<ExtArgs>
   evaluator?: boolean | Prisma.Accounts$evaluatorArgs<ExtArgs>
-  provicial?: boolean | Prisma.Accounts$provicialArgs<ExtArgs>
+  provincial?: boolean | Prisma.Accounts$provincialArgs<ExtArgs>
   factory?: boolean | Prisma.Accounts$factoryArgs<ExtArgs>
 }
 export type AccountsIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -736,7 +736,7 @@ export type $AccountsPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
   objects: {
     adminDoed: Prisma.$AdminsDoedPayload<ExtArgs> | null
     evaluator: Prisma.$EvaluatorsPayload<ExtArgs> | null
-    provicial: Prisma.$ProvicialOfficersPayload<ExtArgs> | null
+    provincial: Prisma.$ProvincialOfficersPayload<ExtArgs> | null
     factory: Prisma.$FactoriesPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
@@ -1141,7 +1141,7 @@ export interface Prisma__AccountsClient<T, Null = never, ExtArgs extends runtime
   readonly [Symbol.toStringTag]: "PrismaPromise"
   adminDoed<T extends Prisma.Accounts$adminDoedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Accounts$adminDoedArgs<ExtArgs>>): Prisma.Prisma__AdminsDoedClient<runtime.Types.Result.GetResult<Prisma.$AdminsDoedPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   evaluator<T extends Prisma.Accounts$evaluatorArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Accounts$evaluatorArgs<ExtArgs>>): Prisma.Prisma__EvaluatorsClient<runtime.Types.Result.GetResult<Prisma.$EvaluatorsPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-  provicial<T extends Prisma.Accounts$provicialArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Accounts$provicialArgs<ExtArgs>>): Prisma.Prisma__ProvicialOfficersClient<runtime.Types.Result.GetResult<Prisma.$ProvicialOfficersPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  provincial<T extends Prisma.Accounts$provincialArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Accounts$provincialArgs<ExtArgs>>): Prisma.Prisma__ProvincialOfficersClient<runtime.Types.Result.GetResult<Prisma.$ProvincialOfficersPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   factory<T extends Prisma.Accounts$factoryArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Accounts$factoryArgs<ExtArgs>>): Prisma.Prisma__FactoriesClient<runtime.Types.Result.GetResult<Prisma.$FactoriesPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -1603,22 +1603,22 @@ export type Accounts$evaluatorArgs<ExtArgs extends runtime.Types.Extensions.Inte
 }
 
 /**
- * Accounts.provicial
+ * Accounts.provincial
  */
-export type Accounts$provicialArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type Accounts$provincialArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the ProvicialOfficers
+   * Select specific fields to fetch from the ProvincialOfficers
    */
-  select?: Prisma.ProvicialOfficersSelect<ExtArgs> | null
+  select?: Prisma.ProvincialOfficersSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the ProvicialOfficers
+   * Omit specific fields from the ProvincialOfficers
    */
-  omit?: Prisma.ProvicialOfficersOmit<ExtArgs> | null
+  omit?: Prisma.ProvincialOfficersOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.ProvicialOfficersInclude<ExtArgs> | null
-  where?: Prisma.ProvicialOfficersWhereInput
+  include?: Prisma.ProvincialOfficersInclude<ExtArgs> | null
+  where?: Prisma.ProvincialOfficersWhereInput
 }
 
 /**

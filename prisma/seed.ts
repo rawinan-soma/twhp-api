@@ -153,8 +153,8 @@ async function seed() {
         password:
           '$2a$12$RC/Pirt5C81LY/xHacGTDO4d7v2RPx18CEypubSjRDPbeP7GeUXBa',
         email: 'province25@mail.com',
-        role: 'Provicial',
-        provicial: {
+        role: 'Provincial',
+        provincial: {
           create: {
             first_name: 'province25',
             last_name: 'province25',

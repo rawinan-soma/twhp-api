@@ -11,7 +11,7 @@
 export type * from './models/Accounts.js'
 export type * from './models/AdminsDoed.js'
 export type * from './models/Evaluators.js'
-export type * from './models/ProvicialOfficers.js'
+export type * from './models/ProvincialOfficers.js'
 export type * from './models/Factories.js'
 export type * from './models/Provinces.js'
 export type * from './models/Districts.js'

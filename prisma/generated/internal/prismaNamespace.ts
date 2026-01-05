@@ -387,7 +387,7 @@ export const ModelName = {
   Accounts: 'Accounts',
   AdminsDoed: 'AdminsDoed',
   Evaluators: 'Evaluators',
-  ProvicialOfficers: 'ProvicialOfficers',
+  ProvincialOfficers: 'ProvincialOfficers',
   Factories: 'Factories',
   Provinces: 'Provinces',
   Districts: 'Districts',
@@ -408,7 +408,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "accounts" | "adminsDoed" | "evaluators" | "provicialOfficers" | "factories" | "provinces" | "districts" | "subdistricts" | "enrolls"
+    modelProps: "accounts" | "adminsDoed" | "evaluators" | "provincialOfficers" | "factories" | "provinces" | "districts" | "subdistricts" | "enrolls"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -634,77 +634,77 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
-    ProvicialOfficers: {
-      payload: Prisma.$ProvicialOfficersPayload<ExtArgs>
-      fields: Prisma.ProvicialOfficersFieldRefs
+    ProvincialOfficers: {
+      payload: Prisma.$ProvincialOfficersPayload<ExtArgs>
+      fields: Prisma.ProvincialOfficersFieldRefs
       operations: {
         findUnique: {
-          args: Prisma.ProvicialOfficersFindUniqueArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvicialOfficersPayload> | null
+          args: Prisma.ProvincialOfficersFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvincialOfficersPayload> | null
         }
         findUniqueOrThrow: {
-          args: Prisma.ProvicialOfficersFindUniqueOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvicialOfficersPayload>
+          args: Prisma.ProvincialOfficersFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvincialOfficersPayload>
         }
         findFirst: {
-          args: Prisma.ProvicialOfficersFindFirstArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvicialOfficersPayload> | null
+          args: Prisma.ProvincialOfficersFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvincialOfficersPayload> | null
         }
         findFirstOrThrow: {
-          args: Prisma.ProvicialOfficersFindFirstOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvicialOfficersPayload>
+          args: Prisma.ProvincialOfficersFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvincialOfficersPayload>
         }
         findMany: {
-          args: Prisma.ProvicialOfficersFindManyArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvicialOfficersPayload>[]
+          args: Prisma.ProvincialOfficersFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvincialOfficersPayload>[]
         }
         create: {
-          args: Prisma.ProvicialOfficersCreateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvicialOfficersPayload>
+          args: Prisma.ProvincialOfficersCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvincialOfficersPayload>
         }
         createMany: {
-          args: Prisma.ProvicialOfficersCreateManyArgs<ExtArgs>
+          args: Prisma.ProvincialOfficersCreateManyArgs<ExtArgs>
           result: BatchPayload
         }
         createManyAndReturn: {
-          args: Prisma.ProvicialOfficersCreateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvicialOfficersPayload>[]
+          args: Prisma.ProvincialOfficersCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvincialOfficersPayload>[]
         }
         delete: {
-          args: Prisma.ProvicialOfficersDeleteArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvicialOfficersPayload>
+          args: Prisma.ProvincialOfficersDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvincialOfficersPayload>
         }
         update: {
-          args: Prisma.ProvicialOfficersUpdateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvicialOfficersPayload>
+          args: Prisma.ProvincialOfficersUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvincialOfficersPayload>
         }
         deleteMany: {
-          args: Prisma.ProvicialOfficersDeleteManyArgs<ExtArgs>
+          args: Prisma.ProvincialOfficersDeleteManyArgs<ExtArgs>
           result: BatchPayload
         }
         updateMany: {
-          args: Prisma.ProvicialOfficersUpdateManyArgs<ExtArgs>
+          args: Prisma.ProvincialOfficersUpdateManyArgs<ExtArgs>
           result: BatchPayload
         }
         updateManyAndReturn: {
-          args: Prisma.ProvicialOfficersUpdateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvicialOfficersPayload>[]
+          args: Prisma.ProvincialOfficersUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvincialOfficersPayload>[]
         }
         upsert: {
-          args: Prisma.ProvicialOfficersUpsertArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvicialOfficersPayload>
+          args: Prisma.ProvincialOfficersUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProvincialOfficersPayload>
         }
         aggregate: {
-          args: Prisma.ProvicialOfficersAggregateArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AggregateProvicialOfficers>
+          args: Prisma.ProvincialOfficersAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateProvincialOfficers>
         }
         groupBy: {
-          args: Prisma.ProvicialOfficersGroupByArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.ProvicialOfficersGroupByOutputType>[]
+          args: Prisma.ProvincialOfficersGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ProvincialOfficersGroupByOutputType>[]
         }
         count: {
-          args: Prisma.ProvicialOfficersCountArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.ProvicialOfficersCountAggregateOutputType> | number
+          args: Prisma.ProvincialOfficersCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ProvincialOfficersCountAggregateOutputType> | number
         }
       }
     }
@@ -1150,7 +1150,7 @@ export const EvaluatorsScalarFieldEnum = {
 export type EvaluatorsScalarFieldEnum = (typeof EvaluatorsScalarFieldEnum)[keyof typeof EvaluatorsScalarFieldEnum]
 
 
-export const ProvicialOfficersScalarFieldEnum = {
+export const ProvincialOfficersScalarFieldEnum = {
   account_id: 'account_id',
   first_name: 'first_name',
   last_name: 'last_name',
@@ -1158,7 +1158,7 @@ export const ProvicialOfficersScalarFieldEnum = {
   province_id: 'province_id'
 } as const
 
-export type ProvicialOfficersScalarFieldEnum = (typeof ProvicialOfficersScalarFieldEnum)[keyof typeof ProvicialOfficersScalarFieldEnum]
+export type ProvincialOfficersScalarFieldEnum = (typeof ProvincialOfficersScalarFieldEnum)[keyof typeof ProvincialOfficersScalarFieldEnum]
 
 
 export const FactoriesScalarFieldEnum = {
@@ -1460,7 +1460,7 @@ export type GlobalOmitConfig = {
   accounts?: Prisma.AccountsOmit
   adminsDoed?: Prisma.AdminsDoedOmit
   evaluators?: Prisma.EvaluatorsOmit
-  provicialOfficers?: Prisma.ProvicialOfficersOmit
+  provincialOfficers?: Prisma.ProvincialOfficersOmit
   factories?: Prisma.FactoriesOmit
   provinces?: Prisma.ProvincesOmit
   districts?: Prisma.DistrictsOmit

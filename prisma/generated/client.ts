@@ -53,10 +53,10 @@ export type AdminsDoed = Prisma.AdminsDoedModel
  */
 export type Evaluators = Prisma.EvaluatorsModel
 /**
- * Model ProvicialOfficers
+ * Model ProvincialOfficers
  * 
  */
-export type ProvicialOfficers = Prisma.ProvicialOfficersModel
+export type ProvincialOfficers = Prisma.ProvincialOfficersModel
 /**
  * Model Factories
  * 

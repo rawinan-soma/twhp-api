@@ -11,7 +11,7 @@
 
 export const Roles = {
   Factory: 'Factory',
-  Provicial: 'Provicial',
+  Provincial: 'Provincial',
   Evaluator: 'Evaluator',
   DOED: 'DOED'
 } as const

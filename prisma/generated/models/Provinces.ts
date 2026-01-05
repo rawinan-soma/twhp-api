@@ -205,7 +205,7 @@ export type ProvincesWhereInput = {
   name_th?: Prisma.StringFilter<"Provinces"> | string
   health_region?: Prisma.IntFilter<"Provinces"> | number
   district?: Prisma.DistrictsListRelationFilter
-  officer?: Prisma.ProvicialOfficersListRelationFilter
+  officer?: Prisma.ProvincialOfficersListRelationFilter
   factory?: Prisma.FactoriesListRelationFilter
 }
 
@@ -214,7 +214,7 @@ export type ProvincesOrderByWithRelationInput = {
   name_th?: Prisma.SortOrder
   health_region?: Prisma.SortOrder
   district?: Prisma.DistrictsOrderByRelationAggregateInput
-  officer?: Prisma.ProvicialOfficersOrderByRelationAggregateInput
+  officer?: Prisma.ProvincialOfficersOrderByRelationAggregateInput
   factory?: Prisma.FactoriesOrderByRelationAggregateInput
 }
 
@@ -226,7 +226,7 @@ export type ProvincesWhereUniqueInput = Prisma.AtLeast<{
   name_th?: Prisma.StringFilter<"Provinces"> | string
   health_region?: Prisma.IntFilter<"Provinces"> | number
   district?: Prisma.DistrictsListRelationFilter
-  officer?: Prisma.ProvicialOfficersListRelationFilter
+  officer?: Prisma.ProvincialOfficersListRelationFilter
   factory?: Prisma.FactoriesListRelationFilter
 }, "province_id" | "province_id">
 
@@ -255,7 +255,7 @@ export type ProvincesCreateInput = {
   name_th: string
   health_region: number
   district?: Prisma.DistrictsCreateNestedManyWithoutProvinceInput
-  officer?: Prisma.ProvicialOfficersCreateNestedManyWithoutProvinceInput
+  officer?: Prisma.ProvincialOfficersCreateNestedManyWithoutProvinceInput
   factory?: Prisma.FactoriesCreateNestedManyWithoutProvinceInput
 }
 
@@ -264,7 +264,7 @@ export type ProvincesUncheckedCreateInput = {
   name_th: string
   health_region: number
   district?: Prisma.DistrictsUncheckedCreateNestedManyWithoutProvinceInput
-  officer?: Prisma.ProvicialOfficersUncheckedCreateNestedManyWithoutProvinceInput
+  officer?: Prisma.ProvincialOfficersUncheckedCreateNestedManyWithoutProvinceInput
   factory?: Prisma.FactoriesUncheckedCreateNestedManyWithoutProvinceInput
 }
 
@@ -273,7 +273,7 @@ export type ProvincesUpdateInput = {
   name_th?: Prisma.StringFieldUpdateOperationsInput | string
   health_region?: Prisma.IntFieldUpdateOperationsInput | number
   district?: Prisma.DistrictsUpdateManyWithoutProvinceNestedInput
-  officer?: Prisma.ProvicialOfficersUpdateManyWithoutProvinceNestedInput
+  officer?: Prisma.ProvincialOfficersUpdateManyWithoutProvinceNestedInput
   factory?: Prisma.FactoriesUpdateManyWithoutProvinceNestedInput
 }
 
@@ -282,7 +282,7 @@ export type ProvincesUncheckedUpdateInput = {
   name_th?: Prisma.StringFieldUpdateOperationsInput | string
   health_region?: Prisma.IntFieldUpdateOperationsInput | number
   district?: Prisma.DistrictsUncheckedUpdateManyWithoutProvinceNestedInput
-  officer?: Prisma.ProvicialOfficersUncheckedUpdateManyWithoutProvinceNestedInput
+  officer?: Prisma.ProvincialOfficersUncheckedUpdateManyWithoutProvinceNestedInput
   factory?: Prisma.FactoriesUncheckedUpdateManyWithoutProvinceNestedInput
 }
 
@@ -432,7 +432,7 @@ export type ProvincesCreateWithoutFactoryInput = {
   name_th: string
   health_region: number
   district?: Prisma.DistrictsCreateNestedManyWithoutProvinceInput
-  officer?: Prisma.ProvicialOfficersCreateNestedManyWithoutProvinceInput
+  officer?: Prisma.ProvincialOfficersCreateNestedManyWithoutProvinceInput
 }
 
 export type ProvincesUncheckedCreateWithoutFactoryInput = {
@@ -440,7 +440,7 @@ export type ProvincesUncheckedCreateWithoutFactoryInput = {
   name_th: string
   health_region: number
   district?: Prisma.DistrictsUncheckedCreateNestedManyWithoutProvinceInput
-  officer?: Prisma.ProvicialOfficersUncheckedCreateNestedManyWithoutProvinceInput
+  officer?: Prisma.ProvincialOfficersUncheckedCreateNestedManyWithoutProvinceInput
 }
 
 export type ProvincesCreateOrConnectWithoutFactoryInput = {
@@ -464,7 +464,7 @@ export type ProvincesUpdateWithoutFactoryInput = {
   name_th?: Prisma.StringFieldUpdateOperationsInput | string
   health_region?: Prisma.IntFieldUpdateOperationsInput | number
   district?: Prisma.DistrictsUpdateManyWithoutProvinceNestedInput
-  officer?: Prisma.ProvicialOfficersUpdateManyWithoutProvinceNestedInput
+  officer?: Prisma.ProvincialOfficersUpdateManyWithoutProvinceNestedInput
 }
 
 export type ProvincesUncheckedUpdateWithoutFactoryInput = {
@@ -472,14 +472,14 @@ export type ProvincesUncheckedUpdateWithoutFactoryInput = {
   name_th?: Prisma.StringFieldUpdateOperationsInput | string
   health_region?: Prisma.IntFieldUpdateOperationsInput | number
   district?: Prisma.DistrictsUncheckedUpdateManyWithoutProvinceNestedInput
-  officer?: Prisma.ProvicialOfficersUncheckedUpdateManyWithoutProvinceNestedInput
+  officer?: Prisma.ProvincialOfficersUncheckedUpdateManyWithoutProvinceNestedInput
 }
 
 export type ProvincesCreateWithoutDistrictInput = {
   province_id: number
   name_th: string
   health_region: number
-  officer?: Prisma.ProvicialOfficersCreateNestedManyWithoutProvinceInput
+  officer?: Prisma.ProvincialOfficersCreateNestedManyWithoutProvinceInput
   factory?: Prisma.FactoriesCreateNestedManyWithoutProvinceInput
 }
 
@@ -487,7 +487,7 @@ export type ProvincesUncheckedCreateWithoutDistrictInput = {
   province_id: number
   name_th: string
   health_region: number
-  officer?: Prisma.ProvicialOfficersUncheckedCreateNestedManyWithoutProvinceInput
+  officer?: Prisma.ProvincialOfficersUncheckedCreateNestedManyWithoutProvinceInput
   factory?: Prisma.FactoriesUncheckedCreateNestedManyWithoutProvinceInput
 }
 
@@ -511,7 +511,7 @@ export type ProvincesUpdateWithoutDistrictInput = {
   province_id?: Prisma.IntFieldUpdateOperationsInput | number
   name_th?: Prisma.StringFieldUpdateOperationsInput | string
   health_region?: Prisma.IntFieldUpdateOperationsInput | number
-  officer?: Prisma.ProvicialOfficersUpdateManyWithoutProvinceNestedInput
+  officer?: Prisma.ProvincialOfficersUpdateManyWithoutProvinceNestedInput
   factory?: Prisma.FactoriesUpdateManyWithoutProvinceNestedInput
 }
 
@@ -519,7 +519,7 @@ export type ProvincesUncheckedUpdateWithoutDistrictInput = {
   province_id?: Prisma.IntFieldUpdateOperationsInput | number
   name_th?: Prisma.StringFieldUpdateOperationsInput | string
   health_region?: Prisma.IntFieldUpdateOperationsInput | number
-  officer?: Prisma.ProvicialOfficersUncheckedUpdateManyWithoutProvinceNestedInput
+  officer?: Prisma.ProvincialOfficersUncheckedUpdateManyWithoutProvinceNestedInput
   factory?: Prisma.FactoriesUncheckedUpdateManyWithoutProvinceNestedInput
 }
 
@@ -561,7 +561,7 @@ export type ProvincesCountOutputTypeCountDistrictArgs<ExtArgs extends runtime.Ty
  * ProvincesCountOutputType without action
  */
 export type ProvincesCountOutputTypeCountOfficerArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.ProvicialOfficersWhereInput
+  where?: Prisma.ProvincialOfficersWhereInput
 }
 
 /**
@@ -614,7 +614,7 @@ export type $ProvincesPayload<ExtArgs extends runtime.Types.Extensions.InternalA
   name: "Provinces"
   objects: {
     district: Prisma.$DistrictsPayload<ExtArgs>[]
-    officer: Prisma.$ProvicialOfficersPayload<ExtArgs>[]
+    officer: Prisma.$ProvincialOfficersPayload<ExtArgs>[]
     factory: Prisma.$FactoriesPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
@@ -1016,7 +1016,7 @@ readonly fields: ProvincesFieldRefs;
 export interface Prisma__ProvincesClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   district<T extends Prisma.Provinces$districtArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Provinces$districtArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DistrictsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  officer<T extends Prisma.Provinces$officerArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Provinces$officerArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProvicialOfficersPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  officer<T extends Prisma.Provinces$officerArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Provinces$officerArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProvincialOfficersPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   factory<T extends Prisma.Provinces$factoryArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Provinces$factoryArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FactoriesPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -1466,23 +1466,23 @@ export type Provinces$districtArgs<ExtArgs extends runtime.Types.Extensions.Inte
  */
 export type Provinces$officerArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the ProvicialOfficers
+   * Select specific fields to fetch from the ProvincialOfficers
    */
-  select?: Prisma.ProvicialOfficersSelect<ExtArgs> | null
+  select?: Prisma.ProvincialOfficersSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the ProvicialOfficers
+   * Omit specific fields from the ProvincialOfficers
    */
-  omit?: Prisma.ProvicialOfficersOmit<ExtArgs> | null
+  omit?: Prisma.ProvincialOfficersOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.ProvicialOfficersInclude<ExtArgs> | null
-  where?: Prisma.ProvicialOfficersWhereInput
-  orderBy?: Prisma.ProvicialOfficersOrderByWithRelationInput | Prisma.ProvicialOfficersOrderByWithRelationInput[]
-  cursor?: Prisma.ProvicialOfficersWhereUniqueInput
+  include?: Prisma.ProvincialOfficersInclude<ExtArgs> | null
+  where?: Prisma.ProvincialOfficersWhereInput
+  orderBy?: Prisma.ProvincialOfficersOrderByWithRelationInput | Prisma.ProvincialOfficersOrderByWithRelationInput[]
+  cursor?: Prisma.ProvincialOfficersWhereUniqueInput
   take?: number
   skip?: number
-  distinct?: Prisma.ProvicialOfficersScalarFieldEnum | Prisma.ProvicialOfficersScalarFieldEnum[]
+  distinct?: Prisma.ProvincialOfficersScalarFieldEnum | Prisma.ProvincialOfficersScalarFieldEnum[]
 }
 
 /**
