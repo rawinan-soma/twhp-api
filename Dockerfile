@@ -14,4 +14,4 @@ RUN bunx prisma generate
 
 RUN bun run build
 
-EXPOSE 3300
+EXPOSE 8888

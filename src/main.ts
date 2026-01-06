@@ -24,8 +24,6 @@ async function bootstrap() {
     }),
   );
 
-  app.enableCors({ credentials: true });
-
   app.setGlobalPrefix(String(config.get('ENDPOINT_PREFIX')));
 
   const documentConfig = new DocumentBuilder()
