@@ -28,7 +28,7 @@ services:
       dockerfile: Dockerfile
     container_name: twhp-api
     ports:
-      - 8888:3300
+      - 8888:8888
     depends_on:
       - database
     networks:

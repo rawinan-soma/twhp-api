@@ -62,7 +62,7 @@ export class AuthenticationService {
           adminDoed: true,
           evaluator: true,
           factory: true,
-          provicial: true,
+          provincial: true,
         },
       });
 
