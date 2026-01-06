@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import fs from 'fs';
 import { PrismaClient } from './generated/client';
 import { parse } from 'csv-parse/sync';
@@ -77,6 +79,28 @@ async function seed() {
     await tx.subdistricts.createMany({ data: subdistricts });
     console.log('Subdistricts seeded');
 
+    const provincialOfficer = JSON.parse(
+      fs.readFileSync('./prisma/seed_data/admin_province.json', 'utf8'),
+    );
+    for (const item of provincialOfficer) {
+      await tx.accounts.create({
+        data: {
+          username: item.username,
+          password: item.password,
+          email: item.email,
+          role: 'Provincial',
+          provincial: {
+            create: {
+              first_name: item.provincial.first_name,
+              last_name: item.provincial.last_name,
+              phone_number: item.provincial.phone_number,
+              province_id: item.provincial.province_id,
+            },
+          },
+        },
+      });
+    }
+
     await tx.accounts.create({
       data: {
         username: 'admin',
@@ -143,49 +167,6 @@ async function seed() {
             phone_number: '12345678',
             level: 'Mental',
             region: 6,
-          },
-        },
-      },
-    });
-    await tx.accounts.create({
-      data: {
-        username: 'province25',
-        password:
-          '$2a$12$RC/Pirt5C81LY/xHacGTDO4d7v2RPx18CEypubSjRDPbeP7GeUXBa',
-        email: 'province25@mail.com',
-        role: 'Provincial',
-        provincial: {
-          create: {
-            first_name: 'province25',
-            last_name: 'province25',
-            phone_number: '12345678',
-            province_id: 25,
-          },
-        },
-      },
-    });
-    await tx.accounts.create({
-      data: {
-        username: 'factory1',
-        password:
-          '$2a$12$RC/Pirt5C81LY/xHacGTDO4d7v2RPx18CEypubSjRDPbeP7GeUXBa',
-        email: 'factory1@mail.com',
-        role: 'Factory',
-        factory: {
-          create: {
-            factory_type: 1,
-            name_th: 'โรงงานลำไย',
-            name_en: 'Factory Lamai',
-            tsic_code: '889900',
-            address_no: '123/456',
-            road: 'ถนนลำไย',
-            soi: 'ซอยลำไย 8',
-            zipcode: '25000',
-            phone_number: '099999999',
-            fax_number: '099999998',
-            province_id: 25,
-            district_id: 2501,
-            subdistrict_id: 250101,
           },
         },
       },
