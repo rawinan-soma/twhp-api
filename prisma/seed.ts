@@ -30,7 +30,7 @@ async function seed() {
       health_region: Number(r.health_region),
     }));
 
-    await tx.provinces.createMany({ data: provinces });
+    await tx.provinces.createMany({ data: provinces, skipDuplicates: true });
     console.log('Provinces seeded');
 
     const districtFile = fs.readFileSync(
@@ -47,7 +47,7 @@ async function seed() {
       province_id: Number(r.province_id),
     }));
 
-    await tx.districts.createMany({ data: districts });
+    await tx.districts.createMany({ data: districts, skipDuplicates: true });
     console.log('Districts seeded');
 
     const subdistrictFile = fs.readFileSync(
@@ -64,24 +64,27 @@ async function seed() {
       district_id: Number(r.district_id),
     }));
 
-    await tx.subdistricts.createMany({ data: subdistricts });
+    await tx.subdistricts.createMany({
+      data: subdistricts,
+      skipDuplicates: true,
+    });
     console.log('Subdistricts seeded');
   });
 
+  const provincialOfficer = JSON.parse(
+    fs.readFileSync('./prisma/seed_data/admin_province.json', 'utf8'),
+  );
+
+  console.log('Hashing passwords...');
+  const hashedProvData = await Promise.all(
+    provincialOfficer.map(async (item) => ({
+      ...item,
+      hashedPassword: await bcrypt.hash(item.password, 12),
+    })),
+  );
+
   await prisma.$transaction(async (tx) => {
-    const provincialOfficer = JSON.parse(
-      fs.readFileSync('./prisma/seed_data/admin_province.json', 'utf8'),
-    );
-
-    console.log('Hashing passwords...');
-    const hashedData = await Promise.all(
-      provincialOfficer.map(async (item) => ({
-        ...item,
-        hashedPassword: await bcrypt.hash(item.password, 12),
-      })),
-    );
-
-    for (const item of hashedData) {
+    for (const item of hashedProvData) {
       try {
         await tx.accounts.create({
           data: {
@@ -108,20 +111,20 @@ async function seed() {
     console.log('Provincial Officers seeded');
   });
 
+  const evaluators = JSON.parse(
+    fs.readFileSync('./prisma/seed_data/eval.json', 'utf8'),
+  );
+
+  console.log('Hashing passwords...');
+  const hashedEvData = await Promise.all(
+    evaluators.map(async (item) => ({
+      ...item,
+      hashedPassword: await bcrypt.hash(item.password, 12),
+    })),
+  );
+
   await prisma.$transaction(async (tx) => {
-    const evaluators = JSON.parse(
-      fs.readFileSync('./prisma/seed_data/eval.json', 'utf8'),
-    );
-
-    console.log('Hashing passwords...');
-    const hashedData = await Promise.all(
-      evaluators.map(async (item) => ({
-        ...item,
-        hashedPassword: await bcrypt.hash(item.password, 12),
-      })),
-    );
-
-    for (const item of hashedData) {
+    for (const item of hashedEvData) {
       try {
         await tx.accounts.create({
           data: {
