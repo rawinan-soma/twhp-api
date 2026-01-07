@@ -1,3 +1,32 @@
+x-api-common: &api-common
+  container_name: twhp-api
+  ports:
+    - 8888:8888
+  depends_on:
+    - database
+  networks:
+    - twhp-internal
+    - twhp-shared
+  env_file:
+    - docker.env
+  volumes:
+    - assets:/app/assets
+    - ./seed_data:/app/prisma/seed_data:ro
+  command: |
+    sh -c "
+      bun prisma generate
+      bun run build
+      bun prisma migrate deploy
+      bun prisma db seed
+      bun run start:prod
+    "
+  healthcheck:
+    test: ["CMD", "curl", "http://localhost:8888/twhp/api/health/api"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+    start_period: 5s
+
 services:
   database:
     image: postgres:17-alpine
@@ -12,8 +41,8 @@ services:
     healthcheck:
       test:
         [
-          'CMD-SHELL',
-          'pg_isready -h ${POSTGRES_HOST:-localhost} -p ${POSTGRES_PORT:-5432} -U ${POSTGRES_USER} -d ${POSTGRES_DB}',
+          "CMD-SHELL",
+          "pg_isready -h ${POSTGRES_HOST:-localhost} -p ${POSTGRES_PORT:-5432} -U ${POSTGRES_USER} -d ${POSTGRES_DB}",
         ]
       interval: 10s
       timeout: 5s
@@ -22,34 +51,18 @@ services:
     networks:
       - twhp-internal
 
-  api:
+  api-dev:
+    <<: *api-common
+    profiles:
+      - "dev"
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: twhp-api
-    ports:
-      - 8888:8888
-    depends_on:
-      - database
-    networks:
-      - twhp-internal
-      - twhp-shared
-    env_file:
-      - docker.env
-    volumes:
-      - assets:/app/assets
-    command: |
-      sh -c "
-        bun prisma migrate deploy
-        bun prisma db seed
-        bun run start:prod
-      "
-    healthcheck:
-      test: ['CMD', 'curl', 'http://localhost:8888/twhp/api/health/api']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
+  api-prod:
+    <<: *api-common
+    profiles:
+      - "production"
+    image: rawinan/auth-client:latest
 
 volumes:
   postgres_data-wnwp:

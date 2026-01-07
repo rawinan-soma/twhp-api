@@ -7,6 +7,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import 'reflect-metadata';
 import * as fs from 'fs';
 import helmet from 'helmet';
+import * as yaml from 'js-yaml';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -36,8 +37,8 @@ async function bootstrap() {
   SwaggerModule.setup('twhp/api/document', app, documentFactory);
 
   fs.writeFileSync(
-    'openapi.json',
-    JSON.stringify(documentFactory, null, 2),
+    'openapi.yaml',
+    yaml.dump(documentFactory, { skipInvalid: true, noRefs: true, indent: 2 }),
     'utf8',
   );
   app.enableCors({

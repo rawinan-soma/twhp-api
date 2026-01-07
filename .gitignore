@@ -60,5 +60,5 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 bun.lock
 
-prisma/seed_data/admin_province.json
-prisma/seed_data/eval.json
+/prisma/seed_data
+/seed_data

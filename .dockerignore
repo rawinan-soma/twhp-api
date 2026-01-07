@@ -1,0 +1,46 @@
+# 1. ความลับ (สำคัญที่สุด!)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# 2. Dependency (ห้ามลืมเด็ดขาด)
+# เราจะให้ Docker ไปสั่ง npm install ข้างในเอง ไม่ควร Copy จากเครื่องเราไป
+node_modules
+npm-debug.log
+
+# 3. ผลลัพธ์จากการ Build และ Temporary files
+dist
+build
+out
+.npm
+.cache
+
+# 4. Git และ Documentation
+.git
+.gitignore
+README.md
+LICENSE
+.github
+.vscode
+
+# 5. OS files และ Logs
+*.log
+.DS_Store
+Thumbs.db
+
+# 6. Prisma / Database (กรณีที่มีไฟล์ DB ในเครื่อง)
+# ถ้าคุณใช้ SQLite ในเครื่อง ให้ ignore ไฟล์ .db ไปด้วย
+*.db
+*.db-journal
+
+# 7. Testing files
+**/*.spec.ts
+**/*.test.ts
+**/*.e2e-spec.ts
+test/
+coverage/
+
+# 8.seed data
+prisma/seed_data

@@ -12,6 +12,10 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient({
   adapter: new PrismaPg({
     connectionString: process.env.DATABASE_URL,
+    transactionOptions: {
+      maxWait: 5000,
+      timeout: 30000,
+    },
   }),
 });
 async function seed() {
@@ -86,10 +90,12 @@ async function seed() {
   await prisma.$transaction(async (tx) => {
     for (const item of hashedProvData) {
       try {
-        await tx.accounts.create({
-          data: {
+        await tx.accounts.upsert({
+          where: { username: item.username },
+          update: { password: item.hashedPassword },
+          create: {
             username: item.username,
-            password: item.password,
+            password: item.hashedPassword,
             email: item.email,
             role: 'Provincial',
             provincial: {
@@ -126,8 +132,10 @@ async function seed() {
   await prisma.$transaction(async (tx) => {
     for (const item of hashedEvData) {
       try {
-        await tx.accounts.create({
-          data: {
+        await tx.accounts.upsert({
+          where: { username: item.username },
+          update: { password: item.hashedPassword },
+          create: {
             username: item.username,
             password: item.password,
             email: item.email,

@@ -10,8 +10,8 @@ RUN bun install
 
 COPY . .
 
-RUN bunx prisma generate
+# RUN bunx prisma generate
 
-RUN bun run build
+# RUN bun run build
 
 EXPOSE 8888
