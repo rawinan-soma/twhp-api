@@ -1,0 +1,77 @@
+x-api-common: &api-common
+  container_name: twhp-api-auth
+  ports:
+    - 8888:8888
+  depends_on:
+    - database
+  networks:
+    - twhp-internal
+    - twhp-shared
+  env_file:
+    - docker.env
+  volumes:
+    - assets:/app/assets
+    - ./seed_data:/app/prisma/seed_data:ro
+  command: |
+    sh -c "
+      bun prisma generate
+      bun run build
+      bun prisma migrate deploy
+      bun prisma db seed
+      bun run start:prod
+    "
+  healthcheck:
+    test: ["CMD", "curl", "http://localhost:8888/twhp/api/health/api"]
+    interval: 10m
+    timeout: 5s
+    retries: 5
+    start_period: 5s
+
+services:
+  database:
+    image: postgres:17-alpine
+    container_name: twhp-db
+    restart: always
+    env_file:
+      - docker.env
+    ports:
+      - 5660:5432
+    volumes:
+      - postgres_data-wnwp:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -h localhost -p 5432 -U $$POSTGRES_USER -d $$POSTGRES_DB",
+        ]
+      interval: 10m
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - twhp-internal
+
+  api-dev:
+    <<: *api-common
+    profiles:
+      - "dev"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - database
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: api-dev
+
+volumes:
+  postgres_data-wnwp:
+  assets:
+
+networks:
+  twhp-shared:
+    external: true
+  twhp-internal:
+    driver: bridge

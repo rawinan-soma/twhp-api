@@ -3,7 +3,7 @@ import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentation
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
 import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
 import { resourceFromAttributes } from '@opentelemetry/resources';
-import { SEMRESATTRS_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
+import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 
 const traceExporter = new OTLPTraceExporter({
   // Default url is http://localhost:4318/v1/traces
@@ -18,7 +18,7 @@ const metricReader = new PrometheusExporter({
 
 const sdk = new NodeSDK({
   resource: resourceFromAttributes({
-    [SEMRESATTRS_SERVICE_NAME]: 'twhp-api-auth',
+    [ATTR_SERVICE_NAME]: 'twhp-api-auth',
   }),
   traceExporter,
   metricReader,

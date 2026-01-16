@@ -16,7 +16,7 @@ import { TerminusModule } from '@nestjs/terminus';
     ConfigModule.forRoot({
       isGlobal: true,
       validationSchema: Joi.object({
-        SERVER_PORT: Joi.number(),
+        API_PORT: Joi.number(),
         SERVER_URL: Joi.string().required(),
         ENDPOINT_PREFIX: Joi.string().required(),
         JWT_SECRET: Joi.string().required(),
