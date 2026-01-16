@@ -1,5 +1,5 @@
 x-api-common: &api-common
-  container_name: twhp-api
+  container_name: twhp-api-auth
   ports:
     - 8888:8888
   depends_on:
@@ -22,7 +22,7 @@ x-api-common: &api-common
     "
   healthcheck:
     test: ["CMD", "curl", "http://localhost:8888/twhp/api/health/api"]
-    interval: 10s
+    interval: 10m
     timeout: 5s
     retries: 5
     start_period: 5s
@@ -44,7 +44,7 @@ services:
           "CMD-SHELL",
           "pg_isready -h localhost -p 5432 -U $$POSTGRES_USER -d $$POSTGRES_DB",
         ]
-      interval: 10s
+      interval: 10m
       timeout: 5s
       retries: 5
       start_period: 5s
@@ -58,15 +58,122 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    depends_on:
+      - database
+      - jaeger
+      - fluent-bit
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: api-dev
+
   api-prod:
     <<: *api-common
     profiles:
       - "production"
     image: rawinan/auth-client:latest
+    depends_on:
+      - database
+      - jaeger
+      - fluent-bit
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: api-prod
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: twhp-jaeger
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    env_file:
+      - docker.env
+    networks:
+      - twhp-internal
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: twhp-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "19090:9090"
+    networks:
+      - twhp-internal
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: twhp-grafana
+    ports:
+      - "3000:3000"
+    env_file:
+      - docker.env
+    depends_on:
+      - prometheus
+      - opensearch
+    networks:
+      - twhp-internal
+
+  opensearch:
+    image: opensearchproject/opensearch:latest
+    container_name: twhp-opensearch
+    env_file:
+      - docker.env
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    networks:
+      - twhp-internal
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:latest
+    container_name: twhp-opensearch-dashboards
+    ports:
+      - "5601:5601"
+    env_file:
+      - docker.env
+    depends_on:
+      - opensearch
+    networks:
+      - twhp-internal
+
+  fluent-bit:
+    image: fluent/fluent-bit:latest
+    container_name: twhp-fluent-bit
+    volumes:
+      - ./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    depends_on:
+      - opensearch
+    networks:
+      - twhp-internal
+
+  gateway:
+    image: nginx:alpine
+    container_name: twhp-gateway
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - grafana
+      - opensearch-dashboards
+      - jaeger
+    networks:
+      - twhp-internal
 
 volumes:
   postgres_data-wnwp:
   assets:
+  opensearch_data:
 
 networks:
   twhp-shared:

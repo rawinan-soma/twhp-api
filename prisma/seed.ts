@@ -12,12 +12,13 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient({
   adapter: new PrismaPg({
     connectionString: process.env.DATABASE_URL,
-    transactionOptions: {
-      maxWait: 5000,
-      timeout: 30000,
-    },
   }),
 });
+
+const transactionOptions = {
+  maxWait: 5000,
+  timeout: 30000,
+};
 async function seed() {
   await prisma.$transaction(async (tx) => {
     const provinceFile = fs.readFileSync(
@@ -73,7 +74,7 @@ async function seed() {
       skipDuplicates: true,
     });
     console.log('Subdistricts seeded');
-  });
+  }, transactionOptions);
 
   const provincialOfficer = JSON.parse(
     fs.readFileSync('./prisma/seed_data/admin_province.json', 'utf8'),
@@ -115,7 +116,7 @@ async function seed() {
     }
 
     console.log('Provincial Officers seeded');
-  });
+  }, transactionOptions);
 
   const evaluators = JSON.parse(
     fs.readFileSync('./prisma/seed_data/eval.json', 'utf8'),
@@ -158,7 +159,7 @@ async function seed() {
     }
 
     console.log('Evaluator seeded');
-  });
+  }, transactionOptions);
 }
 
 seed()
