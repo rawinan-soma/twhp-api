@@ -87,7 +87,6 @@ services:
     image: jaegertracing/all-in-one:latest
     container_name: twhp-jaeger
     ports:
-      - "16686:16686"
       - "4317:4317"
       - "4318:4318"
     env_file:
@@ -100,16 +99,12 @@ services:
     container_name: twhp-prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - "19090:9090"
     networks:
       - twhp-internal
 
   grafana:
     image: grafana/grafana:latest
     container_name: twhp-grafana
-    ports:
-      - "3000:3000"
     env_file:
       - docker.env
     depends_on:
@@ -123,9 +118,6 @@ services:
     container_name: twhp-opensearch
     env_file:
       - docker.env
-    ports:
-      - "9200:9200"
-      - "9600:9600"
     volumes:
       - opensearch_data:/usr/share/opensearch/data
     networks:
@@ -134,8 +126,6 @@ services:
   opensearch-dashboards:
     image: opensearchproject/opensearch-dashboards:latest
     container_name: twhp-opensearch-dashboards
-    ports:
-      - "5601:5601"
     env_file:
       - docker.env
     depends_on:
