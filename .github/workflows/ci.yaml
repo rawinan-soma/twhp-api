@@ -1,0 +1,72 @@
+name: ci
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  ci-process:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Create docker.env
+        run: |
+          echo "POSTGRES_USER=test_user" >> docker.env
+          echo "POSTGRES_PASSWORD=test_password" >> docker.env
+          echo "POSTGRES_DB=test_db" >> docker.env
+          echo "DATABASE_URL=postgresql://test_user:test_password@database:5432/test_db?schema=public" >> docker.env
+          echo "SERVER_PORT=8888" >> docker.env
+          echo "SERVER_URL=http://localhost:8888" >> docker.env
+          echo "ENDPOINT_PREFIX=/twhp/api" >> docker.env
+          echo "JWT_SECRET=super_secret_jwt_key_for_testing" >> docker.env
+          echo "TOKEN_EXP=1d" >> docker.env
+          echo "COOKIE_SECURE=false" >> docker.env
+
+      - name: Start-database
+        run: docker compose -f docker-compose.test.yaml up -d database
+
+      - name: Unit test
+        run: bun run test
+
+      - name: Start-API
+        run: docker compose -f docker-compose.test.yaml up -d api-dev
+
+      - name: Health Check
+        run: |
+          echo "Waiting for services to be ready..."
+          sleep 15 # ให้เวลา DB และ App เริ่มทำงาน
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8888/twhp/api/health/api || echo "failed")
+          if [ "$STATUS" == "200" ]; then
+            echo "Integration Test Passed!"
+          else
+            echo "Integration Test Failed with status $STATUS"
+            docker compose -f docker-compose.test.yaml logs # ดู Log เมื่อเกิดปัญหา
+            exit 1
+          fi
+
+      - name: Stop Services
+        run: docker compose -f docker-compose.test.yaml down api-dev
+      
+      - name: Stop-database
+        run: docker compose -f docker-compose.test.yaml down database
+      
+      - name: Login DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{secrets.DOCKERHUB_USERNAME}}/auth-client-api:latest
+            ${{secrets.DOCKERHUB_USERNAME}}/auth-client-api:${{ github.sha }}
+

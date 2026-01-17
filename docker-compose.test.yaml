@@ -60,11 +60,6 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - database
-    logging:
-      driver: fluentd
-      options:
-        fluentd-address: localhost:24224
-        tag: api-dev
 
 volumes:
   postgres_data-wnwp:
