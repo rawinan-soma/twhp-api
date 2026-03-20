@@ -3,13 +3,31 @@
   "version": "1.0.50",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts"
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "worker": "bun src/workers.ts",
+    "db:push": "bunx drizzle-kit push",
+    "db:seed": "bun src/drizzle/seed.ts"
   },
   "dependencies": {
-    "elysia": "latest"
+    "@elysiajs/jwt": "^1.4.1",
+    "@elysiajs/openapi": "^1.4.14",
+    "bcrypt": "^6.0.0",
+    "bullmq": "^5.71.0",
+    "csv-parse": "^6.2.0",
+    "drizzle-orm": "^0.45.1",
+    "drizzle-typebox": "^0.3.3",
+    "elysia": "latest",
+    "jose": "^6.2.2",
+    "nodemailer": "^8.0.3",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
-    "bun-types": "latest"
+    "@types/bcrypt": "^6.0.0",
+    "@types/nodemailer": "^7.0.11",
+    "@types/pg": "^8.18.0",
+    "bun-types": "latest",
+    "drizzle-kit": "^0.31.10"
   },
   "module": "src/index.js"
 }

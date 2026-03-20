@@ -1,0 +1,67 @@
+services:
+  # Development Service with Hot-Reload
+  api-dev:
+    build:
+      context: .
+      target: build
+    container_name: twhp-api-dev
+    env_file:
+      - docker.env
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    ports:
+      - "3300:3000"
+    # Runs migrations, seeds, and then watch mode
+    command: sh -c "bun run db:push && bun run db:seed && bun run dev"
+
+  # API Service (Production)
+  api:
+    build:
+      context: .
+      target: release
+    container_name: twhp-api-prod
+    restart: always
+    env_file:
+      - docker.env
+    ports:
+      - "3300:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "./server",
+          "-e",
+          "fetch('http://localhost:3000/twhp/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Run migrations and seeding before starting the server
+    command: sh -c "bun run db:push && bun run db:seed && ./server"
+
+  # Worker Service
+  worker:
+    build:
+      context: .
+      target: release
+    container_name: twhp-worker-prod
+    restart: always
+    env_file:
+      - docker.env
+    # Wait for API (and thus migrations) to be ready
+    depends_on:
+      api:
+        condition: service_healthy
+    command: ./worker-bin
+
+  # Migration Service (manual run if needed)
+  migration:
+    build:
+      context: .
+      target: release
+    env_file:
+      - docker.env
+    profiles: ["tools"]
+    command: bun run db:push
