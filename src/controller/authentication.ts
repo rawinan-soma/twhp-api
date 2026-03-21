@@ -1,5 +1,5 @@
 import Elysia, { t } from "elysia";
-import { authenticationUsecase, Role } from "../usecase/authentication";
+import { authenticationService, Role } from "../service/authentication";
 import { jwtPlugin } from "../middleware/jwt";
 
 const publicAuthenticationController = new Elysia()
@@ -7,19 +7,16 @@ const publicAuthenticationController = new Elysia()
     "/login",
     async ({ body, cookie: { Authentication, Refresh }, set }) => {
       const { username, password } = body;
-      const account = await authenticationUsecase.getAutheticatedAccount(
-        username,
-        password,
-      );
+      const account = await authenticationService.getAutheticatedAccount(username, password);
 
-      const accessToken = await authenticationUsecase.helper.issueToken(
+      const accessToken = await authenticationService.helper.issueToken(
         account.id,
         account.username,
         account.role as Role,
         "Authentication",
       );
 
-      const refreshToken = await authenticationUsecase.helper.issueToken(
+      const refreshToken = await authenticationService.helper.issueToken(
         account.id,
         account.username,
         account.role as Role,
@@ -28,19 +25,16 @@ const publicAuthenticationController = new Elysia()
 
       const hashedRefreshToken = Bun.SHA256.hash(refreshToken, "hex");
 
-      await authenticationUsecase.helper.setRefreshToken(
-        hashedRefreshToken,
-        account.id,
-      );
+      await authenticationService.helper.setRefreshToken(hashedRefreshToken, account.id);
 
       Authentication.set({
         value: accessToken,
-        ...authenticationUsecase.helper.getCookieOption("Authentication"),
+        ...authenticationService.helper.getCookieOption("Authentication"),
       });
 
       Refresh.set({
         value: refreshToken,
-        ...authenticationUsecase.helper.getCookieOption("Refresh"),
+        ...authenticationService.helper.getCookieOption("Refresh"),
       });
 
       set.status = 200;
@@ -72,7 +66,7 @@ const publicAuthenticationController = new Elysia()
   .post(
     "/reset-password-request",
     async ({ body: { email }, set }) => {
-      await authenticationUsecase.sendPasswordResetEmail(email);
+      await authenticationService.sendPasswordResetEmail(email);
       set.status = 200;
       return { message: "sending password reset email" };
     },
@@ -86,7 +80,7 @@ const publicAuthenticationController = new Elysia()
   .post(
     "/reset-password",
     async ({ body: { password, token }, set }) => {
-      await authenticationUsecase.updatePassword(password, token);
+      await authenticationService.updatePassword(password, token);
       set.status = 200;
       return { message: "password change!!" };
     },
@@ -111,17 +105,15 @@ export const authenticationController = new Elysia({
         async ({ cookie: { Authentication, Refresh }, jwtPayload, set }) => {
           Authentication.set({
             value: "",
-            ...authenticationUsecase.helper.getCookieOption("logout"),
+            ...authenticationService.helper.getCookieOption("logout"),
           });
 
           Refresh.set({
             value: "",
-            ...authenticationUsecase.helper.getCookieOption("logout"),
+            ...authenticationService.helper.getCookieOption("logout"),
           });
 
-          await authenticationUsecase.helper.removeRefreshToken(
-            Number(jwtPayload.sub),
-          );
+          await authenticationService.helper.removeRefreshToken(Number(jwtPayload.sub));
 
           set.status = 200;
           return { message: "logout successful" };
@@ -135,7 +127,7 @@ export const authenticationController = new Elysia({
       .get(
         "/",
         async ({ jwtPayload }) => {
-          return await authenticationUsecase.helper.getAccountById(
+          return await authenticationService.helper.getAccountById(
             Number(jwtPayload.sub),
           );
         },
@@ -144,7 +136,7 @@ export const authenticationController = new Elysia({
             id: t.Number(),
             username: t.String(),
             role: t.String(),
-            change_pw: t.Optional(t.Boolean()),
+            change_pw: t.Boolean(),
           }),
         },
       ),

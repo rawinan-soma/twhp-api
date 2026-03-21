@@ -2,6 +2,7 @@ import {
   BaseDistrictSelect,
   BaseEnrollInsert,
   BaseEnrollSelect,
+  BaseEnrollUpdate,
   BaseProvinceSelect,
   BaseSubdistrictSelect,
 } from ".";
@@ -29,6 +30,9 @@ export const EnrollResponseWithLocation = t.Composite([
     subdistrictNameTh: t.Nullable(t.String()),
   }),
 ]);
+
+export const UpdateEnrollSchema = t.Omit(BaseEnrollUpdate, ["id"]);
+export type UpdateEnrollDto = Static<typeof UpdateEnrollSchema>;
 
 // export const createEnrollSchema = z.object({
 //   employee_th_m: z.number(),

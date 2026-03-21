@@ -1,5 +1,5 @@
 import Elysia, { t } from "elysia";
-import { locationUsecase } from "../usecase/location";
+import { locationService } from "../service/location";
 
 export const locationController = new Elysia({
   prefix: "/location",
@@ -8,7 +8,7 @@ export const locationController = new Elysia({
   .get(
     "/provinces",
     async () => {
-      return await locationUsecase.getAllProvinces();
+      return await locationService.getAllProvinces();
     },
     {
       response: t.Array(
@@ -22,9 +22,7 @@ export const locationController = new Elysia({
   .get(
     "/provinces/:provinceId/districts",
     async ({ params }) => {
-      return await locationUsecase.getAllDistrictByProvinceId(
-        params.provinceId,
-      );
+      return await locationService.getAllDistrictByProvinceId(params.provinceId);
     },
     {
       params: t.Object({ provinceId: t.Numeric() }),
@@ -39,7 +37,7 @@ export const locationController = new Elysia({
   .get(
     "/districts/:districtId/subdistricts",
     async ({ params: { districtId } }) => {
-      return await locationUsecase.getAllSubdistrictByDistrictId(districtId);
+      return await locationService.getAllSubdistrictByDistrictId(districtId);
     },
     {
       params: t.Object({ districtId: t.Numeric() }),

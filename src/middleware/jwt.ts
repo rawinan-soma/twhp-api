@@ -1,8 +1,9 @@
 import { Elysia } from "elysia";
 import { jwt } from "@elysiajs/jwt";
 import { env } from "../config";
-import { authenticationUsecase } from "../usecase/authentication";
+
 import { t, Static } from "elysia";
+import { authenticationService } from "../service/authentication";
 
 const jwtPayloadDto = t.Object({
   sub: t.String(),
@@ -45,7 +46,7 @@ export const jwtPlugin = new Elysia({ name: "jwt-middleware" })
       if (refreshToken) {
         try {
           const { newAccessToken, newRefreshToken } =
-            await authenticationUsecase.rotateToken(refreshToken as string);
+            await authenticationService.rotateToken(refreshToken as string);
 
           if (!newAccessToken || !newRefreshToken) {
             set.status = 401;
@@ -53,9 +54,9 @@ export const jwtPlugin = new Elysia({ name: "jwt-middleware" })
           }
 
           const accessOpts =
-            authenticationUsecase.helper.getCookieOption("Authentication");
+            authenticationService.helper.getCookieOption("Authentication");
           const refreshOpts =
-            authenticationUsecase.helper.getCookieOption("Refresh");
+            authenticationService.helper.getCookieOption("Refresh");
 
           Authentication.set({ value: newAccessToken, ...accessOpts });
           Refresh.set({ value: newRefreshToken, ...refreshOpts });
@@ -66,7 +67,7 @@ export const jwtPlugin = new Elysia({ name: "jwt-middleware" })
           }
         } catch {
           const logoutOpts =
-            authenticationUsecase.helper.getCookieOption("logout");
+            authenticationService.helper.getCookieOption("logout");
           Authentication.set({ value: "", ...logoutOpts });
           Refresh.set({ value: "", ...logoutOpts });
 

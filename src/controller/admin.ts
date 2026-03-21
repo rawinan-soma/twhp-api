@@ -1,13 +1,12 @@
 import Elysia, { t } from "elysia";
 import { jwtPlugin } from "../middleware/jwt";
 import { requireRoles } from "../middleware/rbac";
-import { Role } from "../usecase/authentication";
+import { Role } from "../service/authentication";
 import { UpdateAdminSchema } from "../schema/admin";
-import { adminUsecase } from "../usecase/admin";
+import { adminService } from "../service/admin";
 import { UpdateFactorySchema } from "../schema/factory";
-import { factoryUsecase } from "../usecase/factory";
-import { enrollUsecase } from "../usecase/enroll";
 import { BaseEnrollSelect } from "../schema";
+import { sharedService } from "../service/shared";
 
 export const adminController = new Elysia({
   prefix: "/admins",
@@ -22,7 +21,7 @@ export const adminController = new Elysia({
         "",
         async ({ body, jwtPayload }) => {
           const id = Number(jwtPayload.sub);
-          return await adminUsecase.editAdminData(id, body);
+          return await adminService.editAdminData(id, body);
         },
         {
           body: UpdateAdminSchema,
@@ -39,7 +38,7 @@ export const adminController = new Elysia({
       .patch(
         "/:id",
         async ({ params, body }) => {
-          return await factoryUsecase.update(params.id, body);
+          return await sharedService.factory.update(params.id, body);
         },
         {
           params: t.Object({ id: t.Number() }),
@@ -52,7 +51,7 @@ export const adminController = new Elysia({
       .patch(
         "/validate/:id",
         async ({ params }) => {
-          return await factoryUsecase.approveFactoryRegister(params.id);
+          return await adminService.approveFactoryRegister(params.id);
         },
         {
           params: t.Object({ id: t.Number() }),
@@ -64,7 +63,7 @@ export const adminController = new Elysia({
       .delete(
         "/:id",
         async ({ params, set }) => {
-          const result = await factoryUsecase.deleteFactory(params.id);
+          const result = await adminService.deleteFactory(params.id);
           set.status = 200;
           return result;
         },
@@ -78,7 +77,7 @@ export const adminController = new Elysia({
       .get(
         "",
         async ({ query }) => {
-          return await factoryUsecase.getAllFactories(query);
+          return await sharedService.factory.getAllFactories(query);
         },
         {
           query: t.Object({
@@ -89,9 +88,9 @@ export const adminController = new Elysia({
           }),
           response: t.Array(
             t.Object({
-              province_name_th: t.Optional(t.String()),
-              district_name_th: t.Optional(t.String()),
-              subdistrict_name_th: t.Optional(t.String()),
+              province_name_th: t.Nullable(t.String()),
+              district_name_th: t.Nullable(t.String()),
+              subdistrict_name_th: t.Nullable(t.String()),
               account_id: t.Number(),
               factory_type: t.Number(),
               name_th: t.String(),
@@ -111,7 +110,7 @@ export const adminController = new Elysia({
       .get(
         "/:id",
         async ({ params }) => {
-          return await factoryUsecase.getFactoryById(params.id);
+          return await sharedService.factory.getFactoryById(params.id);
         },
         {
           params: t.Object({ id: t.Number() }),
@@ -131,10 +130,10 @@ export const adminController = new Elysia({
             district_id: t.Number(),
             subdistrict_id: t.Number(),
             is_validate: t.Boolean(),
-            username: t.Optional(t.String()),
-            province_name_th: t.Optional(t.String()),
-            district_name_th: t.Optional(t.String()),
-            subdistrict_name_th: t.Optional(t.String()),
+            username: t.String(),
+            province_name_th: t.String(),
+            district_name_th: t.String(),
+            subdistrict_name_th: t.String(),
           }),
         },
       ),
@@ -146,16 +145,16 @@ export const adminController = new Elysia({
       .get(
         "",
         async () => {
-          return await enrollUsecase.getAllEnrolls();
+          return await sharedService.enroll.getAllEnrolls();
         },
         {
           response: t.Array(
             t.Composite([
               BaseEnrollSelect,
               t.Object({
-                factory_name_th: t.Nullable(t.String()),
-                region: t.Nullable(t.Number()),
-                provinceId: t.Nullable(t.Number()),
+                factory_name_th: t.String(),
+                region: t.Number(),
+                provinceId: t.Number(),
               }),
             ]),
           ),
@@ -164,16 +163,16 @@ export const adminController = new Elysia({
       .get(
         "/:id",
         async ({ params }) => {
-          return await enrollUsecase.getEnrollById(params.id);
+          return await sharedService.enroll.getEnrollById(params.id);
         },
         {
           params: t.Object({ id: t.Number() }),
           response: t.Composite([
             BaseEnrollSelect,
             t.Object({
-              province_name_th: t.Optional(t.String()),
-              district_name_th: t.Optional(t.String()),
-              subdistrict_name_th: t.Optional(t.String()),
+              province_name_th: t.Nullable(t.String()),
+              district_name_th: t.Nullable(t.String()),
+              subdistrict_name_th: t.Nullable(t.String()),
             }),
           ]),
         },

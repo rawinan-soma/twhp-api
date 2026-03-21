@@ -1,16 +1,17 @@
 import Elysia, { t } from "elysia";
 import { CreateFactorySchema, UpdateFactorySchema } from "../schema/factory";
-import { factoryUsecase } from "../usecase/factory";
+import { factoryService } from "../service/factory";
 import { jwtPlugin } from "../middleware/jwt";
 import { requireRoles } from "../middleware/rbac";
-import { Role } from "../usecase/authentication";
-import { enrollUsecase } from "../usecase/enroll";
-import { CreateEnrollSchema } from "../schema/enroll";
+import { Role } from "../service/authentication";
+import { CreateEnrollSchema, UpdateEnrollSchema } from "../schema/enroll";
+import { BaseEnrollSelect, BaseEnrollUpdate } from "../schema";
+import { sharedService } from "../service/shared";
 
 const registerFactoryController = new Elysia().post(
   "/register",
   async ({ body }) => {
-    return await factoryUsecase.register(body);
+    return await factoryService.register(body);
   },
   {
     body: CreateFactorySchema,
@@ -33,7 +34,7 @@ export const factoryController = new Elysia({
         "",
         async ({ jwtPayload, body }) => {
           const id = Number(jwtPayload.sub);
-          return await factoryUsecase.update(id, body);
+          return await sharedService.factory.update(id, body);
         },
         {
           body: UpdateFactorySchema,
@@ -41,12 +42,17 @@ export const factoryController = new Elysia({
             message: t.String({ default: "factory updated successfully" }),
           }),
         },
-      )
+      ),
+  )
+  .group("/enrolls", (fc) =>
+    fc
+      .use(jwtPlugin)
+      .use(requireRoles(Role.Factory))
       .post(
-        "/enrolls",
+        "",
         async ({ body, jwtPayload }) => {
           const id = Number(jwtPayload.sub);
-          return await enrollUsecase.create(body, id);
+          return await sharedService.enroll.create(body, id);
         },
         {
           body: CreateEnrollSchema,
@@ -55,8 +61,21 @@ export const factoryController = new Elysia({
           }),
         },
       )
-      .post("enrolls/:id", async ({ jwtPayload }) => {
-        const id = Number(jwtPayload.sub);
-        return await enrollUsecase.getEnrollByFactoryId(id);
-      }),
+      .get(
+        "",
+        async ({ jwtPayload }) => {
+          const id = Number(jwtPayload.sub);
+          return await sharedService.enroll.getEnrollByFactoryId(id);
+        },
+        {
+          response: t.Nullable(BaseEnrollSelect),
+        },
+      )
+      .patch(
+        "",
+        async ({ jwtPayload, body }) => {
+          const id = Number(jwtPayload.sub);
+        },
+        { body: UpdateEnrollSchema },
+      ),
   );

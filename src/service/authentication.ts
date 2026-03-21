@@ -1,13 +1,13 @@
-import { accountRepository } from "../repository/account";
 import * as bcrypt from "bcrypt";
-import { factoryRepository } from "../repository/factory";
-
 import { env } from "../config";
 import { SignJWT } from "jose";
 import { randomBytes } from "crypto";
 import { redisConnector } from "../utils";
 import { emailQueue } from "../queue/email";
 import { status } from "elysia";
+import { db } from "../drizzle";
+import { accounts, adminsDoed, evaluators, factories, provincialOfficers } from "../drizzle/schema";
+import { eq, sql } from "drizzle-orm";
 
 export enum Role {
   Factory = "Factory",
@@ -16,19 +16,14 @@ export enum Role {
   DOED = "DOED",
 }
 
-const createAuthentocationHelper = (account: typeof accountRepository) => ({
+const createAuthentocationService = (database: typeof db) => ({
   setRefreshToken: async (refreshToken: string, accountId: number) => {
-    await account.updateRefreshToken(refreshToken, accountId);
+    await database.update(accounts).set({ hashedRefreshToken: refreshToken }).where(eq(accounts.id, accountId));
   },
   removeRefreshToken: async (id: number) => {
-    await account.updateRefreshToken("", id);
+    await database.update(accounts).set({ hashedRefreshToken: "" }).where(eq(accounts.id, id));
   },
-  issueToken: async (
-    id: number,
-    username: string,
-    role: Role,
-    tokenType: "Authentication" | "Refresh",
-  ) => {
+  issueToken: async (id: number, username: string, role: Role, tokenType: "Authentication" | "Refresh") => {
     let token: string = "";
     if (tokenType === "Authentication") {
       const payload: {
@@ -98,7 +93,11 @@ const createAuthentocationHelper = (account: typeof accountRepository) => ({
 
   getUserFromRefreshToken: async (refreshToken: string) => {
     const hashedRefreshToken = Bun.SHA256.hash(refreshToken, "hex");
-    const currentUser = await account.findIdByRefreshToken(hashedRefreshToken!);
+    const currentUser = await database
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(eq(accounts.hashedRefreshToken, hashedRefreshToken))
+      .then((res) => res[0]);
 
     if (!currentUser) {
       throw status(401, { message: "invalid refresh token" });
@@ -107,46 +106,65 @@ const createAuthentocationHelper = (account: typeof accountRepository) => ({
     return currentUser.id;
   },
   getAccountById: async (accountId: number) => {
-    const selectedAccount = await account.findOneById(accountId);
+    const selectedAccount = await database
+      .select({
+        id: accounts.id,
+        username: accounts.username,
+        role: accounts.role,
+        change_pw:
+          sql<boolean>`COALESCE(${evaluators.isChangePassword}, ${provincialOfficers.isChangePassword}, false)`.as(
+            "change_pw",
+          ),
+      })
+      .from(accounts)
+      .leftJoin(adminsDoed, eq(accounts.id, adminsDoed.accountId))
+      .leftJoin(evaluators, eq(accounts.id, evaluators.accountId))
+      .leftJoin(factories, eq(accounts.id, factories.accountId))
+      .leftJoin(provincialOfficers, eq(accounts.id, provincialOfficers.accountId))
+      .where(eq(accounts.id, accountId))
+      .then((res) => res[0]);
 
     if (!selectedAccount) {
       throw status(404, { message: "invalid credential" });
     }
 
-    return {
-      id: selectedAccount.account.id,
-      username: selectedAccount.account.username,
-      role: selectedAccount.account.role,
-      change_pw:
-        selectedAccount.evaluator?.isChangePassword ||
-        selectedAccount.provincialOfficer?.isChangePassword,
-    };
+    return selectedAccount;
   },
 });
 
-export const createAuthenticationUsecase = (
-  account: typeof accountRepository,
-) => {
-  const helper = createAuthentocationHelper(account);
+export const createAuthenticationUsecase = (database: typeof db) => {
+  const helper = createAuthentocationService(database);
   return {
     helper,
     getAutheticatedAccount: async (username: string, password: string) => {
-      const user = await account.findOneByUsername(username);
+      const user = await database
+        .select({
+          username: accounts.username,
+          role: accounts.role,
+          id: accounts.id,
+          isValidate: factories.isValidate,
+          password: accounts.password,
+        })
+        .from(accounts)
+        .leftJoin(factories, eq(accounts.id, factories.accountId))
+        .where(eq(accounts.username, username))
+        .limit(1)
+        .then((res) => res[0]);
 
-      if (!user || !(await bcrypt.compare(password, user.Accounts.password))) {
+      if (!user || !(await bcrypt.compare(password, user.password))) {
         throw status(401, {
           message: "invalid username or password",
         });
       }
 
-      if (user.Accounts.role === "Factory" && !user.Factories?.isValidate) {
+      if (user.role === "Factory" && !user.isValidate) {
         throw status(401, { message: "factory not validate" });
       }
 
       return {
-        username: user.Accounts.username,
-        role: user.Accounts.role,
-        id: user.Accounts.id,
+        username: user.username,
+        role: user.role,
+        id: user.id,
       };
     },
 
@@ -177,12 +195,7 @@ export const createAuthenticationUsecase = (
 
     sendPasswordResetEmail: async (email: string) => {
       const token = randomBytes(32).toString("hex");
-      await redisConnector.set(
-        `reset_password_token:${token}`,
-        email,
-        "EX",
-        300,
-      );
+      await redisConnector.set(`reset_password_token:${token}`, email, "EX", 300);
 
       await emailQueue.add(
         "password-reset-token",
@@ -200,18 +213,23 @@ export const createAuthenticationUsecase = (
         throw status(400, { message: "invalid token" });
       }
 
-      const user = await account.findOneByEmail(email);
+      const user = await database
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(eq(accounts.email, email))
+        .limit(1)
+        .then((res) => res[0]);
+
       if (!user) {
         throw status(400, { message: "invalid token" });
       }
 
       const hashedPassword = await bcrypt.hash(password, 12);
-      await account.updatePassword(email, hashedPassword);
+      await database.update(accounts).set({ password: hashedPassword }).where(eq(accounts.email, email));
 
       await redisConnector.del(`reset_password_token:${token}`);
     },
   };
 };
 
-export const authenticationUsecase =
-  createAuthenticationUsecase(accountRepository);
+export const authenticationService = createAuthenticationUsecase(db);
