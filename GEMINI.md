@@ -1,82 +1,71 @@
 # Project Context: twhp-elysia
 
 ## Project Overview
-This project is the backend API for a Thailand Workplace Health Promotion (TWHP) application. It is built using **ElysiaJS** running on the **Bun** runtime, with **Drizzle ORM** for PostgreSQL database interactions and **BullMQ** for background task processing.
+This project is the backend API for the Thailand Workplace Health Promotion (TWHP) application. It provides a robust, type-safe RESTful API to manage factory registrations, evaluations, and health promotion enrollments.
 
-### Architecture
-The project follows a layered architecture to separate concerns:
-- **Controllers (`src/controller/`):** Define API endpoints using Elysia, handle validation with TypeBox, and call UseCases.
-- **UseCases (`src/usecase/`):** Implement core business logic and orchestrate data flow between Repositories and external services (e.g., workers).
-- **Repositories (`src/repository/`):** Direct database interactions using Drizzle ORM.
-- **Schema (`src/schema/`):** TypeBox schemas for request/response validation.
-- **Drizzle Schema (`src/drizzle/schema.ts`):** Database table definitions.
-- **Workers (`src/worker/`):** Background task logic (e.g., email sending).
+The application is built using **ElysiaJS** on the **Bun** runtime, leveraging **Drizzle ORM** for PostgreSQL and **MinIO** for object storage.
 
 ### Key Technologies
-- **Runtime:** Bun
-- **Framework:** ElysiaJS
-- **ORM:** Drizzle (PostgreSQL)
-- **Validation:** TypeBox (integrated with Elysia)
-- **Background Jobs:** BullMQ (Redis)
-- **Containerization:** Docker (Multi-stage builds, standalone binaries)
+- **Runtime:** [Bun](https://bun.sh/)
+- **Framework:** [ElysiaJS](https://elysiajs.com/)
+- **ORM:** [Drizzle ORM](https://orm.drizzle.team/) (PostgreSQL)
+- **Object Storage:** [MinIO](https://min.io/) (S3-compatible)
+- **Validation:** [TypeBox](https://github.com/sinclairzx81/typebox) (integrated with Elysia)
+- **Background Jobs:** [BullMQ](https://docs.bullmq.io/) (Redis-backed)
+- **Authentication:** JWT-based with role-based access control (RBAC)
+
+---
+
+## Architecture
+The project follows a layered architecture to maintain clear separation of concerns:
+
+- **Controllers (`src/controller/`):** Define API endpoints, handle HTTP routing, and enforce request/response validation using TypeBox schemas.
+- **Services (`src/service/`):** Contain core business logic, orchestrate data flow between repositories, and handle external integrations (MinIO, BullMQ).
+- **Drizzle Schema (`src/drizzle/schema.ts`):** Defines the PostgreSQL table structures and relationships.
+- **Schemas (`src/schema/`):** Centralized TypeBox schema definitions for reusable request bodies and response types.
+- **Utilities (`src/utils.ts`):** Shared helper functions for fiscal year calculation, Redis connectivity, and file management.
 
 ---
 
 ## Building and Running
-
-### Prerequisites
-- [Bun](https://bun.sh/) installed locally.
-- Docker & Docker Compose (for containerized environment).
 
 ### Local Development
 1. **Install Dependencies:**
    ```bash
    bun install
    ```
-2. **Environment Setup:** Create a `docker.env` (used by Compose) or `.env` file based on `src/config.ts` requirements.
-3. **Database Setup:**
+2. **Environment Setup:** Configure `.env` with variables for `DATABASE_URL`, `MINIO_*` credentials, `REDIS_*`, and `AUTH_JWT_SECRET`.
+3. **Database Migration:**
    ```bash
    bun run db:push  # Sync schema to DB
-   bun run db:seed  # Seed initial data
    ```
-4. **Run API (Hot Reload):**
+4. **Start Dev Server:**
    ```bash
    bun run dev
    ```
-5. **Run Worker:**
-   ```bash
-   bun run worker
-   ```
 
-### Dockerized Environment
-- **Development (Watch Mode):**
-  ```bash
-  docker compose up api-dev
-  ```
-- **Production Deployment:**
-  ```bash
-  docker compose up -d --build
-  ```
-  *Note: Production builds use `bun build --compile` to generate standalone binaries for maximum performance and reduced memory footprint.*
+### Docker Environment
+The project includes a `docker-compose.yaml` for containerized development and production deployments. Production builds utilize `bun build --compile` for optimized standalone binaries.
 
 ---
 
 ## Development Conventions
 
-### Coding Style & Patterns
-- **Dependency Injection:** Use factory functions (e.g., `createAdminUsecase`) to inject dependencies, then export a singleton instance (e.g., `adminUsecase`).
-- **Response Schemas:** Always define explicit `response` schemas in controllers using TypeBox (`t`).
-- **Schema Reusability:** Utilize `t.Composite` and base schemas (from `src/schema/index.ts`) to avoid duplication.
+### File Management (MinIO)
+- **Storage:** All standard-related files (HC, SAN, etc.) are stored in MinIO.
+- **Naming:** Files are assigned unique UUIDs using `crypto.randomUUID()` upon upload to prevent collisions.
+- **Sync Operations:** File uploads and deletions are handled synchronously within the service layer using `Promise.all` for concurrency.
+
+### Enrollment Validation Mandates
+- **Boolean-File Lock:** If a standard boolean field (e.g., `standardHc`) is set to `true`, a corresponding file must be provided (for `create`) or must already exist in storage (for `update`).
+- **Update Logic:** When updating an existing file:
+    1. Check for the new file in the DTO.
+    2. If present, delete the old file from MinIO.
+    3. Upload the new file and update the database with the new URL.
+
+### Coding Standards
+- **Type Safety:** Always define explicit `response` schemas in controllers to ensure the API matches the service return types.
 - **Naming:**
-    - Response fields: Generally use `snake_case` (especially for flattened data from JOINs).
-    - Variables/Functions: `camelCase`.
-- **Validation:** Use `t.Numeric()` for path and query parameters that are passed as strings but should be treated as numbers.
-- **Drizzle nuances:** Be mindful of `leftJoin` results; joined fields are often nullable and should be handled with `t.Nullable()` or `t.Optional()` in response schemas.
-
-### Error Handling
-- Use `elysia.status` for consistent API error responses.
-- Validation errors are handled automatically by Elysia if TypeBox schemas are provided.
-
-### Background Tasks
-- Logic for background jobs resides in `src/worker/`.
-- Job dispatching is done through `src/queue/` using BullMQ.
+    - **Database/JSON:** Use `snake_case` for fields (e.g., `is_validate`, `file_standard_hc_url`).
+    - **TypeScript:** Use `camelCase` for properties and variables (e.g., `isValidate`, `fileStandardHcUrl`).
+- **Error Handling:** Utilize `elysia.status` for consistent error reporting (e.g., `throw status(400, { message: "..." })`).

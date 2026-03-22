@@ -3,15 +3,8 @@ import { accounts, adminsDoed } from "../drizzle/schema";
 import type { UpdateAdminDto } from "../schema/admin";
 import * as bcrypt from "bcrypt";
 import { status } from "elysia";
-import { eq, getTableColumns, and, gte, lt, desc, SQL, asc } from "drizzle-orm";
-import {
-  enrolls,
-  factories,
-  provinces,
-  districts,
-  subdistricts,
-} from "../drizzle/schema";
-import { utilities } from "../utils";
+import { eq } from "drizzle-orm";
+import { factories } from "../drizzle/schema";
 
 export const createAdminService = (database: typeof db) => {
   return {

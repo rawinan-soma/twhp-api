@@ -22,23 +22,6 @@ export const CreateFactorySchema = t.Composite([
   }),
 ]);
 
-// export const createFactorySchema = z.object({
-//   username: z.string(),
-//   password: z.string(),
-//   email: z.email(),
-//   factory_type: z.number(),
-//   name_th: z.string(),
-//   name_en: z.string(),
-//   tsic_code: z.string(),
-//   address_no: z.string(),
-//   soi: z.string().optional(),
-//   road: z.string().optional(),
-//   zipcode: z.string(),
-//   phone_number: z.string(),
-//   fax_number: z.string().optional(),
-//   subdistrict_id: z.number(),
-// });
-
 export const UpdateFactorySchema = t.Partial(
   t.Omit(CreateFactorySchema, ["username"]),
 );

@@ -155,7 +155,7 @@ export const adminsDoed = pgTable(
 );
 
 export const enrolls = pgTable(
-  "enrolls",
+  "Enrolls",
   {
     id: serial().primaryKey().notNull(),
     enrollDate: timestamp("enroll_date", { precision: 3, mode: "string" })
@@ -206,15 +206,25 @@ export const enrolls = pgTable(
     employeeInF: integer("employee_in_f").notNull(),
     employeeOtherF: integer("employee_other_f").notNull(),
     standardHc: boolean("standard_HC").notNull(),
+    fileStandardHcUrl: text("standard_HC_url"),
     standardSan: boolean("standard_SAN").notNull(),
+    fileStandardSanUrl: text("standard_SAN_url"),
     standardWellness: boolean("standard_wellness").notNull(),
+    fileStandardWellnessUrl: text("standard_wellness_url"),
     standardSafety: boolean("standard_safety").notNull(),
+    fileStandardSafetyUrl: text("standard_safety_url"),
     standardTis18001: boolean("standard_TIS18001").notNull(),
+    fileStandardTis18001Url: text("standard_TIS18001_url"),
     standardIso45001: boolean("standard_ISO45001").notNull(),
+    fileStandardIso45001Url: text("standard_ISO45001_url"),
     standardIso14001: boolean("standard_ISO14001").notNull(),
+    fileStandardIso14001Url: text("standard_ISO14001_url"),
     standardZero: boolean("standard_zero").notNull(),
+    fileStandardZeroUrl: text("standard_zero_url"),
     standard5S: boolean("standard_5S").notNull(),
+    fileStandard5SUrl: text("standard_5S_url"),
     standardHas: boolean("standard_HAS").notNull(),
+    fileStandardHasUrl: text("standard_HAS_url"),
     safetyOfficerPrefix: text("safety_officer_prefix").notNull(),
     safetyOfficerFirstName: text("safety_officer_first_name").notNull(),
     safetyOfficerLastName: text("safety_officer_last_name").notNull(),

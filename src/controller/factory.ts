@@ -4,8 +4,11 @@ import { factoryService } from "../service/factory";
 import { jwtPlugin } from "../middleware/jwt";
 import { requireRoles } from "../middleware/rbac";
 import { Role } from "../service/authentication";
-import { CreateEnrollSchema, UpdateEnrollSchema } from "../schema/enroll";
-import { BaseEnrollSelect, BaseEnrollUpdate } from "../schema";
+import {
+  CreateEnrollWithFilesSchema,
+  UpdateEnrollWithFilesSchema,
+} from "../schema/enroll";
+import { BaseEnrollSelect } from "../schema";
 import { sharedService } from "../service/shared";
 
 const registerFactoryController = new Elysia().post(
@@ -55,7 +58,7 @@ export const factoryController = new Elysia({
           return await sharedService.enroll.create(body, id);
         },
         {
-          body: CreateEnrollSchema,
+          body: CreateEnrollWithFilesSchema,
           response: t.Object({
             message: t.String({ default: "create enrollment successfully" }),
           }),
@@ -75,7 +78,13 @@ export const factoryController = new Elysia({
         "",
         async ({ jwtPayload, body }) => {
           const id = Number(jwtPayload.sub);
+          return await sharedService.enroll.updateEnroll(id, body);
         },
-        { body: UpdateEnrollSchema },
+        {
+          body: UpdateEnrollWithFilesSchema,
+          response: t.Object({
+            message: t.String({ default: "enrollment updated successfully" }),
+          }),
+        },
       ),
   );

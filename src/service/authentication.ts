@@ -6,7 +6,13 @@ import { redisConnector } from "../utils";
 import { emailQueue } from "../queue/email";
 import { status } from "elysia";
 import { db } from "../drizzle";
-import { accounts, adminsDoed, evaluators, factories, provincialOfficers } from "../drizzle/schema";
+import {
+  accounts,
+  adminsDoed,
+  evaluators,
+  factories,
+  provincialOfficers,
+} from "../drizzle/schema";
 import { eq, sql } from "drizzle-orm";
 
 export enum Role {
@@ -18,12 +24,23 @@ export enum Role {
 
 const createAuthentocationService = (database: typeof db) => ({
   setRefreshToken: async (refreshToken: string, accountId: number) => {
-    await database.update(accounts).set({ hashedRefreshToken: refreshToken }).where(eq(accounts.id, accountId));
+    await database
+      .update(accounts)
+      .set({ hashedRefreshToken: refreshToken })
+      .where(eq(accounts.id, accountId));
   },
   removeRefreshToken: async (id: number) => {
-    await database.update(accounts).set({ hashedRefreshToken: "" }).where(eq(accounts.id, id));
+    await database
+      .update(accounts)
+      .set({ hashedRefreshToken: "" })
+      .where(eq(accounts.id, id));
   },
-  issueToken: async (id: number, username: string, role: Role, tokenType: "Authentication" | "Refresh") => {
+  issueToken: async (
+    id: number,
+    username: string,
+    role: Role,
+    tokenType: "Authentication" | "Refresh",
+  ) => {
     let token: string = "";
     if (tokenType === "Authentication") {
       const payload: {
@@ -120,7 +137,10 @@ const createAuthentocationService = (database: typeof db) => ({
       .leftJoin(adminsDoed, eq(accounts.id, adminsDoed.accountId))
       .leftJoin(evaluators, eq(accounts.id, evaluators.accountId))
       .leftJoin(factories, eq(accounts.id, factories.accountId))
-      .leftJoin(provincialOfficers, eq(accounts.id, provincialOfficers.accountId))
+      .leftJoin(
+        provincialOfficers,
+        eq(accounts.id, provincialOfficers.accountId),
+      )
       .where(eq(accounts.id, accountId))
       .then((res) => res[0]);
 
@@ -195,7 +215,12 @@ export const createAuthenticationUsecase = (database: typeof db) => {
 
     sendPasswordResetEmail: async (email: string) => {
       const token = randomBytes(32).toString("hex");
-      await redisConnector.set(`reset_password_token:${token}`, email, "EX", 300);
+      await redisConnector.set(
+        `reset_password_token:${token}`,
+        email,
+        "EX",
+        300,
+      );
 
       await emailQueue.add(
         "password-reset-token",
@@ -225,7 +250,10 @@ export const createAuthenticationUsecase = (database: typeof db) => {
       }
 
       const hashedPassword = await bcrypt.hash(password, 12);
-      await database.update(accounts).set({ password: hashedPassword }).where(eq(accounts.email, email));
+      await database
+        .update(accounts)
+        .set({ password: hashedPassword })
+        .where(eq(accounts.email, email));
 
       await redisConnector.del(`reset_password_token:${token}`);
     },

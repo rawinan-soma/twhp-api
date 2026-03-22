@@ -1,12 +1,8 @@
-import {
-  BaseDistrictSelect,
-  BaseEnrollInsert,
-  BaseEnrollSelect,
-  BaseEnrollUpdate,
-  BaseProvinceSelect,
-  BaseSubdistrictSelect,
-} from ".";
+import { BaseEnrollInsert, BaseEnrollSelect, BaseEnrollUpdate } from ".";
 import { t, Static } from "elysia";
+import { FileOptions } from "elysia/type-system/types";
+
+const fileOption: FileOptions = { type: "image/png", maxSize: "5m" };
 
 export const CreateEnrollSchema = t.Omit(BaseEnrollInsert, [
   "enrollDate",
@@ -17,22 +13,66 @@ export const CreateEnrollSchema = t.Omit(BaseEnrollInsert, [
   "id",
 ]);
 
-export const EnrollResponseWithFactory = t.Composite([
-  BaseEnrollSelect,
-  t.Object({ factoryNameTh: t.Nullable(t.String()) }),
-]);
-
-export const EnrollResponseWithLocation = t.Composite([
-  BaseEnrollSelect,
+export const CreateEnrollWithFilesSchema = t.Composite([
+  t.Omit(CreateEnrollSchema, [
+    "fileStandardHcUrl",
+    "fileStandardSanUrl",
+    "fileStandardWellnessUrl",
+    "fileStandardSafetyUrl",
+    "fileStandardTis18001Url",
+    "fileStandardIso45001Url",
+    "fileStandardIso14001Url",
+    "fileStandardZeroUrl",
+    "fileStandard5SUrl",
+    "fileStandardHasUrl",
+  ]),
   t.Object({
-    provinceNameTh: t.Nullable(t.String()),
-    districtNameTh: t.Nullable(t.String()),
-    subdistrictNameTh: t.Nullable(t.String()),
+    fileStandardHc: t.Optional(t.File(fileOption)),
+    fileStandardSan: t.Optional(t.File(fileOption)),
+    fileStandardWellness: t.Optional(t.File(fileOption)),
+    fileStandardSafety: t.Optional(t.File(fileOption)),
+    fileStandardTis18001: t.Optional(t.File(fileOption)),
+    fileStandardIso45001: t.Optional(t.File(fileOption)),
+    fileStandardIso14001: t.Optional(t.File(fileOption)),
+    fileStandardZero: t.Optional(t.File(fileOption)),
+    fileStandard5S: t.Optional(t.File(fileOption)),
+    fileStandardHas: t.Optional(t.File(fileOption)),
   }),
 ]);
 
+export type CreateEnrollWithFilesDto = Static<typeof CreateEnrollWithFilesSchema>;
+
 export const UpdateEnrollSchema = t.Omit(BaseEnrollUpdate, ["id"]);
+
+export const UpdateEnrollWithFilesSchema = t.Composite([
+  t.Omit(UpdateEnrollSchema, [
+    "fileStandardHcUrl",
+    "fileStandardSanUrl",
+    "fileStandardWellnessUrl",
+    "fileStandardSafetyUrl",
+    "fileStandardTis18001Url",
+    "fileStandardIso45001Url",
+    "fileStandardIso14001Url",
+    "fileStandardZeroUrl",
+    "fileStandard5SUrl",
+    "fileStandardHasUrl",
+  ]),
+  t.Object({
+    fileStandardHc: t.Optional(t.File(fileOption)),
+    fileStandardSan: t.Optional(t.File(fileOption)),
+    fileStandardWellness: t.Optional(t.File(fileOption)),
+    fileStandardSafety: t.Optional(t.File(fileOption)),
+    fileStandardTis18001: t.Optional(t.File(fileOption)),
+    fileStandardIso45001: t.Optional(t.File(fileOption)),
+    fileStandardIso14001: t.Optional(t.File(fileOption)),
+    fileStandardZero: t.Optional(t.File(fileOption)),
+    fileStandard5S: t.Optional(t.File(fileOption)),
+    fileStandardHas: t.Optional(t.File(fileOption)),
+  }),
+]);
+
 export type UpdateEnrollDto = Static<typeof UpdateEnrollSchema>;
+export type UpdateEnrollWithFilesDto = Static<typeof UpdateEnrollWithFilesSchema>;
 
 // export const createEnrollSchema = z.object({
 //   employee_th_m: z.number(),

@@ -1,7 +1,13 @@
 import { utilities } from "../utils";
 import { status } from "elysia";
 import { db } from "../drizzle";
-import { accounts, enrolls, evaluators, factories, provinces } from "../drizzle/schema";
+import {
+  accounts,
+  enrolls,
+  evaluators,
+  factories,
+  provinces,
+} from "../drizzle/schema";
 import { eq, getTableColumns, and, gte, lt, desc } from "drizzle-orm";
 
 const createEvaluatorHelper = (database: typeof db) => {

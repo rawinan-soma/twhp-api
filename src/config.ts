@@ -53,6 +53,14 @@ export const env = {
 
   // Frontend
   FRONTEND_URL: requireEnv("FRONTEND_URL"),
+
+  // MinIO
+  MINIO_ENDPOINT: requireEnv("MINIO_ENDPOINT"),
+  MINIO_PORT: requireEnvNumber("MINIO_PORT"),
+  MINIO_USE_SSL: requireEnvBoolean("MINIO_USE_SSL"),
+  MINIO_ACCESS_KEY: requireEnv("MINIO_ACCESS_KEY"),
+  MINIO_SECRET_KEY: requireEnv("MINIO_SECRET_KEY"),
+  MINIO_BUCKET_NAME: requireEnv("MINIO_BUCKET_NAME"),
 } as const;
 
 export type Env = typeof env;

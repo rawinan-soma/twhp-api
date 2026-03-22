@@ -1,9 +1,13 @@
 import { type CreateFactoryDto } from "../schema/factory";
 import * as bcrypt from "bcrypt";
-import { utilities } from "../utils";
 import { status } from "elysia";
 import { db } from "../drizzle";
-import { accounts, factories, provinces, districts, subdistricts } from "../drizzle/schema";
+import {
+  accounts,
+  factories,
+  districts,
+  subdistricts,
+} from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 
 const createFactoryHelper = (database: typeof db) => {
