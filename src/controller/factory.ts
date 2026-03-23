@@ -71,7 +71,7 @@ export const factoryController = new Elysia({
           return await sharedService.enroll.getEnrollByFactoryId(id);
         },
         {
-          response: t.Nullable(BaseEnrollSelect),
+          response: t.Optional(BaseEnrollSelect),
         },
       )
       .patch(

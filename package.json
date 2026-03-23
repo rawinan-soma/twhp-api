@@ -3,13 +3,14 @@
   "version": "1.0.50",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts",
+    "dev": "bun --watch run src/index.ts",
     "start": "bun src/index.ts",
     "worker": "bun src/workers.ts",
     "db:push": "bunx drizzle-kit push",
     "db:seed": "bun src/drizzle/seed.ts"
   },
   "dependencies": {
+    "@bogeychan/elysia-logger": "^0.1.10",
     "@elysiajs/jwt": "^1.4.1",
     "@elysiajs/openapi": "^1.4.14",
     "bcrypt": "^6.0.0",

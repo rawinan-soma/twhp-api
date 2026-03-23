@@ -5,13 +5,27 @@ services:
       context: .
       target: build
     container_name: twhp-api-dev
+    environment:
+      - NODE_ENV=development
     env_file:
       - docker.env
     volumes:
-      - .:/usr/src/app
+      - .:/app
       - /usr/src/app/node_modules
-    ports:
-      - "3300:3000"
+    profiles:
+      - dev
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "fetch('http://localhost:3000/twhp/api/health').then(r => (r.ok ? process.exit(0) : process.exit(1)))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
     # Runs migrations, seeds, and then watch mode
     command: sh -c "bun run db:push && bun run db:seed && bun run dev"
 
@@ -22,10 +36,10 @@ services:
       target: release
     container_name: twhp-api-prod
     restart: always
+    environment:
+      - NODE_ENV=production
     env_file:
       - docker.env
-    ports:
-      - "3300:3000"
     healthcheck:
       test:
         [
@@ -38,6 +52,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    profiles:
+      - production
     # Run migrations and seeding before starting the server
     command: sh -c "bun run db:push && bun run db:seed && ./server"
 
@@ -46,13 +62,13 @@ services:
     build:
       context: .
       target: release
-    container_name: twhp-worker-prod
+    container_name: twhp-workers
     restart: always
     env_file:
       - docker.env
     # Wait for API (and thus migrations) to be ready
     depends_on:
-      api:
+      api-dev:
         condition: service_healthy
     command: ./worker-bin
 
@@ -65,3 +81,37 @@ services:
       - docker.env
     profiles: ["tools"]
     command: bun run db:push
+
+  # MinIO Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: twhp-minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_BROWSER_REDIRECT_URL: "http://localhost/twhp/minio-console"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: twhp-nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api-dev
+      - minio
+
+volumes:
+  minio_data:

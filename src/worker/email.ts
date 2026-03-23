@@ -2,14 +2,23 @@ import { Worker } from "bullmq";
 import { env } from "../config";
 import * as nodemailer from "nodemailer";
 
-export const emailWorker = new Worker("email", async (job) => {
-  switch (job.name) {
-    case "password-reset-request":
-      await sendPasswordResetEmail(job.data);
-    default:
-      return "unknown job name";
+export const emailWorker = new Worker(
+  "email",
+  async (job) => {
+    switch (job.name) {
+      case "password-reset-request":
+        await sendPasswordResetEmail(job.data);
+      default:
+        return "unknown job name";
+    }
+  },
+  {
+    connection: {
+      host: env.REDIS_HOST,
+      port: env.REDIS_PORT,
+    },
   }
-});
+);
 
 const transporter = nodemailer.createTransport({
   host: env.SMTP_HOST,
