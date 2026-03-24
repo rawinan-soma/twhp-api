@@ -1,4 +1,4 @@
-import Elysia, { t } from "elysia";
+import Elysia, { ElysiaCustomStatusResponse, t } from "elysia";
 import { authenticationService, Role } from "../service/authentication";
 import { jwtPlugin } from "../middleware/jwt";
 
@@ -7,7 +7,14 @@ const publicAuthenticationController = new Elysia()
     "/login",
     async ({ body, cookie: { Authentication, Refresh }, set }) => {
       const { username, password } = body;
-      const account = await authenticationService.getAutheticatedAccount(username, password);
+      const account = await authenticationService.getAutheticatedAccount(
+        username,
+        password,
+      );
+
+      if (account instanceof ElysiaCustomStatusResponse) {
+        return account;
+      }
 
       const accessToken = await authenticationService.helper.issueToken(
         account.id,
@@ -16,6 +23,10 @@ const publicAuthenticationController = new Elysia()
         "Authentication",
       );
 
+      if (accessToken instanceof ElysiaCustomStatusResponse) {
+        return accessToken;
+      }
+
       const refreshToken = await authenticationService.helper.issueToken(
         account.id,
         account.username,
@@ -23,9 +34,16 @@ const publicAuthenticationController = new Elysia()
         "Refresh",
       );
 
+      if (refreshToken instanceof ElysiaCustomStatusResponse) {
+        return refreshToken;
+      }
+
       const hashedRefreshToken = Bun.SHA256.hash(refreshToken, "hex");
 
-      await authenticationService.helper.setRefreshToken(hashedRefreshToken, account.id);
+      await authenticationService.helper.setRefreshToken(
+        hashedRefreshToken,
+        account.id,
+      );
 
       Authentication.set({
         value: accessToken,
@@ -53,14 +71,31 @@ const publicAuthenticationController = new Elysia()
         Authentication: t.Optional(t.String()),
         Refresh: t.Optional(t.String()),
       }),
-      response: t.Object({
-        message: t.String(),
-        user: t.Object({
-          id: t.Number(),
-          role: t.String(),
-          username: t.String(),
+      response: {
+        200: t.Object({
+          message: t.String(),
+          user: t.Object({
+            id: t.Number(),
+            role: t.String(),
+            username: t.String(),
+          }),
         }),
-      }),
+        401: t.Union([
+          t.Object({
+            message: t.String({
+              default: "invalid username or password",
+              description: "invalid credential",
+            }),
+          }),
+          t.Object({
+            message: t.String({
+              default: "factory not validate",
+              description: "factory is not validate",
+            }),
+          }),
+        ]),
+        500: t.Object({ message: t.String({ default: "cannot issue token" }) }),
+      },
     },
   )
   .post(
@@ -86,9 +121,12 @@ const publicAuthenticationController = new Elysia()
     },
     {
       body: t.Object({ password: t.String(), token: t.String() }),
-      response: t.Object({
-        message: t.String({ default: "password change!!" }),
-      }),
+      response: {
+        200: t.Object({
+          message: t.String({ default: "password change!!" }),
+        }),
+        400: t.Object({ message: t.String({ default: "invalid token" }) }),
+      },
     },
   );
 
@@ -113,7 +151,9 @@ export const authenticationController = new Elysia({
             ...authenticationService.helper.getCookieOption("logout"),
           });
 
-          await authenticationService.helper.removeRefreshToken(Number(jwtPayload.sub));
+          await authenticationService.helper.removeRefreshToken(
+            Number(jwtPayload.sub),
+          );
 
           set.status = 200;
           return { message: "logout successful" };
@@ -132,12 +172,17 @@ export const authenticationController = new Elysia({
           );
         },
         {
-          response: t.Object({
-            id: t.Number(),
-            username: t.String(),
-            role: t.String(),
-            change_pw: t.Boolean(),
-          }),
+          response: {
+            200: t.Object({
+              id: t.Number(),
+              username: t.String(),
+              role: t.String(),
+              change_pw: t.Boolean(),
+            }),
+            400: t.Object({
+              message: t.String({ default: "invalid credential" }),
+            }),
+          },
         },
       ),
   );

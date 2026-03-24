@@ -4,7 +4,7 @@ import { SignJWT } from "jose";
 import { randomBytes } from "crypto";
 import { redisConnector } from "../utils";
 import { emailQueue } from "../queue/email";
-import { status } from "elysia";
+import { ElysiaCustomStatusResponse, status } from "elysia";
 import { db } from "../drizzle";
 import {
   accounts,
@@ -14,6 +14,7 @@ import {
   provincialOfficers,
 } from "../drizzle/schema";
 import { eq, sql } from "drizzle-orm";
+import { evaluatorService } from "./evaluator";
 
 export enum Role {
   Factory = "Factory",
@@ -71,7 +72,7 @@ const createAuthentocationService = (database: typeof db) => ({
         .sign(new TextEncoder().encode(env.REFRESH_JWT_SECRET));
     }
     if (token === "") {
-      throw status(500, { message: "cannot issue token" });
+      return status(500, { message: "cannot issue token" });
     }
 
     return token;
@@ -117,7 +118,7 @@ const createAuthentocationService = (database: typeof db) => ({
       .then((res) => res[0]);
 
     if (!currentUser) {
-      throw status(401, { message: "invalid refresh token" });
+      return status(401, { message: "invalid refresh token" });
     }
 
     return currentUser.id;
@@ -145,7 +146,7 @@ const createAuthentocationService = (database: typeof db) => ({
       .then((res) => res[0]);
 
     if (!selectedAccount) {
-      throw status(404, { message: "invalid credential" });
+      return status(400, { message: "invalid credential" });
     }
 
     return selectedAccount;
@@ -172,13 +173,13 @@ export const createAuthenticationUsecase = (database: typeof db) => {
         .then((res) => res[0]);
 
       if (!user || !(await bcrypt.compare(password, user.password))) {
-        throw status(401, {
+        return status(401, {
           message: "invalid username or password",
         });
       }
 
       if (user.role === "Factory" && !user.isValidate) {
-        throw status(401, { message: "factory not validate" });
+        return status(401, { message: "factory not validate" });
       }
 
       return {
@@ -191,7 +192,15 @@ export const createAuthenticationUsecase = (database: typeof db) => {
     rotateToken: async (refreshToken: string) => {
       const id = await helper.getUserFromRefreshToken(refreshToken);
 
+      if (id instanceof ElysiaCustomStatusResponse) {
+        return id;
+      }
+
       const currentUser = await helper.getAccountById(id);
+
+      if (currentUser instanceof ElysiaCustomStatusResponse) {
+        return currentUser;
+      }
 
       const newAccessToken = await helper.issueToken(
         currentUser.id,
@@ -199,12 +208,21 @@ export const createAuthenticationUsecase = (database: typeof db) => {
         currentUser.role as Role,
         "Authentication",
       );
+
+      if (newAccessToken instanceof ElysiaCustomStatusResponse) {
+        return newAccessToken;
+      }
+
       const newRefreshToken = await helper.issueToken(
         currentUser.id,
         currentUser.username,
         currentUser.role as Role,
         "Refresh",
       );
+
+      if (newRefreshToken instanceof ElysiaCustomStatusResponse) {
+        return newRefreshToken;
+      }
 
       const hashedRefreshToken = Bun.SHA256.hash(newRefreshToken, "hex");
 
@@ -235,7 +253,7 @@ export const createAuthenticationUsecase = (database: typeof db) => {
     updatePassword: async (password: string, token: string) => {
       const email = await redisConnector.get(`reset_password_token${token}`);
       if (!email) {
-        throw status(400, { message: "invalid token" });
+        return status(400, { message: "invalid token" });
       }
 
       const user = await database
@@ -246,7 +264,7 @@ export const createAuthenticationUsecase = (database: typeof db) => {
         .then((res) => res[0]);
 
       if (!user) {
-        throw status(400, { message: "invalid token" });
+        return status(400, { message: "invalid token" });
       }
 
       const hashedPassword = await bcrypt.hash(password, 12);
@@ -256,6 +274,46 @@ export const createAuthenticationUsecase = (database: typeof db) => {
         .where(eq(accounts.email, email));
 
       await redisConnector.del(`reset_password_token:${token}`);
+    },
+    editFirstPassword: async (
+      accountId: number,
+      password: string,
+      userType: "Provincial" | "Evaluator",
+    ) => {
+      const table = userType === "Provincial" ? provincialOfficers : evaluators;
+      const [user] = await database
+        .select({
+          account: accounts,
+          evaluator: evaluators,
+          provincialOfficer: provincialOfficers,
+        })
+        .from(accounts)
+        .leftJoin(table, eq(table.accountId, accounts.id))
+        .where(eq(accounts.id, accountId));
+
+      if (!user || user.evaluator === null || user.provincialOfficer === null) {
+        return status(404, { message: "user not found" });
+      }
+      if (user.evaluator.isChangePassword) {
+        return status(400, { message: "password already change" });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 12);
+
+      await database.transaction(async (tx) => {
+        const [account] = await tx
+          .update(accounts)
+          .set({ password: hashedPassword })
+          .where(eq(accounts.id, accountId))
+          .returning();
+
+        await tx
+          .update(evaluators)
+          .set({ isChangePassword: true })
+          .where(eq(evaluators.accountId, account.id));
+      });
+
+      return { message: "password changed!" };
     },
   };
 };

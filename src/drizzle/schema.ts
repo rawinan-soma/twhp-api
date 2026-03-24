@@ -313,6 +313,7 @@ export const assessmentStatus = pgEnum("AssesssmentStatus", [
   "finished",
   "in_progress",
   "reviewed",
+  "sent",
 ]);
 
 export const coverLogs = pgTable("CoverLogs", {

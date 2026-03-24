@@ -1,9 +1,23 @@
 services:
+  # Dev Migration (one-shot: runs db:push + db:seed then exits)
+  migrate-dev:
+    build:
+      context: .
+      target: build
+    image: twhp-api:dev
+    container_name: twhp-migrate-dev
+    env_file:
+      - docker.env
+    profiles:
+      - dev
+    command: sh -c "bun run db:push && bun run db:seed"
+
   # Development Service with Hot-Reload
   api-dev:
     build:
       context: .
       target: build
+    image: twhp-api:dev
     container_name: twhp-api-dev
     environment:
       - NODE_ENV=development
@@ -26,14 +40,30 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
-    # Runs migrations, seeds, and then watch mode
-    command: sh -c "bun run db:push && bun run db:seed && bun run dev"
+    depends_on:
+      migrate-dev:
+        condition: service_completed_successfully
+    command: bun run start
+
+  # Prod Migration (one-shot: runs db:push + db:seed then exits)
+  migrate-prod:
+    build:
+      context: .
+      target: release
+    image: twhp-api:prod
+    container_name: twhp-migrate-prod
+    env_file:
+      - docker.env
+    profiles:
+      - production
+    command: sh -c "bun run db:push && bun run db:seed"
 
   # API Service (Production)
   api:
     build:
       context: .
       target: release
+    image: twhp-api:prod
     container_name: twhp-api-prod
     restart: always
     environment:
@@ -54,8 +84,10 @@ services:
       start_period: 40s
     profiles:
       - production
-    # Run migrations and seeding before starting the server
-    command: sh -c "bun run db:push && bun run db:seed && ./server"
+    depends_on:
+      migrate-prod:
+        condition: service_completed_successfully
+    command: ./server
 
   # Worker Service
   worker:
@@ -71,16 +103,6 @@ services:
       api-dev:
         condition: service_healthy
     command: ./worker-bin
-
-  # Migration Service (manual run if needed)
-  migration:
-    build:
-      context: .
-      target: release
-    env_file:
-      - docker.env
-    profiles: ["tools"]
-    command: bun run db:push
 
   # MinIO Object Storage
   minio:

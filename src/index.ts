@@ -6,22 +6,27 @@ import { evaluatorController } from "./controller/evaluator";
 import { factoryController } from "./controller/factory";
 import { locationController } from "./controller/location";
 import { logger, createPinoLogger } from "@bogeychan/elysia-logger";
+import { provincialOfficerController } from "./controller/provincial";
 
 const globalLogger = createPinoLogger();
 
-const EXPECTED_CODES = new Set([
-  "VALIDATION",
-  "NOT_FOUND",
-  "PARSE",
-  "INVALID_COOKIE_SIGNATURE",
-  "INVALID_FILE_TYPE",
-]);
+const EXPECTED_CODES = new Set(["VALIDATION", "INVALID_FILE_TYPE"]);
 
 const app = new Elysia({ prefix: "/twhp/api" })
   .use(openapi({ path: "document" }))
   .use(
     logger({
       level: "info",
+      serializers: {
+        request: (request) => {
+          return {
+            method: request?.method,
+            url: request?.url,
+            // Use optional chaining and bracket notation if .get() is missing
+            referrer: request?.headers?.get?.("Referer") || request?.headers?.["referer"],
+          };
+        },
+      },
       formatters: {
         level: (label) => ({ level: label.toUpperCase() }),
       },
@@ -34,7 +39,7 @@ const app = new Elysia({ prefix: "/twhp/api" })
     }),
   )
   .onError(({ code, error, set, request, log }) => {
-    if (typeof code === "number" || EXPECTED_CODES.has(code as string)) {
+    if (EXPECTED_CODES.has(code as string)) {
       return error;
     }
 
@@ -60,8 +65,8 @@ const app = new Elysia({ prefix: "/twhp/api" })
   .use(authenticationController)
   .use(evaluatorController)
   .use(factoryController)
-  .listen(3000);
+  .use(provincialOfficerController);
 
-console.log(
-  `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`,
-);
+app.listen(3000);
+
+console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);

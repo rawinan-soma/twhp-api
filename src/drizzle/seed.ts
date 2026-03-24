@@ -7,6 +7,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { parse } from "csv-parse/sync";
 import * as bcrypt from "bcrypt";
+import { sql } from "drizzle-orm";
 import * as schema from "./schema.js";
 
 if (!process.env.DATABASE_URL) {
@@ -39,7 +40,16 @@ async function seed() {
     healthRegion: Number(r.health_region),
   }));
 
-  await db.insert(schema.provinces).values(provincesData).onConflictDoNothing();
+  await db
+    .insert(schema.provinces)
+    .values(provincesData)
+    .onConflictDoUpdate({
+      target: schema.provinces.provinceId,
+      set: {
+        nameTh: sql`EXCLUDED.name_th`,
+        healthRegion: sql`EXCLUDED.health_region`,
+      },
+    });
   console.log("Provinces seeded");
 
   // 2. Seed Districts
@@ -57,7 +67,16 @@ async function seed() {
     nameTh: r.name_th,
   }));
 
-  await db.insert(schema.districts).values(districtsData).onConflictDoNothing();
+  await db
+    .insert(schema.districts)
+    .values(districtsData)
+    .onConflictDoUpdate({
+      target: schema.districts.districtId,
+      set: {
+        provinceId: sql`EXCLUDED.province_id`,
+        nameTh: sql`EXCLUDED.name_th`,
+      },
+    });
   console.log("Districts seeded");
 
   // 3. Seed Subdistricts
@@ -81,7 +100,13 @@ async function seed() {
     await db
       .insert(schema.subdistricts)
       .values(subdistrictsData.slice(i, i + batchSize))
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: schema.subdistricts.subdistrictId,
+        set: {
+          nameTh: sql`EXCLUDED.name_th`,
+          districtId: sql`EXCLUDED.district_id`,
+        },
+      });
   }
   console.log("Subdistricts seeded");
 
@@ -90,48 +115,51 @@ async function seed() {
     fs.readFileSync(path.join(seedDataDir, "admin_province.json"), "utf8"),
   );
   console.log("Seeding Provincial Officers...");
-  for (const item of provincialOfficerData) {
-    const hashedPassword = await bcrypt.hash(item.password, 12);
-
-    await db.transaction(async (tx) => {
-      const [account] = await tx
-        .insert(schema.accounts)
-        .values({
-          username: item.username,
-          password: hashedPassword,
-          email: item.email,
-          role: "Provincial",
-        })
-        .onConflictDoUpdate({
-          target: schema.accounts.username,
-          set: {
-            password: hashedPassword,
-            email: item.email,
-            role: "Provincial",
-          },
-        })
-        .returning();
-
-      await tx
-        .insert(schema.provincialOfficers)
-        .values({
-          accountId: account.id,
-          firstName: item.provincial.first_name,
-          lastName: item.provincial.last_name,
-          phoneNumber: item.provincial.phone_number,
-          provinceId: Number(item.provincial.province_id),
-        })
-        .onConflictDoUpdate({
-          target: schema.provincialOfficers.accountId,
-          set: {
-            firstName: item.provincial.first_name,
-            lastName: item.provincial.last_name,
-            phoneNumber: item.provincial.phone_number,
-            provinceId: Number(item.provincial.province_id),
-          },
-        });
+  const provincialHashed = await Promise.all(
+    provincialOfficerData.map((item: any) => bcrypt.hash(item.password, 12)),
+  );
+  const provincialAccounts = await db
+    .insert(schema.accounts)
+    .values(
+      provincialOfficerData.map((item: any, i: number) => ({
+        username: item.username,
+        password: provincialHashed[i],
+        email: item.email,
+        role: "Provincial" as const,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: schema.accounts.username,
+      set: {
+        password: sql`EXCLUDED.password`,
+        email: sql`EXCLUDED.email`,
+        role: sql`EXCLUDED.role`,
+      },
+    })
+    .returning({ id: schema.accounts.id, username: schema.accounts.username });
+  const provincialAccountMap = new Map(
+    provincialAccounts.map((a) => [a.username, a.id]),
+  );
+  await db
+    .insert(schema.provincialOfficers)
+    .values(
+      provincialOfficerData.map((item: any) => ({
+        accountId: provincialAccountMap.get(item.username)!,
+        firstName: item.provincial.first_name,
+        lastName: item.provincial.last_name,
+        phoneNumber: item.provincial.phone_number,
+        provinceId: Number(item.provincial.province_id),
+      })),
+    )
+    .onConflictDoUpdate({
+      target: schema.provincialOfficers.accountId,
+      set: {
+        firstName: sql`EXCLUDED.first_name`,
+        lastName: sql`EXCLUDED.last_name`,
+        phoneNumber: sql`EXCLUDED.phone_number`,
+        provinceId: sql`EXCLUDED.province_id`,
+      },
     });
-  }
   console.log("Provincial Officers seeded");
 
   // 5. Seed Evaluators
@@ -139,50 +167,53 @@ async function seed() {
     fs.readFileSync(path.join(seedDataDir, "eval.json"), "utf8"),
   );
   console.log("Seeding Evaluators...");
-  for (const item of evaluatorsData) {
-    const hashedPassword = await bcrypt.hash(item.password, 12);
-
-    await db.transaction(async (tx) => {
-      const [account] = await tx
-        .insert(schema.accounts)
-        .values({
-          username: item.username,
-          password: hashedPassword,
-          email: item.email,
-          role: "Evaluator",
-        })
-        .onConflictDoUpdate({
-          target: schema.accounts.username,
-          set: {
-            password: hashedPassword,
-            email: item.email,
-            role: "Evaluator",
-          },
-        })
-        .returning();
-
-      await tx
-        .insert(schema.evaluators)
-        .values({
-          accountId: account.id,
-          firstName: item.first_name,
-          lastName: item.last_name,
-          level: item.level,
-          region: item.region,
-          phoneNumber: item.phone_number,
-        })
-        .onConflictDoUpdate({
-          target: schema.evaluators.accountId,
-          set: {
-            firstName: item.first_name,
-            lastName: item.last_name,
-            level: item.level,
-            region: item.region,
-            phoneNumber: item.phone_number,
-          },
-        });
+  const evaluatorHashed = await Promise.all(
+    evaluatorsData.map((item: any) => bcrypt.hash(item.password, 12)),
+  );
+  const evaluatorAccounts = await db
+    .insert(schema.accounts)
+    .values(
+      evaluatorsData.map((item: any, i: number) => ({
+        username: item.username,
+        password: evaluatorHashed[i],
+        email: item.email,
+        role: "Evaluator" as const,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: schema.accounts.username,
+      set: {
+        password: sql`EXCLUDED.password`,
+        email: sql`EXCLUDED.email`,
+        role: sql`EXCLUDED.role`,
+      },
+    })
+    .returning({ id: schema.accounts.id, username: schema.accounts.username });
+  const evaluatorAccountMap = new Map(
+    evaluatorAccounts.map((a) => [a.username, a.id]),
+  );
+  await db
+    .insert(schema.evaluators)
+    .values(
+      evaluatorsData.map((item: any) => ({
+        accountId: evaluatorAccountMap.get(item.username)!,
+        firstName: item.first_name,
+        lastName: item.last_name,
+        level: item.level,
+        region: item.region,
+        phoneNumber: item.phone_number,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: schema.evaluators.accountId,
+      set: {
+        firstName: sql`EXCLUDED.first_name`,
+        lastName: sql`EXCLUDED.last_name`,
+        level: sql`EXCLUDED.level`,
+        region: sql`EXCLUDED.region`,
+        phoneNumber: sql`EXCLUDED.phone_number`,
+      },
     });
-  }
   console.log("Evaluators seeded");
 
   // 6. Seed AdminDoed (test1)

@@ -1,6 +1,6 @@
 import { type CreateFactoryDto } from "../schema/factory";
 import * as bcrypt from "bcrypt";
-import { status } from "elysia";
+import { ElysiaCustomStatusResponse, status } from "elysia";
 import { db } from "../drizzle";
 import {
   accounts,
@@ -24,9 +24,6 @@ const createFactoryHelper = (database: typeof db) => {
         .where(eq(subdistricts.subdistrictId, subdistrictId))
         .limit(1)
         .then((res) => res[0]);
-      if (!location) {
-        throw status(400, { message: "invalid subdistrict id" });
-      }
 
       return location;
     },
@@ -37,20 +34,22 @@ export const createFactoryService = (database: typeof db) => {
   const helper = createFactoryHelper(database);
   return {
     register: async (dto: CreateFactoryDto) => {
-      const { existingFactory } = await database
+      const factory = await database
         .select({ existingFactory: accounts.username })
         .from(factories)
         .leftJoin(accounts, eq(accounts.id, factories.accountId))
         .then((res) => res[0]);
 
-      if (existingFactory !== null) {
-        throw status(400, { message: "factory already registered" });
+      const existingFactory = factory?.existingFactory;
+      console.log(existingFactory);
+      if (existingFactory) {
+        return status(400, { message: "factory already registered" });
       }
       const location = await helper.getFactoryLocation(dto.subdistrictId);
       const hashedPassword = await bcrypt.hash(dto.password, 12);
 
       if (!location) {
-        throw status(400, { message: "location not found" });
+        return status(404, { message: "location not found" });
       }
 
       await database.transaction(async (tx) => {
@@ -70,7 +69,7 @@ export const createFactoryService = (database: typeof db) => {
           .values({
             accountId: account.id,
             provinceId: location.province_id,
-            districtId: location.subdistrict_id,
+            districtId: location.district_id,
             ...dto,
           })
           .returning()

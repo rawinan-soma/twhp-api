@@ -6,14 +6,20 @@ export const createLocationService = (database: typeof db) => {
   return {
     getAllProvinces: async () => {
       return await database
-        .select({ name_th: provinces.nameTh, province_id: provinces.provinceId })
+        .select({
+          name_th: provinces.nameTh,
+          province_id: provinces.provinceId,
+        })
         .from(provinces)
         .orderBy(provinces.nameTh);
     },
 
     getAllDistrictByProvinceId: async (provinceId: number) => {
       return await database
-        .select({ name_th: districts.nameTh, district_id: districts.districtId })
+        .select({
+          name_th: districts.nameTh,
+          district_id: districts.districtId,
+        })
         .from(districts)
         .where(eq(districts.provinceId, provinceId));
     },

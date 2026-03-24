@@ -1,4 +1,4 @@
-import { Elysia } from "elysia";
+import { Elysia, ElysiaCustomStatusResponse, status } from "elysia";
 import { jwt } from "@elysiajs/jwt";
 import { env } from "../config";
 
@@ -45,13 +45,15 @@ export const jwtPlugin = new Elysia({ name: "jwt-middleware" })
 
       if (refreshToken) {
         try {
-          const { newAccessToken, newRefreshToken } =
-            await authenticationService.rotateToken(refreshToken as string);
+          const token = await authenticationService.rotateToken(
+            refreshToken as string,
+          );
 
-          if (!newAccessToken || !newRefreshToken) {
-            set.status = 401;
-            throw new Error("session expired");
+          if (token instanceof ElysiaCustomStatusResponse) {
+            return status(401, { message: "session expired" });
           }
+
+          const { newAccessToken, newRefreshToken } = token;
 
           const accessOpts =
             authenticationService.helper.getCookieOption("Authentication");
@@ -71,12 +73,10 @@ export const jwtPlugin = new Elysia({ name: "jwt-middleware" })
           Authentication.set({ value: "", ...logoutOpts });
           Refresh.set({ value: "", ...logoutOpts });
 
-          set.status = 401;
-          throw new Error("session expired");
+          return status(401, { message: "session expired" });
         }
       }
 
-      set.status = 401;
-      throw new Error("unauthorized");
+      return status(401, { message: "unauthorized" });
     },
   );

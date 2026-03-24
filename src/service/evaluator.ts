@@ -1,5 +1,5 @@
 import { utilities } from "../utils";
-import { status } from "elysia";
+import { ElysiaCustomStatusResponse, status } from "elysia";
 import { db } from "../drizzle";
 import {
   accounts,
@@ -9,6 +9,7 @@ import {
   provinces,
 } from "../drizzle/schema";
 import { eq, getTableColumns, and, gte, lt, desc } from "drizzle-orm";
+import * as bcrypt from "bcrypt";
 
 const createEvaluatorHelper = (database: typeof db) => {
   return {
@@ -22,11 +23,7 @@ const createEvaluatorHelper = (database: typeof db) => {
         .where(eq(accounts.id, accountId))
         .then((res) => res[0]);
 
-      if (!result || !result.evaluator) {
-        throw status(400, { message: "evaluator not found" });
-      }
-
-      return result.evaluator;
+      return result;
     },
   };
 };
@@ -38,6 +35,11 @@ export const createEvaluatorService = (database: typeof db) => {
     getEnrollsByEvalId: async (accountId: number) => {
       const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
       const evaluator = await helper.getEvaluatorData(accountId);
+
+      if (!evaluator || evaluator.evaluator === null) {
+        return status(400, { message: "evaluator not found" });
+      }
+
       const enrollList = await database
         .select({
           ...getTableColumns(enrolls),
@@ -52,7 +54,7 @@ export const createEvaluatorService = (database: typeof db) => {
           and(
             gte(enrolls.enrollDate, fiscalYearStart.toISOString()),
             lt(enrolls.enrollDate, fiscalYearEnd.toISOString()),
-            eq(provinces.healthRegion, evaluator.region),
+            eq(provinces.healthRegion, evaluator.evaluator.region),
           ),
         )
         .orderBy(desc(enrolls.enrollDate));

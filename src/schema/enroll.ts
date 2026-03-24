@@ -2,7 +2,7 @@ import { BaseEnrollInsert, BaseEnrollSelect, BaseEnrollUpdate } from ".";
 import { t, Static } from "elysia";
 import { FileOptions } from "elysia/type-system/types";
 
-const fileOption: FileOptions = { type: "image/png", maxSize: "5m" };
+export const fileOption: FileOptions = { type: "image/png", maxSize: "5m" };
 
 export const CreateEnrollSchema = t.Omit(BaseEnrollInsert, [
   "enrollDate",
@@ -13,108 +13,115 @@ export const CreateEnrollSchema = t.Omit(BaseEnrollInsert, [
   "id",
 ]);
 
-export const CreateEnrollWithFilesSchema = t.Composite([
-  t.Omit(CreateEnrollSchema, [
-    "fileStandardHcUrl",
-    "fileStandardSanUrl",
-    "fileStandardWellnessUrl",
-    "fileStandardSafetyUrl",
-    "fileStandardTis18001Url",
-    "fileStandardIso45001Url",
-    "fileStandardIso14001Url",
-    "fileStandardZeroUrl",
-    "fileStandard5SUrl",
-    "fileStandardHasUrl",
-  ]),
-  t.Object({
-    fileStandardHc: t.Optional(t.File(fileOption)),
-    fileStandardSan: t.Optional(t.File(fileOption)),
-    fileStandardWellness: t.Optional(t.File(fileOption)),
-    fileStandardSafety: t.Optional(t.File(fileOption)),
-    fileStandardTis18001: t.Optional(t.File(fileOption)),
-    fileStandardIso45001: t.Optional(t.File(fileOption)),
-    fileStandardIso14001: t.Optional(t.File(fileOption)),
-    fileStandardZero: t.Optional(t.File(fileOption)),
-    fileStandard5S: t.Optional(t.File(fileOption)),
-    fileStandardHas: t.Optional(t.File(fileOption)),
-  }),
-]);
+export const CreateEnrollWithFilesSchema = t.Object({
+  employeeThM: t.Number(),
+  employeeMmM: t.Number(),
+  employeeKhM: t.Number(),
+  employeeLaM: t.Number(),
+  employeeVnM: t.Number(),
+  employeeCnM: t.Number(),
+  employeePhM: t.Number(),
+  employeeJpM: t.Number(),
+  employeeInM: t.Number(),
+  employeeOtherM: t.Number(),
+  employeeThF: t.Number(),
+  employeeMmF: t.Number(),
+  employeeKhF: t.Number(),
+  employeeLaF: t.Number(),
+  employeeVnF: t.Number(),
+  employeeCnF: t.Number(),
+  employeePhF: t.Number(),
+  employeeJpF: t.Number(),
+  employeeInF: t.Number(),
+  employeeOtherF: t.Number(),
+  standardHc: t.Boolean(),
+  standardSan: t.Boolean(),
+  standardWellness: t.Boolean(),
+  standardSafety: t.Boolean(),
+  standardTis18001: t.Boolean(),
+  standardIso45001: t.Boolean(),
+  standardIso14001: t.Boolean(),
+  standardZero: t.Boolean(),
+  standard5S: t.Boolean(),
+  standardHas: t.Boolean(),
+  safetyOfficerPrefix: t.String(),
+  safetyOfficerFirstName: t.String(),
+  safetyOfficerLastName: t.String(),
+  safetyOfficerPosition: t.String(),
+  safetyOfficerEmail: t.Optional(t.String({ format: "email" })),
+  safetyOfficerPhone: t.Optional(t.String()),
+  safetyOfficerLineId: t.Optional(t.String()),
+  fileStandardHc: t.Optional(t.File(fileOption)),
+  fileStandardSan: t.Optional(t.File(fileOption)),
+  fileStandardWellness: t.Optional(t.File(fileOption)),
+  fileStandardSafety: t.Optional(t.File(fileOption)),
+  fileStandardTis18001: t.Optional(t.File(fileOption)),
+  fileStandardIso45001: t.Optional(t.File(fileOption)),
+  fileStandardIso14001: t.Optional(t.File(fileOption)),
+  fileStandardZero: t.Optional(t.File(fileOption)),
+  fileStandard5S: t.Optional(t.File(fileOption)),
+  fileStandardHas: t.Optional(t.File(fileOption)),
+});
 
-export type CreateEnrollWithFilesDto = Static<typeof CreateEnrollWithFilesSchema>;
+export type CreateEnrollWithFilesDto = Static<
+  typeof CreateEnrollWithFilesSchema
+>;
 
 export const UpdateEnrollSchema = t.Omit(BaseEnrollUpdate, ["id"]);
 
-export const UpdateEnrollWithFilesSchema = t.Composite([
-  t.Omit(UpdateEnrollSchema, [
-    "fileStandardHcUrl",
-    "fileStandardSanUrl",
-    "fileStandardWellnessUrl",
-    "fileStandardSafetyUrl",
-    "fileStandardTis18001Url",
-    "fileStandardIso45001Url",
-    "fileStandardIso14001Url",
-    "fileStandardZeroUrl",
-    "fileStandard5SUrl",
-    "fileStandardHasUrl",
-  ]),
-  t.Object({
-    fileStandardHc: t.Optional(t.File(fileOption)),
-    fileStandardSan: t.Optional(t.File(fileOption)),
-    fileStandardWellness: t.Optional(t.File(fileOption)),
-    fileStandardSafety: t.Optional(t.File(fileOption)),
-    fileStandardTis18001: t.Optional(t.File(fileOption)),
-    fileStandardIso45001: t.Optional(t.File(fileOption)),
-    fileStandardIso14001: t.Optional(t.File(fileOption)),
-    fileStandardZero: t.Optional(t.File(fileOption)),
-    fileStandard5S: t.Optional(t.File(fileOption)),
-    fileStandardHas: t.Optional(t.File(fileOption)),
-  }),
-]);
+export const UpdateEnrollWithFilesSchema = t.Object({
+  employeeThM: t.Optional(t.Number()),
+  employeeMmM: t.Optional(t.Number()),
+  employeeKhM: t.Optional(t.Number()),
+  employeeLaM: t.Optional(t.Number()),
+  employeeVnM: t.Optional(t.Number()),
+  employeeCnM: t.Optional(t.Number()),
+  employeePhM: t.Optional(t.Number()),
+  employeeJpM: t.Optional(t.Number()),
+  employeeInM: t.Optional(t.Number()),
+  employeeOtherM: t.Optional(t.Number()),
+  employeeThF: t.Optional(t.Number()),
+  employeeMmF: t.Optional(t.Number()),
+  employeeKhF: t.Optional(t.Number()),
+  employeeLaF: t.Optional(t.Number()),
+  employeeVnF: t.Optional(t.Number()),
+  employeeCnF: t.Optional(t.Number()),
+  employeePhF: t.Optional(t.Number()),
+  employeeJpF: t.Optional(t.Number()),
+  employeeInF: t.Optional(t.Number()),
+  employeeOtherF: t.Optional(t.Number()),
+  standardHc: t.Optional(t.Boolean()),
+  standardSan: t.Optional(t.Boolean()),
+  standardWellness: t.Optional(t.Boolean()),
+  standardSafety: t.Optional(t.Boolean()),
+  standardTis18001: t.Optional(t.Boolean()),
+  standardIso45001: t.Optional(t.Boolean()),
+  standardIso14001: t.Optional(t.Boolean()),
+  standardZero: t.Optional(t.Boolean()),
+  standard5S: t.Optional(t.Boolean()),
+  standardHas: t.Optional(t.Boolean()),
+  safetyOfficerPrefix: t.Optional(t.String()),
+  safetyOfficerFirstName: t.Optional(t.String()),
+  safetyOfficerLastName: t.Optional(t.String()),
+  safetyOfficerPosition: t.Optional(t.String()),
+  safetyOfficerEmail: t.Optional(t.String({ format: "email" })),
+  safetyOfficerPhone: t.Optional(t.String()),
+  safetyOfficerLineId: t.Optional(t.String()),
+  fileStandardHc: t.Optional(t.File(fileOption)),
+  fileStandardSan: t.Optional(t.File(fileOption)),
+  fileStandardWellness: t.Optional(t.File(fileOption)),
+  fileStandardSafety: t.Optional(t.File(fileOption)),
+  fileStandardTis18001: t.Optional(t.File(fileOption)),
+  fileStandardIso45001: t.Optional(t.File(fileOption)),
+  fileStandardIso14001: t.Optional(t.File(fileOption)),
+  fileStandardZero: t.Optional(t.File(fileOption)),
+  fileStandard5S: t.Optional(t.File(fileOption)),
+  fileStandardHas: t.Optional(t.File(fileOption)),
+});
 
 export type UpdateEnrollDto = Static<typeof UpdateEnrollSchema>;
-export type UpdateEnrollWithFilesDto = Static<typeof UpdateEnrollWithFilesSchema>;
-
-// export const createEnrollSchema = z.object({
-//   employee_th_m: z.number(),
-//   employee_mm_m: z.number(),
-//   employee_kh_m: z.number(),
-//   employee_la_m: z.number(),
-//   employee_vn_m: z.number(),
-//   employee_cn_m: z.number(),
-//   employee_ph_m: z.number(),
-//   employee_jp_m: z.number(),
-//   employee_in_m: z.number(),
-//   employee_other_m: z.number(),
-
-//   employee_th_f: z.number(),
-//   employee_mm_f: z.number(),
-//   employee_kh_f: z.number(),
-//   employee_la_f: z.number(),
-//   employee_vn_f: z.number(),
-//   employee_cn_f: z.number(),
-//   employee_ph_f: z.number(),
-//   employee_jp_f: z.number(),
-//   employee_in_f: z.number(),
-//   employee_other_f: z.number(),
-
-//   standard_HC: z.boolean(),
-//   standard_SAN: z.boolean(),
-//   standard_wellness: z.boolean(),
-//   standard_safety: z.boolean(),
-//   standard_TIS18001: z.boolean(),
-//   standard_ISO45001: z.boolean(),
-//   standard_ISO14001: z.boolean(),
-//   standard_zero: z.boolean(),
-//   standard_5S: z.boolean(),
-//   standard_HAS: z.boolean(),
-
-//   safety_officer_prefix: z.string(),
-//   safety_officer_first_name: z.string(),
-//   safety_officer_last_name: z.string(),
-//   safety_officer_position: z.string(),
-//   safety_officer_email: z.email().optional(),
-//   safety_officer_phone: z.string().optional(),
-//   safety_officer_lineID: z.string().optional(),
-// });
+export type UpdateEnrollWithFilesDto = Static<
+  typeof UpdateEnrollWithFilesSchema
+>;
 
 export type CreateEnrollDto = Static<typeof CreateEnrollSchema>;

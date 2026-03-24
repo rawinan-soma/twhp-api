@@ -17,7 +17,7 @@ export const createAdminService = (database: typeof db) => {
         .then((res) => res[0]);
 
       if (!currentAdminId) {
-        throw status(400, { message: "admin not found" });
+        return status(400, { message: "admin not found" });
       }
 
       if (dto.password) {
@@ -48,7 +48,7 @@ export const createAdminService = (database: typeof db) => {
       });
 
       return {
-        message: "admin updated successfully",
+        message: "admin updated!",
       };
     },
 
@@ -61,7 +61,7 @@ export const createAdminService = (database: typeof db) => {
         .then((res) => res[0]);
 
       if (!existingFactory) {
-        throw status(400, { message: "factory not found" });
+        return status(404, { message: "factory not found" });
       }
 
       await database
@@ -70,7 +70,7 @@ export const createAdminService = (database: typeof db) => {
         .returning({ deletedId: factories.accountId })
         .then((res) => res[0]);
 
-      return { message: "factory delete succesfully" };
+      return { message: "factory deleted!" };
     },
     approveFactoryRegister: async (accountId: number) => {
       const factory = await database
@@ -79,10 +79,10 @@ export const createAdminService = (database: typeof db) => {
         .where(eq(factories.accountId, accountId))
         .then((res) => res[0]);
       if (!factory.id) {
-        throw status(400, { messgae: "factory not found" });
+        return status(404, { message: "factory not found" });
       }
       if (factory.isValidate) {
-        throw status(400, { message: "factory already validated" });
+        return status(400, { message: "factory already validated" });
       }
 
       await database
@@ -92,7 +92,7 @@ export const createAdminService = (database: typeof db) => {
         .returning()
         .then((res) => res[0]);
       return {
-        message: "factory successfully validated",
+        message: "factory validated!",
       };
     },
   };

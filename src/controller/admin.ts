@@ -25,9 +25,14 @@ export const adminController = new Elysia({
         },
         {
           body: UpdateAdminSchema,
-          response: t.Object({
-            message: t.String({ default: "admin updated successfully" }),
-          }),
+          response: {
+            200: t.Object({
+              message: t.String({ default: "admin updated!" }),
+            }),
+            400: t.Object({
+              message: t.String({ default: "admin not found" }),
+            }),
+          },
         },
       ),
   )
@@ -43,9 +48,17 @@ export const adminController = new Elysia({
         {
           params: t.Object({ id: t.Number() }),
           body: UpdateFactorySchema,
-          response: t.Object({
-            message: t.String({ default: "factory updated successfully" }),
-          }),
+          response: {
+            200: t.Object({
+              message: t.String({ default: "factory updated successfully" }),
+            }),
+            404: t.Object({
+              message: t.String({ default: "admin not found" }),
+            }),
+            400: t.Object({
+              message: t.String({ default: "invalid subdistrict id" }),
+            }),
+          },
         },
       )
       .patch(
@@ -55,9 +68,17 @@ export const adminController = new Elysia({
         },
         {
           params: t.Object({ id: t.Number() }),
-          response: t.Object({
-            message: t.String({ default: "factory successfully validated" }),
-          }),
+          response: {
+            200: t.Object({
+              message: t.String({ default: "factory validated!" }),
+            }),
+            404: t.Object({
+              message: t.String({ default: "factory not found" }),
+            }),
+            400: t.Object({
+              message: t.String({ default: "factory already validated" }),
+            }),
+          },
         },
       )
       .delete(
@@ -69,9 +90,14 @@ export const adminController = new Elysia({
         },
         {
           params: t.Object({ id: t.Number() }),
-          response: t.Object({
-            message: t.String({ default: "factory delete succesfully" }),
-          }),
+          response: {
+            200: t.Object({
+              message: t.String({ default: "factory delete succesfully" }),
+            }),
+            404: t.Object({
+              message: t.String({ default: "factory not found" }),
+            }),
+          },
         },
       )
       .get(
@@ -114,27 +140,32 @@ export const adminController = new Elysia({
         },
         {
           params: t.Object({ id: t.Number() }),
-          response: t.Object({
-            account_id: t.Number(),
-            factory_type: t.Number(),
-            name_th: t.String(),
-            name_en: t.String(),
-            tsic_code: t.String(),
-            address_no: t.String(),
-            soi: t.Nullable(t.String()),
-            road: t.Nullable(t.String()),
-            zipcode: t.String(),
-            phone_number: t.String(),
-            fax_number: t.Nullable(t.String()),
-            province_id: t.Number(),
-            district_id: t.Number(),
-            subdistrict_id: t.Number(),
-            is_validate: t.Boolean(),
-            username: t.String(),
-            province_name_th: t.String(),
-            district_name_th: t.String(),
-            subdistrict_name_th: t.String(),
-          }),
+          response: {
+            200: t.Object({
+              account_id: t.Number(),
+              factory_type: t.Number(),
+              name_th: t.String(),
+              name_en: t.String(),
+              tsic_code: t.String(),
+              address_no: t.String(),
+              soi: t.Nullable(t.String()),
+              road: t.Nullable(t.String()),
+              zipcode: t.String(),
+              phone_number: t.String(),
+              fax_number: t.Nullable(t.String()),
+              province_id: t.Number(),
+              district_id: t.Number(),
+              subdistrict_id: t.Number(),
+              is_validate: t.Boolean(),
+              username: t.String(),
+              province_name_th: t.String(),
+              district_name_th: t.String(),
+              subdistrict_name_th: t.String(),
+            }),
+            404: t.Object({
+              message: t.String({ default: "factory not found" }),
+            }),
+          },
         },
       ),
   )
@@ -167,14 +198,19 @@ export const adminController = new Elysia({
         },
         {
           params: t.Object({ id: t.Number() }),
-          response: t.Composite([
-            BaseEnrollSelect,
-            t.Object({
-              province_name_th: t.Nullable(t.String()),
-              district_name_th: t.Nullable(t.String()),
-              subdistrict_name_th: t.Nullable(t.String()),
+          response: {
+            200: t.Composite([
+              BaseEnrollSelect,
+              t.Object({
+                province_name_th: t.Nullable(t.String()),
+                district_name_th: t.Nullable(t.String()),
+                subdistrict_name_th: t.Nullable(t.String()),
+              }),
+            ]),
+            404: t.Object({
+              message: t.String({ default: "enroll not found" }),
             }),
-          ]),
+          },
         },
       ),
   );

@@ -7,6 +7,8 @@ import {
   enrolls,
   provinces,
   evaluators,
+  covers,
+  coverLogs,
 } from "../drizzle/schema";
 import { eq, and, gte, lt, SQL, asc, getTableColumns, desc } from "drizzle-orm";
 import { status } from "elysia";
@@ -72,7 +74,7 @@ export const createSharedService = (database: typeof db) => {
           .then((res) => res[0]);
 
         if (!result) {
-          throw status(400, { message: "enroll not found" });
+          return status(404, { message: "enroll not found" });
         }
 
         return result;
@@ -117,7 +119,7 @@ export const createSharedService = (database: typeof db) => {
 
         for (const s of standards) {
           if (s.bool && !s.file) {
-            throw status(400, {
+            return status(400, {
               message: `standard ${s.name} is issue but file is missing`,
             });
           }
@@ -139,7 +141,7 @@ export const createSharedService = (database: typeof db) => {
           .then((res) => res[0]);
 
         if (existingEnroll) {
-          throw status(400, {
+          return status(400, {
             message: "already make an enroll in fiscal year",
           });
         }
@@ -154,7 +156,7 @@ export const createSharedService = (database: typeof db) => {
             .then((result) => result[0])
         ).region;
         if (region === null || !region) {
-          throw status(400, { message: "invalid factory id" });
+          return status(400, { message: "invalid factory id" });
         }
 
         const evaluatorsList = await database
@@ -162,7 +164,7 @@ export const createSharedService = (database: typeof db) => {
           .from(evaluators)
           .where(eq(evaluators.region, region));
         if (evaluatorsList.length === 0) {
-          throw status(400, { message: "evaluators not found" });
+          return status(400, { message: "evaluators not found" });
         }
 
         const extractedEvaluators = {
@@ -284,7 +286,7 @@ export const createSharedService = (database: typeof db) => {
           .then((res) => res[0]);
 
         if (!existingEnroll) {
-          throw status(400, {
+          return status(404, {
             message: "Enroll not found for this fiscal year",
           });
         }
@@ -369,7 +371,7 @@ export const createSharedService = (database: typeof db) => {
 
         for (const s of standards) {
           if (s.bool && !s.newFile && !s.oldUrl) {
-            throw status(400, {
+            return status(400, {
               message: `Standard ${s.name} is issue but file is missing`,
             });
           }
@@ -498,6 +500,10 @@ export const createSharedService = (database: typeof db) => {
           .limit(1)
           .then((res) => res[0]);
 
+        if (!selectedEnroll) {
+          return { message: "no enrollment found" };
+        }
+
         return selectedEnroll;
       },
     },
@@ -539,7 +545,7 @@ export const createSharedService = (database: typeof db) => {
           .then((res) => res[0]);
 
         if (!factory) {
-          throw status(404, { message: "factory not found" });
+          return status(404, { message: "factory not found" });
         }
         return factory;
       },
@@ -606,7 +612,7 @@ export const createSharedService = (database: typeof db) => {
           .then((res) => res[0]);
 
         if (!existingFactory) {
-          throw status(400, { message: "factory not found" });
+          return status(404, { message: "factory not found" });
         }
 
         if (dto.password) {
@@ -629,7 +635,7 @@ export const createSharedService = (database: typeof db) => {
             .limit(1)
             .then((res) => res[0]);
           if (!location) {
-            throw status(400, { message: "invalid subdistrict id" });
+            return status(400, { message: "invalid subdistrict id" });
           }
 
           await database
@@ -667,6 +673,34 @@ export const createSharedService = (database: typeof db) => {
             : undefined;
         });
         return { message: "factory updated successfully" };
+      },
+    },
+
+    covers: {
+      create: async (enrollId: number) => {
+        const existingCover = await database
+          .select()
+          .from(covers)
+          .where(eq(covers.enrollId, enrollId))
+          .limit(1)
+          .then((res) => res[0]);
+
+        if (existingCover) {
+          return status(400, { message: "cover already exists for this enroll" });
+        }
+
+        await database.transaction(async (tx) => {
+          const [newCover] = await tx
+            .insert(covers)
+            .values({ enrollId })
+            .returning();
+
+          await tx
+            .insert(coverLogs)
+            .values({ coverId: newCover.id, status: "in_progress" });
+        });
+
+        return { message: "assessment cover created!" };
       },
     },
   };
