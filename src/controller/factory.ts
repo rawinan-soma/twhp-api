@@ -4,12 +4,10 @@ import { factoryService } from "../service/factory";
 import { jwtPlugin } from "../middleware/jwt";
 import { requireRoles } from "../middleware/rbac";
 import { Role } from "../service/authentication";
-import {
-  CreateEnrollWithFilesSchema,
-  UpdateEnrollWithFilesSchema,
-} from "../schema/enroll";
+import { CreateEnrollWithFilesSchema, UpdateEnrollWithFilesSchema } from "../schema/enroll";
 import { BaseEnrollSelect } from "../schema";
-import { sharedService } from "../service/shared";
+import { enrollService } from "../service/enroll";
+import { coverService } from "../service/cover";
 
 const registerFactoryController = new Elysia().post(
   "/register",
@@ -19,7 +17,7 @@ const registerFactoryController = new Elysia().post(
   {
     body: CreateFactorySchema,
     response: {
-      200: t.Object({
+      201: t.Object({
         message: t.String({ default: "factory created successfully" }),
       }),
       400: t.Object({
@@ -43,7 +41,7 @@ export const factoryController = new Elysia({
         "",
         async ({ jwtPayload, body }) => {
           const id = Number(jwtPayload.sub);
-          return await sharedService.factory.update(id, body);
+          return await factoryService.update(id, body);
         },
         {
           body: UpdateFactorySchema,
@@ -67,15 +65,15 @@ export const factoryController = new Elysia({
       .use(requireRoles(Role.Factory))
       .post(
         "",
-        async ({ body, jwtPayload }) => {
+        async ({ body, jwtPayload, set }) => {
           const id = Number(jwtPayload.sub);
-          return await sharedService.enroll.create(body, id);
+          return await enrollService.create(body, id);
         },
         {
           body: CreateEnrollWithFilesSchema,
           parse: "multipart/form-data",
           response: {
-            200: t.Object({
+            201: t.Object({
               message: t.String({ default: "create enrollment successfully" }),
             }),
             400: t.Union([
@@ -99,7 +97,7 @@ export const factoryController = new Elysia({
         "",
         async ({ jwtPayload }) => {
           const id = Number(jwtPayload.sub);
-          return await sharedService.enroll.getEnrollByFactoryId(id);
+          return await enrollService.getEnrollByFactoryId(id);
         },
         {
           response: t.Union([
@@ -112,7 +110,7 @@ export const factoryController = new Elysia({
         "",
         async ({ jwtPayload, body }) => {
           const id = Number(jwtPayload.sub);
-          return await sharedService.enroll.updateEnroll(id, body);
+          return await enrollService.updateEnroll(id, body);
         },
         {
           body: UpdateEnrollWithFilesSchema,
@@ -144,16 +142,15 @@ export const factoryController = new Elysia({
         "covers",
         async ({ jwtPayload, status }) => {
           const factoryId = Number(jwtPayload.sub);
-          const enroll =
-            await sharedService.enroll.getEnrollByFactoryId(factoryId);
+          const enroll = await enrollService.getEnrollByFactoryId(factoryId);
           if ("message" in enroll) {
             return status(404, { message: "enroll not found" });
           }
-          return await sharedService.covers.create(enroll.id);
+          return await coverService.create(enroll.id);
         },
         {
           response: {
-            200: t.Object({
+            201: t.Object({
               message: t.String({ default: "assessment cover created!" }),
             }),
             400: t.Object({

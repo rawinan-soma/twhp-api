@@ -4,7 +4,8 @@ import { requireRoles } from "../middleware/rbac";
 import { authenticationService, Role } from "../service/authentication";
 import { evaluatorService } from "../service/evaluator";
 
-import { sharedService } from "../service/shared";
+import { enrollService } from "../service/enroll";
+import { factoryService } from "../service/factory";
 import { BaseEnrollSelect } from "../schema";
 
 export const evaluatorController = new Elysia({
@@ -15,7 +16,7 @@ export const evaluatorController = new Elysia({
     ec
       .use(jwtPlugin)
       .use(requireRoles(Role.Evaluator))
-      .post(
+      .patch(
         "/password",
         async ({ jwtPayload, body: { password } }) => {
           const accountId = Number(jwtPayload.sub);
@@ -45,7 +46,7 @@ export const evaluatorController = new Elysia({
             return status(404, { message: "invalid evaluator" });
           }
 
-          return await sharedService.factory.getAllFactories({
+          return await factoryService.getAllFactories({
             validated: query.validated,
             enrolled: query.enrolled,
             region: region.evaluator.region,
@@ -85,7 +86,7 @@ export const evaluatorController = new Elysia({
       .get(
         "/:id",
         async ({ params }) => {
-          return await sharedService.factory.getFactoryById(params.id);
+          return await factoryService.getFactoryById(params.id);
         },
         {
           params: t.Object({ id: t.Number() }),
@@ -130,7 +131,7 @@ export const evaluatorController = new Elysia({
           if (!region || region.evaluator === null) {
             return status(404, { message: "invalid evaluator" });
           }
-          return await sharedService.enroll.getAllEnrolls(region.evaluator.region);
+          return await enrollService.getAllEnrolls(region.evaluator.region);
         },
         {
           response: {
@@ -153,7 +154,7 @@ export const evaluatorController = new Elysia({
       .get(
         "/:id",
         async ({ params: { id } }) => {
-          return await sharedService.enroll.getEnrollById(id);
+          return await enrollService.getEnrollById(id);
         },
         {
           params: t.Object({ id: t.Number() }),

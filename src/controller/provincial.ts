@@ -5,12 +5,12 @@ import { authenticationService, Role } from "../service/authentication";
 
 export const provincialOfficerController = new Elysia({
   prefix: "/provincialOfficers",
-  tags: ["Provincial Officer"],
+  tags: ["provincial Officer"],
 }).group("", (poc) =>
   poc
     .use(jwtPlugin)
     .use(requireRoles(Role.Provincial))
-    .post(
+    .patch(
       "/password",
       async ({ jwtPayload, body: { password } }) => {
         const accountId = Number(jwtPayload.sub);

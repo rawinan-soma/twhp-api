@@ -6,7 +6,8 @@ import { UpdateAdminSchema } from "../schema/admin";
 import { adminService } from "../service/admin";
 import { UpdateFactorySchema } from "../schema/factory";
 import { BaseEnrollSelect } from "../schema";
-import { sharedService } from "../service/shared";
+import { enrollService } from "../service/enroll";
+import { factoryService } from "../service/factory";
 
 export const adminController = new Elysia({
   prefix: "/admins",
@@ -43,7 +44,7 @@ export const adminController = new Elysia({
       .patch(
         "/:id",
         async ({ params, body }) => {
-          return await sharedService.factory.update(params.id, body);
+          return await factoryService.update(params.id, body);
         },
         {
           params: t.Object({ id: t.Number() }),
@@ -103,7 +104,7 @@ export const adminController = new Elysia({
       .get(
         "",
         async ({ query }) => {
-          return await sharedService.factory.getAllFactories(query);
+          return await factoryService.getAllFactories(query);
         },
         {
           query: t.Object({
@@ -136,7 +137,7 @@ export const adminController = new Elysia({
       .get(
         "/:id",
         async ({ params }) => {
-          return await sharedService.factory.getFactoryById(params.id);
+          return await factoryService.getFactoryById(params.id);
         },
         {
           params: t.Object({ id: t.Number() }),
@@ -176,7 +177,7 @@ export const adminController = new Elysia({
       .get(
         "",
         async () => {
-          return await sharedService.enroll.getAllEnrolls();
+          return await enrollService.getAllEnrolls();
         },
         {
           response: t.Array(
@@ -194,7 +195,7 @@ export const adminController = new Elysia({
       .get(
         "/:id",
         async ({ params }) => {
-          return await sharedService.enroll.getEnrollById(params.id);
+          return await enrollService.getEnrollById(params.id);
         },
         {
           params: t.Object({ id: t.Number() }),

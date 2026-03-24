@@ -7,10 +7,7 @@ const publicAuthenticationController = new Elysia()
     "/login",
     async ({ body, cookie: { Authentication, Refresh }, set }) => {
       const { username, password } = body;
-      const account = await authenticationService.getAutheticatedAccount(
-        username,
-        password,
-      );
+      const account = await authenticationService.getAutheticatedAccount(username, password);
 
       if (account instanceof ElysiaCustomStatusResponse) {
         return account;
@@ -40,10 +37,7 @@ const publicAuthenticationController = new Elysia()
 
       const hashedRefreshToken = Bun.SHA256.hash(refreshToken, "hex");
 
-      await authenticationService.helper.setRefreshToken(
-        hashedRefreshToken,
-        account.id,
-      );
+      await authenticationService.helper.setRefreshToken(hashedRefreshToken, account.id);
 
       Authentication.set({
         value: accessToken,
@@ -151,9 +145,7 @@ export const authenticationController = new Elysia({
             ...authenticationService.helper.getCookieOption("logout"),
           });
 
-          await authenticationService.helper.removeRefreshToken(
-            Number(jwtPayload.sub),
-          );
+          await authenticationService.helper.removeRefreshToken(Number(jwtPayload.sub));
 
           set.status = 200;
           return { message: "logout successful" };
@@ -165,11 +157,10 @@ export const authenticationController = new Elysia({
         },
       )
       .get(
-        "/",
+        "",
         async ({ jwtPayload }) => {
-          return await authenticationService.helper.getAccountById(
-            Number(jwtPayload.sub),
-          );
+          const result = await authenticationService.helper.getAccountById(Number(jwtPayload.sub));
+          return result;
         },
         {
           response: {
@@ -183,6 +174,7 @@ export const authenticationController = new Elysia({
               message: t.String({ default: "invalid credential" }),
             }),
           },
+          detail: { summary: "ดึงข้อมูล user ของ session ปัจจุบัน" },
         },
       ),
   );
