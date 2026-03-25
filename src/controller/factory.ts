@@ -5,9 +5,12 @@ import { jwtPlugin } from "../middleware/jwt";
 import { requireRoles } from "../middleware/rbac";
 import { Role } from "../service/authentication";
 import { CreateEnrollWithFilesSchema, UpdateEnrollWithFilesSchema } from "../schema/enroll";
-import { BaseEnrollSelect } from "../schema";
+import { BaseAnswerSelect, BaseEnrollSelect, BaseQuestionSelect } from "../schema";
+import { CreateAnswerWithFilesSchema } from "../schema/answer";
 import { enrollService } from "../service/enroll";
 import { coverService } from "../service/cover";
+import { questionService } from "../service/question";
+import { answerService } from "../service/answer";
 
 const registerFactoryController = new Elysia().post(
   "/register",
@@ -140,13 +143,9 @@ export const factoryController = new Elysia({
       .use(requireRoles(Role.Factory))
       .post(
         "covers",
-        async ({ jwtPayload, status }) => {
+        async ({ jwtPayload }) => {
           const factoryId = Number(jwtPayload.sub);
-          const enroll = await enrollService.getEnrollByFactoryId(factoryId);
-          if ("message" in enroll) {
-            return status(404, { message: "enroll not found" });
-          }
-          return await coverService.create(enroll.id);
+          return await coverService.create(factoryId);
         },
         {
           response: {
@@ -160,6 +159,132 @@ export const factoryController = new Elysia({
               message: t.String({
                 default: "enroll not found",
                 description: "if factory do not enroll yet",
+              }),
+            }),
+          },
+        },
+      )
+      .get(
+        "/questions",
+        async () => {
+          return await questionService.getAllQuestions();
+        },
+        { response: { 200: t.Array(BaseQuestionSelect) } },
+      )
+      .get(
+        "/answers",
+        async ({ jwtPayload }) => {
+          const factoryId = Number(jwtPayload.sub);
+          return await answerService.getAnswerByFactoryId(factoryId);
+        },
+        {
+          response: {
+            200: t.Array(t.Omit(BaseAnswerSelect, ["id", "cover_id"])),
+            404: t.Object({ message: t.String({ default: "answers not found" }) }),
+          },
+        },
+      )
+      .post(
+        "/answers",
+        async ({ jwtPayload, body }) => {
+          const factoryId = Number(jwtPayload.sub);
+          return await answerService.saveAnswer(factoryId, body);
+        },
+        {
+          body: CreateAnswerWithFilesSchema,
+          parse: "multipart/form-data",
+          response: {
+            201: t.Object({ message: t.String({ default: "answer save!" }) }),
+            400: t.Union([
+              t.Object({
+                message: t.String({
+                  default: "existed answer",
+                  description: "An answer for this question already exists on the current cover",
+                }),
+              }),
+              t.Object({
+                message: t.String({
+                  default: "standard question does not accept files",
+                  description:
+                    "Files were submitted for a question that is tied to a standard — use the enroll standard file instead",
+                }),
+              }),
+              t.Object({
+                message: t.String({
+                  default: "standard HC file not found in enroll",
+                  description:
+                    "The question requires a standard but the matching standard file URL is missing from the factory's enroll",
+                }),
+              }),
+              t.Object({
+                message: t.String({
+                  default: "choice 1 requires at least file_1_1",
+                  description: "selectedChoice=1 but file_1_1 was not provided",
+                }),
+              }),
+              t.Object({
+                message: t.String({
+                  default: "choice 2 requires at least file_1_1 and file_2_1",
+                  description: "selectedChoice=2 but file_1_1 or file_2_1 was not provided",
+                }),
+              }),
+              t.Object({
+                message: t.String({
+                  default: "choice 3 requires at least file_1_1, file_2_1, and file_3_1",
+                  description: "selectedChoice=3 but one or more of file_1_1, file_2_1, file_3_1 was not provided",
+                }),
+              }),
+            ]),
+            404: t.Union([
+              t.Object({
+                message: t.String({
+                  default: "cover not found",
+                  description: "No assessment cover exists for the factory's current fiscal year enrollment",
+                }),
+              }),
+              t.Object({
+                message: t.String({
+                  default: "question not found",
+                  description: "The provided questionId does not match any question in the database",
+                }),
+              }),
+            ]),
+          },
+        },
+      )
+      .post(
+        "/submission",
+        async ({ jwtPayload }) => {
+          const factoryId = Number(jwtPayload.sub);
+          return await answerService.submit(factoryId);
+        },
+        {
+          response: {
+            200: t.Object({ message: t.String({ default: "answers submit" }) }),
+            400: t.Union([
+              t.Object({
+                message: t.String({
+                  default: "cover is not in progress",
+                  description: 'The cover\'s latest log status is not "in_progress" — already submitted or not started',
+                }),
+              }),
+              t.Object({
+                message: t.String({
+                  default: "not all questions have been answered",
+                  description: "Number of answers in this cover is less than the total number of questions",
+                }),
+              }),
+              t.Object({
+                message: t.String({
+                  default: "not all answers are in review status",
+                  description: 'One or more answers have a latest log status other than "in_review"',
+                }),
+              }),
+            ]),
+            404: t.Object({
+              message: t.String({
+                default: "cover not found",
+                description: "No assessment cover exists for the factory's current fiscal year enrollment",
               }),
             }),
           },

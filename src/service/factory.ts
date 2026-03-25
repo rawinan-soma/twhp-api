@@ -9,6 +9,8 @@ import {
   subdistricts,
   provinces,
   enrolls,
+  evaluators,
+  provincialOfficers,
 } from "../drizzle/schema";
 import { eq, and, gte, lt, SQL, asc } from "drizzle-orm";
 import { utilities } from "../utils";
@@ -119,16 +121,14 @@ export const createFactoryService = (database: typeof db) => {
       return factory;
     },
 
-    getAllFactories: async ({
+    getAllFactoriesByProvinceId: async ({
       validated,
       enrolled = true,
       provinceId,
-      region,
     }: {
       validated: boolean;
       enrolled?: boolean;
-      provinceId?: number;
-      region?: number;
+      provinceId: number;
     }) => {
       const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
       const filters: (SQL | undefined)[] = [];
@@ -136,12 +136,81 @@ export const createFactoryService = (database: typeof db) => {
         filters.push(gte(enrolls.enrollDate, fiscalYearStart.toISOString()));
         filters.push(lt(enrolls.enrollDate, fiscalYearEnd.toISOString()));
       }
-      if (provinceId) {
-        filters.push(eq(factories.provinceId, provinceId));
-      }
+      return await database
+        .select({
+          province_name_th: provinces.nameTh,
+          district_name_th: districts.nameTh,
+          subdistrict_name_th: subdistricts.nameTh,
+          account_id: factories.accountId,
+          factory_type: factories.factoryType,
+          name_th: factories.nameTh,
+          name_en: factories.nameEn,
+          tsic_code: factories.tsicCode,
+          address_no: factories.addressNo,
+          soi: factories.soi,
+          road: factories.road,
+          zipcode: factories.zipcode,
+          phone_number: factories.phoneNumber,
+          fax_number: factories.faxNumber,
+          is_validate: factories.isValidate,
+        })
+        .from(factories)
+        .innerJoin(enrolls, eq(factories.accountId, enrolls.factoryId))
+        .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
+        .innerJoin(districts, eq(factories.districtId, districts.districtId))
+        .innerJoin(subdistricts, eq(factories.subdistrictId, subdistricts.subdistrictId))
+        .where(and(...filters, eq(factories.isValidate, validated), eq(factories.provinceId, provinceId)))
+        .orderBy(asc(factories.accountId));
+    },
 
-      if (region) {
-        filters.push(eq(provinces.healthRegion, region));
+    getAllFactoriesByRegion: async ({
+      validated,
+      enrolled = true,
+      region,
+    }: {
+      validated: boolean;
+      enrolled?: boolean;
+      region: number;
+    }) => {
+      const filters: (SQL | undefined)[] = [];
+      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+      if (enrolled && fiscalYearStart && fiscalYearEnd) {
+        filters.push(gte(enrolls.enrollDate, fiscalYearStart.toISOString()));
+        filters.push(lt(enrolls.enrollDate, fiscalYearEnd.toISOString()));
+      }
+      return await database
+        .select({
+          province_name_th: provinces.nameTh,
+          district_name_th: districts.nameTh,
+          subdistrict_name_th: subdistricts.nameTh,
+          account_id: factories.accountId,
+          factory_type: factories.factoryType,
+          name_th: factories.nameTh,
+          name_en: factories.nameEn,
+          tsic_code: factories.tsicCode,
+          address_no: factories.addressNo,
+          soi: factories.soi,
+          road: factories.road,
+          zipcode: factories.zipcode,
+          phone_number: factories.phoneNumber,
+          fax_number: factories.faxNumber,
+          is_validate: factories.isValidate,
+        })
+        .from(factories)
+        .innerJoin(enrolls, eq(factories.accountId, enrolls.factoryId))
+        .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
+        .innerJoin(districts, eq(factories.districtId, districts.districtId))
+        .innerJoin(subdistricts, eq(factories.subdistrictId, subdistricts.subdistrictId))
+        .where(and(...filters, eq(factories.isValidate, validated), eq(provinces.healthRegion, region)))
+        .orderBy(asc(factories.accountId));
+    },
+
+    getAllFactories: async ({ validated, enrolled = true }: { validated: boolean; enrolled?: boolean }) => {
+      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+      const filters: (SQL | undefined)[] = [];
+      if (enrolled && fiscalYearStart && fiscalYearEnd) {
+        filters.push(gte(enrolls.enrollDate, fiscalYearStart.toISOString()));
+        filters.push(lt(enrolls.enrollDate, fiscalYearEnd.toISOString()));
       }
 
       return await database

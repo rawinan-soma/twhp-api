@@ -6,7 +6,7 @@ import { evaluatorController } from "./controller/evaluator";
 import { factoryController } from "./controller/factory";
 import { locationController } from "./controller/location";
 import { logger, createPinoLogger } from "@bogeychan/elysia-logger";
-import { provincialOfficerController } from "./controller/provincial";
+import { provincialOfficerController } from "./controller/provincialOfficer";
 
 const globalLogger = createPinoLogger();
 

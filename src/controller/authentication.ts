@@ -95,31 +95,36 @@ const publicAuthenticationController = new Elysia()
   .post(
     "/reset-password-request",
     async ({ body: { email }, set }) => {
-      await authenticationService.sendPasswordResetEmail(email);
-      set.status = 200;
-      return { message: "sending password reset email" };
+      return await authenticationService.sendPasswordResetEmail(email);
     },
     {
       body: t.Object({ email: t.String({ format: "email" }) }),
-      response: t.Object({
-        message: t.String({ default: "sending password reset email" }),
-      }),
+      response: {
+        201: t.Object({
+          message: t.String({ default: "sending password reset email" }),
+        }),
+        404: t.Object({ message: t.String({ default: "email not found" }) }),
+        429: t.Object({ message: t.String({ default: "password reset email already sent, please wait before requesting again" }) }),
+      },
     },
   )
   .post(
     "/reset-password",
     async ({ body: { password, token }, set }) => {
-      await authenticationService.updatePassword(password, token);
-      set.status = 200;
-      return { message: "password change!!" };
+      return await authenticationService.updatePassword(password, token);
     },
     {
       body: t.Object({ password: t.String(), token: t.String() }),
       response: {
         200: t.Object({
-          message: t.String({ default: "password change!!" }),
+          message: t.String({ default: "password changed!" }),
         }),
-        400: t.Object({ message: t.String({ default: "invalid token" }) }),
+        400: t.Union([
+          t.Object({ message: t.String({ default: "invalid token" }) }),
+          t.Object({
+            message: t.String({ default: "old password are not allowed", description: "password ซ้ำกับของเดิม" }),
+          }),
+        ]),
       },
     },
   );

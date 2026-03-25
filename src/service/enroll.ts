@@ -1,12 +1,5 @@
 import { db } from "../drizzle";
-import {
-  factories,
-  districts,
-  subdistricts,
-  enrolls,
-  provinces,
-  evaluators,
-} from "../drizzle/schema";
+import { factories, districts, subdistricts, enrolls, provinces, evaluators } from "../drizzle/schema";
 import { eq, and, gte, lt, SQL, getTableColumns, desc } from "drizzle-orm";
 import { status } from "elysia";
 import { utilities } from "../utils";
@@ -14,6 +7,52 @@ import { CreateEnrollWithFilesDto, UpdateEnrollWithFilesDto } from "../schema/en
 
 export const createEnrollService = (database: typeof db) => {
   return {
+    getAllEnrollsByRegion: async (region: number) => {
+      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+      const results = await database
+        .select({
+          ...getTableColumns(enrolls),
+          factory_name_th: factories.nameTh,
+          region: provinces.healthRegion,
+          provinceId: provinces.provinceId,
+        })
+        .from(enrolls)
+        .innerJoin(factories, eq(enrolls.factoryId, factories.accountId))
+        .innerJoin(provinces, eq(provinces.provinceId, factories.provinceId))
+        .where(
+          and(
+            gte(enrolls.enrollDate, fiscalYearStart.toISOString()),
+            lt(enrolls.enrollDate, fiscalYearEnd.toISOString()),
+            eq(provinces.healthRegion, region),
+          ),
+        )
+        .orderBy(desc(enrolls.enrollDate));
+
+      return results;
+    },
+    getAllEnrollsByProvince: async (provinceId: number) => {
+      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+      const results = await database
+        .select({
+          ...getTableColumns(enrolls),
+          factory_name_th: factories.nameTh,
+          region: provinces.healthRegion,
+          provinceId: provinces.provinceId,
+        })
+        .from(enrolls)
+        .innerJoin(factories, eq(enrolls.factoryId, factories.accountId))
+        .innerJoin(provinces, eq(provinces.provinceId, factories.provinceId))
+        .where(
+          and(
+            gte(enrolls.enrollDate, fiscalYearStart.toISOString()),
+            lt(enrolls.enrollDate, fiscalYearEnd.toISOString()),
+            eq(provinces.provinceId, provinceId),
+          ),
+        )
+        .orderBy(desc(enrolls.enrollDate));
+
+      return results;
+    },
     getAllEnrolls: async (region?: number, provinceId?: number) => {
       const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
       const filters: (SQL | undefined)[] = [

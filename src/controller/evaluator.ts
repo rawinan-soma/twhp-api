@@ -18,15 +18,18 @@ export const evaluatorController = new Elysia({
       .use(requireRoles(Role.Evaluator))
       .patch(
         "/password",
-        async ({ jwtPayload, body: { password } }) => {
+        async ({ jwtPayload, body: { password, email } }) => {
           const accountId = Number(jwtPayload.sub);
-          return await authenticationService.editFirstPassword(accountId, password, "Evaluator");
+          return await authenticationService.editFirstPassword(accountId, password, email, "Evaluator");
         },
         {
-          body: t.Object({ password: t.String() }),
+          body: t.Object({ password: t.String(), email: t.String({ format: "email" }) }),
           response: {
             200: t.Object({ message: t.String({ default: "password change" }) }),
-            400: t.Object({ message: t.String({ default: "password already change" }) }),
+            400: t.Union([
+              t.Object({ message: t.String({ default: "password already change" }) }),
+              t.Object({ message: t.String({ default: "email already exists" }) }),
+            ]),
             404: t.Object({ message: t.String({ default: "user not found" }) }),
           },
         },
@@ -46,7 +49,7 @@ export const evaluatorController = new Elysia({
             return status(404, { message: "invalid evaluator" });
           }
 
-          return await factoryService.getAllFactories({
+          return await factoryService.getAllFactoriesByRegion({
             validated: query.validated,
             enrolled: query.enrolled,
             region: region.evaluator.region,

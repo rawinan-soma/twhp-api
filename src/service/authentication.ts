@@ -215,27 +215,38 @@ export const createAuthenticationUsecase = (database: typeof db) => {
     },
 
     sendPasswordResetEmail: async (email: string) => {
+      const pending = await redisConnector.get(`reset_password_token:${email}`);
+      if (pending) {
+        return status(429, { message: "password reset email already sent, please wait before requesting again" });
+      }
+
       const token = randomBytes(32).toString("hex");
+      const [user] = await database.select().from(accounts).where(eq(accounts.email, email));
+      if (!user) {
+        return status(404, { message: "email not found" });
+      }
       await redisConnector.set(`reset_password_token:${token}`, email, "EX", 300);
+      await redisConnector.set(`reset_password_token:${email}`, token, "EX", 300);
 
       await emailQueue.add(
-        "password-reset-token",
+        "password-reset-request",
         {
           email: email,
           token: token,
         },
         { attempts: 3, backoff: 5000 },
       );
+      return { message: "sending password reset email" };
     },
 
     updatePassword: async (password: string, token: string) => {
-      const email = await redisConnector.get(`reset_password_token${token}`);
+      const email = await redisConnector.get(`reset_password_token:${token}`);
       if (!email) {
         return status(400, { message: "invalid token" });
       }
 
       const user = await database
-        .select({ id: accounts.id })
+        .select({ id: accounts.id, password: accounts.password })
         .from(accounts)
         .where(eq(accounts.email, email))
         .limit(1)
@@ -245,41 +256,89 @@ export const createAuthenticationUsecase = (database: typeof db) => {
         return status(400, { message: "invalid token" });
       }
 
+      if (await bcrypt.compare(password, user.password)) {
+        return status(400, { message: "old password are not allowed" });
+      }
+
       const hashedPassword = await bcrypt.hash(password, 12);
       await database.update(accounts).set({ password: hashedPassword }).where(eq(accounts.email, email));
 
       await redisConnector.del(`reset_password_token:${token}`);
+      await redisConnector.del(`reset_password_token:${email}`);
+      return { message: "password changed!" };
     },
-    editFirstPassword: async (accountId: number, password: string, userType: "Provincial" | "Evaluator") => {
-      const table = userType === "Provincial" ? provincialOfficers : evaluators;
-      const [user] = await database
-        .select({
-          account: accounts,
-          evaluator: evaluators,
-          provincialOfficer: provincialOfficers,
-        })
-        .from(accounts)
-        .leftJoin(table, eq(table.accountId, accounts.id))
-        .where(eq(accounts.id, accountId));
+    editFirstPassword: async (
+      accountId: number,
+      password: string,
+      email: string,
+      userType: "Provincial" | "Evaluator",
+    ) => {
+      if (userType === "Evaluator") {
+        const [user] = await database
+          .select({ account: accounts, evaluator: evaluators })
+          .from(accounts)
+          .leftJoin(evaluators, eq(evaluators.accountId, accounts.id))
+          .where(eq(accounts.id, accountId));
 
-      if (!user || user.evaluator === null || user.provincialOfficer === null) {
-        return status(404, { message: "user not found" });
+        if (!user || user.evaluator === null) {
+          return status(404, { message: "user not found" });
+        }
+
+        if (user.evaluator.isChangePassword) {
+          return status(400, { message: "password already changed" });
+        }
+
+        const [existingEmail] = await database.select().from(accounts).where(eq(accounts.email, email));
+        if (existingEmail) {
+          return status(400, { message: "email already exists" });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        await database.transaction(async (tx) => {
+          const [account] = await tx
+            .update(accounts)
+            .set({ password: hashedPassword, email })
+            .where(eq(accounts.id, accountId))
+            .returning();
+
+          await tx.update(evaluators).set({ isChangePassword: true }).where(eq(evaluators.accountId, account.id));
+        });
+      } else {
+        const [user] = await database
+          .select({ account: accounts, provincialOfficer: provincialOfficers })
+          .from(accounts)
+          .leftJoin(provincialOfficers, eq(provincialOfficers.accountId, accounts.id))
+          .where(eq(accounts.id, accountId));
+
+        if (!user || user.provincialOfficer === null) {
+          return status(404, { message: "user not found" });
+        }
+
+        if (user.provincialOfficer.isChangePassword) {
+          return status(400, { message: "password already changed" });
+        }
+
+        const [existingEmail] = await database.select().from(accounts).where(eq(accounts.email, email));
+        if (existingEmail) {
+          return status(400, { message: "email already exists" });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        await database.transaction(async (tx) => {
+          const [account] = await tx
+            .update(accounts)
+            .set({ password: hashedPassword, email })
+            .where(eq(accounts.id, accountId))
+            .returning();
+
+          await tx
+            .update(provincialOfficers)
+            .set({ isChangePassword: true })
+            .where(eq(provincialOfficers.accountId, account.id));
+        });
       }
-      if (user.evaluator.isChangePassword) {
-        return status(400, { message: "password already change" });
-      }
-
-      const hashedPassword = await bcrypt.hash(password, 12);
-
-      await database.transaction(async (tx) => {
-        const [account] = await tx
-          .update(accounts)
-          .set({ password: hashedPassword })
-          .where(eq(accounts.id, accountId))
-          .returning();
-
-        await tx.update(evaluators).set({ isChangePassword: true }).where(eq(evaluators.accountId, account.id));
-      });
 
       return { message: "password changed!" };
     },

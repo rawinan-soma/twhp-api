@@ -1,15 +1,35 @@
 import { db } from "../drizzle";
-import { covers, coverLogs } from "../drizzle/schema";
-import { eq } from "drizzle-orm";
+import { covers, coverLogs, enrolls } from "../drizzle/schema";
+import { and, eq, gte, lt } from "drizzle-orm";
 import { status } from "elysia";
+import { utilities } from "../utils";
 
 export const createCoverService = (database: typeof db) => {
   return {
-    create: async (enrollId: number) => {
+    create: async (factoryId: number) => {
+      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+
+      const enroll = await database
+        .select({ id: enrolls.id })
+        .from(enrolls)
+        .where(
+          and(
+            eq(enrolls.factoryId, factoryId),
+            gte(enrolls.enrollDate, fiscalYearStart.toISOString()),
+            lt(enrolls.enrollDate, fiscalYearEnd.toISOString()),
+          ),
+        )
+        .limit(1)
+        .then((res) => res[0]);
+
+      if (!enroll) {
+        return status(404, { message: "enroll not found" });
+      }
+
       const existingCover = await database
         .select()
         .from(covers)
-        .where(eq(covers.enrollId, enrollId))
+        .where(eq(covers.enrollId, enroll.id))
         .limit(1)
         .then((res) => res[0]);
 
@@ -18,7 +38,7 @@ export const createCoverService = (database: typeof db) => {
       }
 
       await database.transaction(async (tx) => {
-        const [newCover] = await tx.insert(covers).values({ enrollId }).returning();
+        const [newCover] = await tx.insert(covers).values({ enrollId: enroll.id }).returning();
 
         await tx.insert(coverLogs).values({ coverId: newCover.id, status: "in_progress" });
       });

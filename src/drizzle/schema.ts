@@ -1,26 +1,8 @@
-import {
-  pgTable,
-  timestamp,
-  text,
-  integer,
-  uniqueIndex,
-  boolean,
-  serial,
-  pgEnum,
-} from "drizzle-orm/pg-core";
+import { pgTable, timestamp, text, integer, uniqueIndex, boolean, serial, pgEnum } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
-export const evaluatorLevels = pgEnum("EvaluatorLevels", [
-  "Mental",
-  "DOH",
-  "ODPC",
-]);
-export const roles = pgEnum("Roles", [
-  "Factory",
-  "Provincial",
-  "Evaluator",
-  "DOED",
-]);
+export const evaluatorLevels = pgEnum("EvaluatorLevels", ["Mental", "DOH", "ODPC"]);
+export const roles = pgEnum("Roles", ["Factory", "Provincial", "Evaluator", "DOED"]);
 
 export const evaluators = pgTable("Evaluators", {
   accountId: integer("account_id")
@@ -46,10 +28,7 @@ export const provinces = pgTable(
     healthRegion: integer("health_region").notNull(),
   },
   (table) => [
-    uniqueIndex("Provinces_province_id_key").using(
-      "btree",
-      table.provinceId.asc().nullsLast().op("int4_ops"),
-    ),
+    uniqueIndex("Provinces_province_id_key").using("btree", table.provinceId.asc().nullsLast().op("int4_ops")),
   ],
 );
 
@@ -66,10 +45,7 @@ export const districts = pgTable(
     nameTh: text("name_th").notNull(),
   },
   (table) => [
-    uniqueIndex("Districts_district_id_key").using(
-      "btree",
-      table.districtId.asc().nullsLast().op("int4_ops"),
-    ),
+    uniqueIndex("Districts_district_id_key").using("btree", table.districtId.asc().nullsLast().op("int4_ops")),
   ],
 );
 
@@ -86,10 +62,7 @@ export const subdistricts = pgTable(
       }),
   },
   (table) => [
-    uniqueIndex("Subdistricts_subdistrict_id_key").using(
-      "btree",
-      table.subdistrictId.asc().nullsLast().op("int4_ops"),
-    ),
+    uniqueIndex("Subdistricts_subdistrict_id_key").using("btree", table.subdistrictId.asc().nullsLast().op("int4_ops")),
   ],
 );
 
@@ -147,10 +120,7 @@ export const adminsDoed = pgTable(
     phoneNumber: text("phone_number").notNull(),
   },
   (table) => [
-    uniqueIndex("AdminsDoed_account_id_key").using(
-      "btree",
-      table.accountId.asc().nullsLast().op("int4_ops"),
-    ),
+    uniqueIndex("AdminsDoed_account_id_key").using("btree", table.accountId.asc().nullsLast().op("int4_ops")),
   ],
 );
 
@@ -233,12 +203,7 @@ export const enrolls = pgTable(
     safetyOfficerPhone: text("safety_officer_phone"),
     safetyOfficerLineId: text("safety_officer_lineID"),
   },
-  (table) => [
-    uniqueIndex("enrolls_id_key").using(
-      "btree",
-      table.id.asc().nullsLast().op("int4_ops"),
-    ),
-  ],
+  (table) => [uniqueIndex("enrolls_id_key").using("btree", table.id.asc().nullsLast().op("int4_ops"))],
 );
 
 export const accounts = pgTable(
@@ -252,18 +217,9 @@ export const accounts = pgTable(
     hashedRefreshToken: text(),
   },
   (table) => [
-    uniqueIndex("Accounts_email_key").using(
-      "btree",
-      table.email.asc().nullsLast().op("text_ops"),
-    ),
-    uniqueIndex("Accounts_id_key").using(
-      "btree",
-      table.id.asc().nullsLast().op("int4_ops"),
-    ),
-    uniqueIndex("Accounts_username_key").using(
-      "btree",
-      table.username.asc().nullsLast().op("text_ops"),
-    ),
+    uniqueIndex("Accounts_email_key").using("btree", table.email.asc().nullsLast().op("text_ops")),
+    uniqueIndex("Accounts_id_key").using("btree", table.id.asc().nullsLast().op("int4_ops")),
+    uniqueIndex("Accounts_username_key").using("btree", table.username.asc().nullsLast().op("text_ops")),
   ],
 );
 
@@ -289,10 +245,7 @@ export const provincialOfficers = pgTable(
     isChangePassword: boolean().default(false).notNull(),
   },
   (table) => [
-    uniqueIndex("ProvincialOfficers_account_id_key").using(
-      "btree",
-      table.accountId.asc().nullsLast().op("int4_ops"),
-    ),
+    uniqueIndex("ProvincialOfficers_account_id_key").using("btree", table.accountId.asc().nullsLast().op("int4_ops")),
   ],
 );
 
@@ -309,19 +262,15 @@ export const covers = pgTable("Covers", {
     .notNull(),
 });
 
-export const assessmentStatus = pgEnum("AssesssmentStatus", [
-  "finished",
-  "in_progress",
-  "reviewed",
-  "sent",
-]);
+export const coverStatus = pgEnum("coverStatus", ["finished", "in_progress", "in_review"]);
+export const answerStatus = pgEnum("answerStatus", ["finished", "in_review", "rejected"]);
 
 export const coverLogs = pgTable("CoverLogs", {
   id: serial().primaryKey().notNull(),
   coverId: integer("cover_id")
     .notNull()
     .references(() => covers.id, { onDelete: "no action" }),
-  status: assessmentStatus().notNull(),
+  status: coverStatus().notNull(),
   updatedAt: timestamp("updated_at", { precision: 3, mode: "string" })
     .default(sql`CURRENT_TIMESTAMP`)
     .notNull(),
@@ -388,7 +337,7 @@ export const answerLogs = pgTable("AnswerLogs", {
   answerId: integer("answer_id")
     .notNull()
     .references(() => answers.id, { onDelete: "restrict" }),
-  status: assessmentStatus().notNull(),
+  status: answerStatus().notNull(),
   description: text(),
   updatedAt: timestamp("updated_at", { precision: 3, mode: "string" })
     .default(sql`CURRENT_TIMESTAMP`)

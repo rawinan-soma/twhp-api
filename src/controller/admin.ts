@@ -25,6 +25,7 @@ export const adminController = new Elysia({
           return await adminService.editAdminData(id, body);
         },
         {
+          detail: { summary: "แก้ไขข้อมูลของ admin" },
           body: UpdateAdminSchema,
           response: {
             200: t.Object({
@@ -47,6 +48,7 @@ export const adminController = new Elysia({
           return await factoryService.update(params.id, body);
         },
         {
+          detail: { summary: "update ข้อมูลของ สปก. ตาม id ของสปก." },
           params: t.Object({ id: t.Number() }),
           body: UpdateFactorySchema,
           response: {
@@ -68,6 +70,7 @@ export const adminController = new Elysia({
           return await adminService.approveFactoryRegister(params.id);
         },
         {
+          detail: { summary: "อนุมัติการลงทะเบียน" },
           params: t.Object({ id: t.Number() }),
           response: {
             200: t.Object({
@@ -110,8 +113,6 @@ export const adminController = new Elysia({
           query: t.Object({
             validated: t.Boolean(),
             enrolled: t.Optional(t.Boolean()),
-            provinceId: t.Optional(t.Numeric()),
-            region: t.Optional(t.Numeric()),
           }),
           response: t.Array(
             t.Object({
