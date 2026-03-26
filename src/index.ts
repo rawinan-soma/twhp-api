@@ -7,11 +7,9 @@ import { factoryController } from "./controller/factory";
 import { locationController } from "./controller/location";
 import { logger, createPinoLogger } from "@bogeychan/elysia-logger";
 import { provincialOfficerController } from "./controller/provincialOfficer";
+import { env } from "./config";
 
-const isDev = Bun.env.NODE_ENV !== "production";
-const transport = isDev ? { target: "pino-pretty", options: { colorize: true } } : undefined;
-
-const globalLogger = createPinoLogger({ transport });
+const globalLogger = createPinoLogger({ level: "info" });
 
 const EXPECTED_CODES = new Set(["VALIDATION", "INVALID_FILE_TYPE", "PARSE"]);
 
@@ -20,26 +18,18 @@ const app = new Elysia({ prefix: "/twhp/api" })
   .use(
     logger({
       level: "info",
-      transport,
-      base: { service: "twhp-api", env: Bun.env.NODE_ENV ?? "production" },
-      timestamp: () => `,"time":"${new Date().toISOString()}"`,
-      customProps(ctx) {
-        return {
-          method: ctx.request?.method,
-          statusCode: typeof ctx.set?.status === "number" ? ctx.set.status : undefined,
-        };
-      },
       serializers: {
-        request: (request) => {
-          return {
-            method: request?.method,
-            url: request?.url,
-            referrer: request?.headers?.get?.("Referer") || request?.headers?.["referer"],
-          };
-        },
+        request: (req) => ({
+          method: req?.method,
+          url: req?.url,
+          contentType: req?.headers?.get("content-type"),
+          authorization: req?.headers?.has("authorization"),
+          ip: req?.headers?.get("x-forwarded-for"),
+          userAgent: req?.headers?.get("user-agent"),
+        }),
       },
-      formatters: {
-        level: (label) => ({ level: label.toUpperCase() }),
+      customProps(ctx) {
+        return { status: ctx.set?.status };
       },
       autoLogging: {
         ignore(ctx) {
@@ -51,15 +41,36 @@ const app = new Elysia({ prefix: "/twhp/api" })
       },
     }),
   )
-  .onError(({ code, error, set, request, log }) => {
+  .onError(({ code, error, set, request, log, store }) => {
+    const activeLogger = log ?? globalLogger;
+    const errorMessage = error instanceof Error ? error.message : "";
+    (store as Record<string, unknown>).__logged = true;
     if (EXPECTED_CODES.has(code as string)) {
+      try {
+        const parsed = JSON.parse(errorMessage);
+        activeLogger.error(
+          { on: parsed.on, property: parsed.property, detail: parsed.message, request },
+          "Validation error",
+        );
+      } catch {
+        activeLogger.error({ code, detail: errorMessage, request }, "Expected error");
+      }
       return error;
     }
 
     set.status = 500;
-    const activeLogger = log ?? globalLogger;
-    activeLogger.error({ err: error, request }, "Unexpected error occurred");
+    activeLogger.error({ status: 500, detail: errorMessage, request }, "Unexpected error occurred");
     return { message: "Unexpected error" };
+  })
+  .onAfterResponse(({ set, request, log, responseValue, store }) => {
+    if ((store as Record<string, unknown>).__logged) return;
+    const status = typeof set.status === "number" ? set.status : 200;
+    if (status >= 400) {
+      const body =
+        typeof responseValue === "object" && responseValue !== null ? (responseValue as Record<string, unknown>) : null;
+      const detail = (body?.response as Record<string, unknown>)?.message ?? body?.message;
+      (log ?? globalLogger).error({ status, detail, request }, "Client error");
+    }
   })
   .get("/health", () => "Ready to work!!", {
     response: t.String({ default: "Ready to work!!" }),
@@ -71,6 +82,6 @@ const app = new Elysia({ prefix: "/twhp/api" })
   .use(factoryController)
   .use(provincialOfficerController);
 
-app.listen(3000);
+app.listen(env.APP_PORT);
 
 console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);

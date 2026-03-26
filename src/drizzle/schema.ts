@@ -179,6 +179,8 @@ export const enrolls = pgTable(
     fileStandardHcUrl: text("standard_HC_url"),
     standardSan: boolean("standard_SAN").notNull(),
     fileStandardSanUrl: text("standard_SAN_url"),
+    standardSanPlus: boolean("standard_SAN_plus").notNull(),
+    fileStandardSanPlusUrl: text("standard_SAN_plus_url"),
     standardWellness: boolean("standard_wellness").notNull(),
     fileStandardWellnessUrl: text("standard_wellness_url"),
     standardSafety: boolean("standard_safety").notNull(),
@@ -288,6 +290,7 @@ export const questionCategories = pgEnum("QuestionCategories", [
 export const standardTypes = pgEnum("StandardTypes", [
   "HC",
   "SAN",
+  "SANPlus",
   "wellness",
   "safety",
   "TIS18001",
@@ -296,18 +299,18 @@ export const standardTypes = pgEnum("StandardTypes", [
   "zero",
   "5S",
   "HAS",
-  "None",
 ]);
 
 export const questions = pgTable("Questions", {
-  id: serial().primaryKey().notNull(),
+  id: integer().primaryKey().notNull(),
   category: questionCategories().notNull(),
   questionText: text("question_text").notNull(),
-  standard: standardTypes().notNull(),
+  standard: standardTypes().array().notNull(),
   choice1: text("choice_1").notNull(),
   choice2: text("choice_2").notNull(),
-  choice_3: text("choice3").notNull(),
-  canNA: boolean().notNull(),
+  choice3: text("choice_3").notNull(),
+  choiceNA: text("choice_na"),
+  special: integer("special").notNull(),
 });
 
 export const choices = pgEnum("Choices", ["0", "1", "2", "3", "n/a"]);

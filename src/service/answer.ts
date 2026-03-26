@@ -45,12 +45,18 @@ export const createAnswerService = (database: typeof db) => {
       if (existingAnswer) return status(400, { message: "existed answer" });
 
       const hasFiles =
-        dto.file_1_1 || dto.file_1_2 || dto.file_1_3 ||
-        dto.file_2_1 || dto.file_2_2 || dto.file_2_3 ||
-        dto.file_3_1 || dto.file_3_2 || dto.file_3_3;
+        dto.file_1_1 ||
+        dto.file_1_2 ||
+        dto.file_1_3 ||
+        dto.file_2_1 ||
+        dto.file_2_2 ||
+        dto.file_2_3 ||
+        dto.file_3_1 ||
+        dto.file_3_2 ||
+        dto.file_3_3;
 
       // Standard question: no files allowed, verify enroll standard file exists
-      if (question.standard !== "None") {
+      if (question.standard.length > 0) {
         if (hasFiles) {
           return status(400, { message: "standard question does not accept files" });
         }
@@ -65,6 +71,7 @@ export const createAnswerService = (database: typeof db) => {
         const standardUrlMap: Record<string, string | null | undefined> = {
           HC: enroll.fileStandardHcUrl,
           SAN: enroll.fileStandardSanUrl,
+          SANPlus: enroll.fileStandardSanPlusUrl,
           wellness: enroll.fileStandardWellnessUrl,
           safety: enroll.fileStandardSafetyUrl,
           TIS18001: enroll.fileStandardTis18001Url,
@@ -75,8 +82,11 @@ export const createAnswerService = (database: typeof db) => {
           HAS: enroll.fileStandardHasUrl,
         };
 
-        if (!standardUrlMap[question.standard]) {
-          return status(400, { message: `standard ${question.standard} file not found in enroll` });
+        const hasStandardFile = question.standard.some((s) => !!standardUrlMap[s]);
+        if (!hasStandardFile) {
+          return status(400, {
+            message: `none of the required standards (${question.standard.join(", ")}) have a file in the enroll`,
+          });
         }
 
         // No file uploads needed — insert answer + log in one transaction
@@ -120,13 +130,18 @@ export const createAnswerService = (database: typeof db) => {
       }
 
       // Upload files outside the transaction so DB connection is not held during I/O
-      const uploadIfExists = (file: File | undefined) =>
-        file ? utilities().uploadFile(file) : Promise.resolve(null);
+      const uploadIfExists = (file: File | undefined) => (file ? utilities().uploadFile(file) : Promise.resolve(null));
 
       const [
-        fileUrl1_1, fileUrl1_2, fileUrl1_3,
-        fileUrl2_1, fileUrl2_2, fileUrl2_3,
-        fileUrl3_1, fileUrl3_2, fileUrl3_3,
+        fileUrl1_1,
+        fileUrl1_2,
+        fileUrl1_3,
+        fileUrl2_1,
+        fileUrl2_2,
+        fileUrl2_3,
+        fileUrl3_1,
+        fileUrl3_2,
+        fileUrl3_3,
       ] = await Promise.all([
         uploadIfExists(dto.file_1_1),
         uploadIfExists(dto.file_1_2),
@@ -197,7 +212,10 @@ export const createAnswerService = (database: typeof db) => {
       }
 
       const [{ totalQuestions }, { totalAnswers }] = await Promise.all([
-        database.select({ totalQuestions: count() }).from(questions).then((res) => res[0]),
+        database
+          .select({ totalQuestions: count() })
+          .from(questions)
+          .then((res) => res[0]),
         database
           .select({ totalAnswers: count() })
           .from(answers)
