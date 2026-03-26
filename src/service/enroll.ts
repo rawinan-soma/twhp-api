@@ -173,16 +173,14 @@ export const createEnrollService = (database: typeof db) => {
         });
       }
 
-      const region = (
-        await database
-          .select({ region: provinces.healthRegion })
-          .from(factories)
-          .leftJoin(provinces, eq(provinces.provinceId, factories.provinceId))
-          .where(eq(factories.accountId, factoryId))
-          .limit(1)
-          .then((result) => result[0])
-      ).region;
-      if (region === null || !region) {
+      const factoryData = await database
+        .select({ region: provinces.healthRegion })
+        .from(factories)
+        .leftJoin(provinces, eq(provinces.provinceId, factories.provinceId))
+        .where(eq(factories.accountId, factoryId))
+        .limit(1);
+      const region = factoryData[0]?.region;
+      if (!region) {
         return status(400, { message: "invalid factory id" });
       }
 

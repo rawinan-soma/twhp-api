@@ -106,7 +106,7 @@ export const factoryController = new Elysia({
           return await enrollService.getEnrollByFactoryId(id);
         },
         {
-          detail: { summary: "ดึงข้อมูลการสมัครเข้าร่วมโครงการตาม id" },
+          detail: { summary: "ดึงข้อมูลการสมัครเข้าร่วมโครงการของตนเอง" },
           response: t.Union([
             t.Partial(BaseEnrollSelect),
             t.Object({ message: t.String({ default: "no enrollment found" }) }),
