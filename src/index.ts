@@ -45,16 +45,7 @@ const app = new Elysia({ prefix: "/twhp/api" })
 
     set.status = 500;
     const activeLogger = log ?? globalLogger;
-    activeLogger.error(
-      {
-        err: error,
-        request: {
-          method: request.method,
-          url: request.url,
-        },
-      },
-      "Unexpected error occurred",
-    );
+    activeLogger.error({ err: error, request }, "Unexpected error occurred");
     return { message: "Unexpected error" };
   })
   .get("/health", () => "Ready to work!!", {
