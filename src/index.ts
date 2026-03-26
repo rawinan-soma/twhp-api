@@ -8,21 +8,32 @@ import { locationController } from "./controller/location";
 import { logger, createPinoLogger } from "@bogeychan/elysia-logger";
 import { provincialOfficerController } from "./controller/provincialOfficer";
 
-const globalLogger = createPinoLogger();
+const isDev = Bun.env.NODE_ENV !== "production";
+const transport = isDev ? { target: "pino-pretty", options: { colorize: true } } : undefined;
 
-const EXPECTED_CODES = new Set(["VALIDATION", "INVALID_FILE_TYPE"]);
+const globalLogger = createPinoLogger({ transport });
+
+const EXPECTED_CODES = new Set(["VALIDATION", "INVALID_FILE_TYPE", "PARSE"]);
 
 const app = new Elysia({ prefix: "/twhp/api" })
   .use(openapi({ path: "document" }))
   .use(
     logger({
       level: "info",
+      transport,
+      base: { service: "twhp-api", env: Bun.env.NODE_ENV ?? "production" },
+      timestamp: () => `,"time":"${new Date().toISOString()}"`,
+      customProps(ctx) {
+        return {
+          method: ctx.request?.method,
+          statusCode: typeof ctx.set?.status === "number" ? ctx.set.status : undefined,
+        };
+      },
       serializers: {
         request: (request) => {
           return {
             method: request?.method,
             url: request?.url,
-            // Use optional chaining and bracket notation if .get() is missing
             referrer: request?.headers?.get?.("Referer") || request?.headers?.["referer"],
           };
         },
@@ -31,9 +42,11 @@ const app = new Elysia({ prefix: "/twhp/api" })
         level: (label) => ({ level: label.toUpperCase() }),
       },
       autoLogging: {
-        ignore(request) {
-          const url = new URL(request.request.url);
-          return url.pathname === "/twhp/api/health";
+        ignore(ctx) {
+          const url = new URL(ctx.request.url);
+          if (url.pathname === "/twhp/api/health") return true;
+          if (ctx.isError || (ctx.set?.status as number) >= 400) return true;
+          return false;
         },
       },
     }),
@@ -45,16 +58,7 @@ const app = new Elysia({ prefix: "/twhp/api" })
 
     set.status = 500;
     const activeLogger = log ?? globalLogger;
-    activeLogger.error(
-      {
-        err: error,
-        request: {
-          method: request.method,
-          url: request.url,
-        },
-      },
-      "Unexpected error occurred",
-    );
+    activeLogger.error({ err: error, request }, "Unexpected error occurred");
     return { message: "Unexpected error" };
   })
   .get("/health", () => "Ready to work!!", {
