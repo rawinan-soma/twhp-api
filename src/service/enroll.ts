@@ -114,6 +114,7 @@ export const createEnrollService = (database: typeof db) => {
       const standards = [
         { bool: dto.standardHc, file: dto.fileStandardHc, name: "HC" },
         { bool: dto.standardSan, file: dto.fileStandardSan, name: "SAN" },
+        { bool: dto.standardSanPlus, file: dto.fileStandardSanPlus, name: "SANPlus" },
         {
           bool: dto.standardWellness,
           file: dto.fileStandardWellness,
@@ -201,6 +202,7 @@ export const createEnrollService = (database: typeof db) => {
       const {
         fileStandardHc,
         fileStandardSan,
+        fileStandardSanPlus,
         fileStandardWellness,
         fileStandardSafety,
         fileStandardTis18001,
@@ -215,6 +217,7 @@ export const createEnrollService = (database: typeof db) => {
       const [
         fileStandardHcUrl,
         fileStandardSanUrl,
+        fileStandardSanPlusUrl,
         fileStandardWellnessUrl,
         fileStandardSafetyUrl,
         fileStandardTis18001Url,
@@ -226,6 +229,7 @@ export const createEnrollService = (database: typeof db) => {
       ] = await Promise.all([
         fileStandardHc ? utilities().uploadFile(fileStandardHc) : Promise.resolve(null),
         fileStandardSan ? utilities().uploadFile(fileStandardSan) : Promise.resolve(null),
+        fileStandardSanPlus ? utilities().uploadFile(fileStandardSanPlus) : Promise.resolve(null),
         fileStandardWellness ? utilities().uploadFile(fileStandardWellness) : Promise.resolve(null),
         fileStandardSafety ? utilities().uploadFile(fileStandardSafety) : Promise.resolve(null),
         fileStandardTis18001 ? utilities().uploadFile(fileStandardTis18001) : Promise.resolve(null),
@@ -242,6 +246,7 @@ export const createEnrollService = (database: typeof db) => {
           ...enrollData,
           fileStandardHcUrl,
           fileStandardSanUrl,
+          fileStandardSanPlusUrl,
           fileStandardWellnessUrl,
           fileStandardSafetyUrl,
           fileStandardTis18001Url,
@@ -290,6 +295,7 @@ export const createEnrollService = (database: typeof db) => {
       const {
         fileStandardHc,
         fileStandardSan,
+        fileStandardSanPlus,
         fileStandardWellness,
         fileStandardSafety,
         fileStandardTis18001,
@@ -314,6 +320,12 @@ export const createEnrollService = (database: typeof db) => {
           newFile: fileStandardSan,
           oldUrl: existingEnroll.fileStandardSanUrl,
           name: "SAN",
+        },
+        {
+          bool: dto.standardSanPlus ?? existingEnroll.standardSanPlus,
+          newFile: fileStandardSanPlus,
+          oldUrl: existingEnroll.fileStandardSanPlusUrl,
+          name: "SANPlus",
         },
         {
           bool: dto.standardWellness ?? existingEnroll.standardWellness,
@@ -391,6 +403,7 @@ export const createEnrollService = (database: typeof db) => {
       const [
         fileStandardHcUrl,
         fileStandardSanUrl,
+        fileStandardSanPlusUrl,
         fileStandardWellnessUrl,
         fileStandardSafetyUrl,
         fileStandardTis18001Url,
@@ -402,14 +415,15 @@ export const createEnrollService = (database: typeof db) => {
       ] = await Promise.all([
         processFile(standards[0].bool, fileStandardHc, existingEnroll.fileStandardHcUrl),
         processFile(standards[1].bool, fileStandardSan, existingEnroll.fileStandardSanUrl),
-        processFile(standards[2].bool, fileStandardWellness, existingEnroll.fileStandardWellnessUrl),
-        processFile(standards[3].bool, fileStandardSafety, existingEnroll.fileStandardSafetyUrl),
-        processFile(standards[4].bool, fileStandardTis18001, existingEnroll.fileStandardTis18001Url),
-        processFile(standards[5].bool, fileStandardIso45001, existingEnroll.fileStandardIso45001Url),
-        processFile(standards[6].bool, fileStandardIso14001, existingEnroll.fileStandardIso14001Url),
-        processFile(standards[7].bool, fileStandardZero, existingEnroll.fileStandardZeroUrl),
-        processFile(standards[8].bool, fileStandard5S, existingEnroll.fileStandard5SUrl),
-        processFile(standards[9].bool, fileStandardHas, existingEnroll.fileStandardHasUrl),
+        processFile(standards[2].bool, fileStandardSanPlus, existingEnroll.fileStandardSanPlusUrl),
+        processFile(standards[3].bool, fileStandardWellness, existingEnroll.fileStandardWellnessUrl),
+        processFile(standards[4].bool, fileStandardSafety, existingEnroll.fileStandardSafetyUrl),
+        processFile(standards[5].bool, fileStandardTis18001, existingEnroll.fileStandardTis18001Url),
+        processFile(standards[6].bool, fileStandardIso45001, existingEnroll.fileStandardIso45001Url),
+        processFile(standards[7].bool, fileStandardIso14001, existingEnroll.fileStandardIso14001Url),
+        processFile(standards[8].bool, fileStandardZero, existingEnroll.fileStandardZeroUrl),
+        processFile(standards[9].bool, fileStandard5S, existingEnroll.fileStandard5SUrl),
+        processFile(standards[10].bool, fileStandardHas, existingEnroll.fileStandardHasUrl),
       ]);
 
       await database
@@ -418,6 +432,7 @@ export const createEnrollService = (database: typeof db) => {
           ...updateData,
           fileStandardHcUrl,
           fileStandardSanUrl,
+          fileStandardSanPlusUrl,
           fileStandardWellnessUrl,
           fileStandardSafetyUrl,
           fileStandardTis18001Url,

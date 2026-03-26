@@ -253,6 +253,44 @@ async function seed() {
   });
   console.log("AdminDoed (test1) seeded");
 
+  // 7. Seed Questions
+  const questionsData = JSON.parse(
+    fs.readFileSync(path.join(seedDataDir, "questions.json"), "utf8"),
+  );
+  const normalizeStandard = (s: any): string[] => {
+    if (!s || s === "None") return [];
+    return Array.isArray(s) ? s : [s];
+  };
+  await db
+    .insert(schema.questions)
+    .values(
+      questionsData.map((q: any) => ({
+        id: q.id,
+        category: q.category,
+        questionText: q.question_text,
+        standard: normalizeStandard(q.standard),
+        choice1: q.choice_1,
+        choice2: q.choice_2,
+        choice3: q.choice_3,
+        choiceNA: q.choice_NA ?? null,
+        special: q.special,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: schema.questions.id,
+      set: {
+        category: sql`EXCLUDED.category`,
+        questionText: sql`EXCLUDED.question_text`,
+        standard: sql`EXCLUDED.standard`,
+        choice1: sql`EXCLUDED.choice_1`,
+        choice2: sql`EXCLUDED.choice_2`,
+        choice3: sql`EXCLUDED.choice_3`,
+        choiceNA: sql`EXCLUDED.choice_na`,
+        special: sql`EXCLUDED.special`,
+      },
+    });
+  console.log("Questions seeded");
+
   console.log("Seed completed successfully");
 }
 
