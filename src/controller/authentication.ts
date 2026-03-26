@@ -60,6 +60,7 @@ const publicAuthenticationController = new Elysia()
       };
     },
     {
+      detail: { summary: "Login" },
       body: t.Object({ username: t.String(), password: t.String() }),
       cookie: t.Cookie({
         Authentication: t.Optional(t.String()),
@@ -98,13 +99,16 @@ const publicAuthenticationController = new Elysia()
       return await authenticationService.sendPasswordResetEmail(email);
     },
     {
+      detail: { summary: "ขอ email เพื่อ reset password" },
       body: t.Object({ email: t.String({ format: "email" }) }),
       response: {
         201: t.Object({
           message: t.String({ default: "sending password reset email" }),
         }),
         404: t.Object({ message: t.String({ default: "email not found" }) }),
-        429: t.Object({ message: t.String({ default: "password reset email already sent, please wait before requesting again" }) }),
+        429: t.Object({
+          message: t.String({ default: "password reset email already sent, please wait before requesting again" }),
+        }),
       },
     },
   )
@@ -114,6 +118,7 @@ const publicAuthenticationController = new Elysia()
       return await authenticationService.updatePassword(password, token);
     },
     {
+      detail: { summary: "reset password" },
       body: t.Object({ password: t.String(), token: t.String() }),
       response: {
         200: t.Object({
@@ -156,6 +161,7 @@ export const authenticationController = new Elysia({
           return { message: "logout successful" };
         },
         {
+          detail: { summary: "logout" },
           response: t.Object({
             message: t.String({ default: "logout successful" }),
           }),

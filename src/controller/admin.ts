@@ -93,6 +93,7 @@ export const adminController = new Elysia({
           return result;
         },
         {
+          detail: { summary: "ลบข้อมูล สปก." },
           params: t.Object({ id: t.Number() }),
           response: {
             200: t.Object({
@@ -110,6 +111,7 @@ export const adminController = new Elysia({
           return await factoryService.getAllFactories(query);
         },
         {
+          detail: { summary: "ดึงข้อมูล สปก. ทั้งหมด" },
           query: t.Object({
             validated: t.Boolean(),
             enrolled: t.Optional(t.Boolean()),
@@ -141,6 +143,7 @@ export const adminController = new Elysia({
           return await factoryService.getFactoryById(params.id);
         },
         {
+          detail: { summary: "ดึงข้อมูลสปก. ตาม id" },
           params: t.Object({ id: t.Number() }),
           response: {
             200: t.Object({
@@ -181,6 +184,7 @@ export const adminController = new Elysia({
           return await enrollService.getAllEnrolls();
         },
         {
+          detail: { summary: "ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมด" },
           response: t.Array(
             t.Composite([
               BaseEnrollSelect,
@@ -199,6 +203,7 @@ export const adminController = new Elysia({
           return await enrollService.getEnrollById(params.id);
         },
         {
+          detail: { summary: "ดึงข้อมูลการสมัครเข้าร่วมโครงการตาม id" },
           params: t.Object({ id: t.Number() }),
           response: {
             200: t.Composite([
