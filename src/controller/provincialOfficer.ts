@@ -2,10 +2,10 @@ import Elysia, { ElysiaCustomStatusResponse, status, t } from "elysia";
 import { jwtPlugin } from "../middleware/jwt";
 import { requireRoles } from "../middleware/rbac";
 import { authenticationService, Role } from "../service/authentication";
-import { evaluatorService } from "../service/evaluator";
 import { provincialOfficerService } from "../service/provincialOfficer";
-import { BaseFactorySelect, BaseProvinceSelect, BaseProvincialOfficerSelect } from "../schema";
+import { BaseEnrollSelect } from "../schema";
 import { factoryService } from "../service/factory";
+import { enrollService } from "../service/enroll";
 
 export const provincialOfficerController = new Elysia({
   prefix: "/provincialOfficers",
@@ -22,6 +22,7 @@ export const provincialOfficerController = new Elysia({
           return await authenticationService.editFirstPassword(accountId, password, email, "Provincial");
         },
         {
+          detail: { summary: "เปลี่ยนรหัสผ่านในครั้งแรกที่ login" },
           body: t.Object({ password: t.String(), email: t.String({ format: "email" }) }),
           response: {
             200: t.Object({ message: t.String({ default: "password change" }) }),
@@ -55,6 +56,7 @@ export const provincialOfficerController = new Elysia({
           return factories;
         },
         {
+          detail: { summary: "ดึงข้อมูลโรงงานทั้งหมดในจังหวัด" },
           query: t.Object({ validated: t.Boolean(), enrolled: t.Optional(t.Boolean()) }),
           response: {
             200: t.Array(
@@ -77,6 +79,37 @@ export const provincialOfficerController = new Elysia({
               }),
             ),
             404: t.Object({ message: t.String() }),
+          },
+        },
+      ),
+  )
+  .group("/enrolls", (poc) =>
+    poc
+      .use(jwtPlugin)
+      .use(requireRoles(Role.Provincial))
+      .get(
+        "",
+        async ({ jwtPayload }) => {
+          const id = Number(jwtPayload.sub);
+          const po = await provincialOfficerService.getOfficerDataById(id);
+          if (po instanceof ElysiaCustomStatusResponse) return status(404, { message: "provincial officer not found" });
+          const result = await enrollService.getAllEnrollsByProvince(po.provinceId);
+          return result;
+        },
+        {
+          detail: { summary: "ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดของจังหวัด" },
+          response: {
+            404: t.Object({ message: t.String({ default: "officer not found" }) }),
+            200: t.Array(
+              t.Composite([
+                BaseEnrollSelect,
+                t.Object({
+                  factory_name_th: t.String(),
+                  region: t.Number(),
+                  provinceId: t.Number(),
+                }),
+              ]),
+            ),
           },
         },
       ),

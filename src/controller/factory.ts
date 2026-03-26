@@ -18,6 +18,7 @@ const registerFactoryController = new Elysia().post(
     return await factoryService.register(body);
   },
   {
+    detail: { summary: "ลงทะเบียนสปก." },
     body: CreateFactorySchema,
     response: {
       201: t.Object({
@@ -47,6 +48,7 @@ export const factoryController = new Elysia({
           return await factoryService.update(id, body);
         },
         {
+          detail: { summary: "อัปเดตข้อมูลสปก." },
           body: UpdateFactorySchema,
           response: {
             200: t.Object({
@@ -73,6 +75,7 @@ export const factoryController = new Elysia({
           return await enrollService.create(body, id);
         },
         {
+          detail: { summary: "ลงทะเบียนการสมัครเข้าร่วมโครงการ" },
           body: CreateEnrollWithFilesSchema,
           parse: "multipart/form-data",
           response: {
@@ -103,6 +106,7 @@ export const factoryController = new Elysia({
           return await enrollService.getEnrollByFactoryId(id);
         },
         {
+          detail: { summary: "ดึงข้อมูลการสมัครเข้าร่วมโครงการตาม id" },
           response: t.Union([
             t.Partial(BaseEnrollSelect),
             t.Object({ message: t.String({ default: "no enrollment found" }) }),
@@ -116,6 +120,7 @@ export const factoryController = new Elysia({
           return await enrollService.updateEnroll(id, body);
         },
         {
+          detail: { summary: "อัปเดตข้อมูลการสมัครเข้าร่วมโครงการ" },
           body: UpdateEnrollWithFilesSchema,
           response: {
             200: t.Object({
@@ -148,6 +153,7 @@ export const factoryController = new Elysia({
           return await coverService.create(factoryId);
         },
         {
+          detail: { summary: "สร้างแบบประเมินตนเอง" },
           response: {
             201: t.Object({
               message: t.String({ default: "assessment cover created!" }),
@@ -169,7 +175,10 @@ export const factoryController = new Elysia({
         async () => {
           return await questionService.getAllQuestions();
         },
-        { response: { 200: t.Array(BaseQuestionSelect) } },
+        {
+          detail: { summary: "ดึงข้อมูลคำถาม" },
+          response: { 200: t.Array(BaseQuestionSelect) },
+        },
       )
       .get(
         "/answers",
@@ -178,6 +187,7 @@ export const factoryController = new Elysia({
           return await answerService.getAnswerByFactoryId(factoryId);
         },
         {
+          detail: { summary: "ดึงข้อมูลคำตอบ" },
           response: {
             200: t.Array(t.Omit(BaseAnswerSelect, ["id", "cover_id"])),
             404: t.Object({ message: t.String({ default: "answers not found" }) }),
@@ -191,6 +201,7 @@ export const factoryController = new Elysia({
           return await answerService.saveAnswer(factoryId, body);
         },
         {
+          detail: { summary: "บันทึกคำตอบ" },
           body: CreateAnswerWithFilesSchema,
           parse: "multipart/form-data",
           response: {
@@ -259,6 +270,7 @@ export const factoryController = new Elysia({
           return await answerService.submit(factoryId);
         },
         {
+          detail: { summary: "ส่งคำตอบทั้งชุด" },
           response: {
             200: t.Object({ message: t.String({ default: "answers submit" }) }),
             400: t.Union([

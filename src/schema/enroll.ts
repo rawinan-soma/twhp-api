@@ -2,7 +2,7 @@ import { BaseEnrollInsert, BaseEnrollSelect, BaseEnrollUpdate } from ".";
 import { t, Static } from "elysia";
 import { FileOptions } from "elysia/type-system/types";
 
-export const fileOption: FileOptions = { type: "image/png", maxSize: "5m" };
+export const fileOption: FileOptions = { type: "application/pdf", maxSize: "10m" };
 
 export const CreateEnrollSchema = t.Omit(BaseEnrollInsert, [
   "enrollDate",
@@ -63,9 +63,7 @@ export const CreateEnrollWithFilesSchema = t.Object({
   fileStandardHas: t.Optional(t.File(fileOption)),
 });
 
-export type CreateEnrollWithFilesDto = Static<
-  typeof CreateEnrollWithFilesSchema
->;
+export type CreateEnrollWithFilesDto = Static<typeof CreateEnrollWithFilesSchema>;
 
 export const UpdateEnrollSchema = t.Omit(BaseEnrollUpdate, ["id"]);
 
@@ -120,8 +118,6 @@ export const UpdateEnrollWithFilesSchema = t.Object({
 });
 
 export type UpdateEnrollDto = Static<typeof UpdateEnrollSchema>;
-export type UpdateEnrollWithFilesDto = Static<
-  typeof UpdateEnrollWithFilesSchema
->;
+export type UpdateEnrollWithFilesDto = Static<typeof UpdateEnrollWithFilesSchema>;
 
 export type CreateEnrollDto = Static<typeof CreateEnrollSchema>;
