@@ -46,14 +46,16 @@ const app = new Elysia({ prefix: "/twhp/api" })
     const errorMessage = error instanceof Error ? error.message : "";
     (store as Record<string, unknown>).__logged = true;
     if (EXPECTED_CODES.has(code as string)) {
+      const statusCode = "status" in error ? (error as { status: number }).status : 422;
+      set.status = statusCode;
       try {
         const parsed = JSON.parse(errorMessage);
         activeLogger.error(
-          { on: parsed.on, property: parsed.property, detail: parsed.message, request },
+          { status: statusCode, on: parsed.on, property: parsed.property, detail: parsed.message, request },
           "Validation error",
         );
       } catch {
-        activeLogger.error({ code, detail: errorMessage, request }, "Expected error");
+        activeLogger.error({ status: statusCode, code, detail: errorMessage, request }, "Expected error");
       }
       return error;
     }
