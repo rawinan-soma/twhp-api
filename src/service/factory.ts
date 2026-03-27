@@ -205,7 +205,7 @@ export const createFactoryService = (database: typeof db) => {
         .orderBy(asc(factories.accountId));
     },
 
-    getAllFactories: async ({ validated, enrolled = true }: { validated: boolean; enrolled?: boolean }) => {
+    getAllFactories: async ({ validated, enrolled }: { validated: boolean; enrolled?: boolean }) => {
       const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
       const filters: (SQL | undefined)[] = [];
       if (enrolled && fiscalYearStart && fiscalYearEnd) {
@@ -232,7 +232,7 @@ export const createFactoryService = (database: typeof db) => {
           is_validate: factories.isValidate,
         })
         .from(factories)
-        .innerJoin(enrolls, eq(factories.accountId, enrolls.factoryId))
+        .leftJoin(enrolls, eq(factories.accountId, enrolls.factoryId))
         .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
         .innerJoin(districts, eq(factories.districtId, districts.districtId))
         .innerJoin(subdistricts, eq(factories.subdistrictId, subdistricts.subdistrictId))
