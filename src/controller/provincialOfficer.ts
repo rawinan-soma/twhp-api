@@ -22,7 +22,7 @@ export const provincialOfficerController = new Elysia({
           return await authenticationService.editFirstPassword(accountId, password, email, "Provincial");
         },
         {
-          detail: { summary: "เปลี่ยนรหัสผ่านในครั้งแรกที่ login" },
+          detail: { description: "เปลี่ยนรหัสผ่านในครั้งแรกที่ login" },
           body: t.Object({ password: t.String(), email: t.String({ format: "email" }) }),
           response: {
             200: t.Object({ message: t.String({ default: "password change" }) }),
@@ -56,7 +56,7 @@ export const provincialOfficerController = new Elysia({
           return factories;
         },
         {
-          detail: { summary: "ดึงข้อมูลโรงงานทั้งหมดในจังหวัด" },
+          detail: { description: "ดึงข้อมูลโรงงานทั้งหมดในจังหวัด" },
           query: t.Object({ validated: t.Boolean(), enrolled: t.Optional(t.Boolean()) }),
           response: {
             200: t.Array(
@@ -97,7 +97,7 @@ export const provincialOfficerController = new Elysia({
           return result;
         },
         {
-          detail: { summary: "ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดของจังหวัด" },
+          detail: { description: "ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดของจังหวัด" },
           response: {
             404: t.Object({ message: t.String({ default: "officer not found" }) }),
             200: t.Array(

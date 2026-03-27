@@ -77,8 +77,9 @@ export const createAdminService = (database: typeof db) => {
         .select({ isValidate: factories.isValidate, id: factories.accountId })
         .from(factories)
         .where(eq(factories.accountId, accountId))
+        .limit(1)
         .then((res) => res[0]);
-      if (!factory.id) {
+      if (!factory) {
         return status(404, { message: "factory not found" });
       }
       if (factory.isValidate) {

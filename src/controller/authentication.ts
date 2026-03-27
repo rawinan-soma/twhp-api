@@ -60,7 +60,7 @@ const publicAuthenticationController = new Elysia()
       };
     },
     {
-      detail: { summary: "Login" },
+      detail: { description: "Login" },
       body: t.Object({ username: t.String(), password: t.String() }),
       cookie: t.Cookie({
         Authentication: t.Optional(t.String()),
@@ -99,7 +99,7 @@ const publicAuthenticationController = new Elysia()
       return await authenticationService.sendPasswordResetEmail(email);
     },
     {
-      detail: { summary: "ขอ email เพื่อ reset password" },
+      detail: { description: "ขอ email เพื่อ reset password" },
       body: t.Object({ email: t.String({ format: "email" }) }),
       response: {
         201: t.Object({
@@ -118,7 +118,7 @@ const publicAuthenticationController = new Elysia()
       return await authenticationService.updatePassword(password, token);
     },
     {
-      detail: { summary: "reset password" },
+      detail: { description: "reset password" },
       body: t.Object({ password: t.String(), token: t.String() }),
       response: {
         200: t.Object({
@@ -161,7 +161,7 @@ export const authenticationController = new Elysia({
           return { message: "logout successful" };
         },
         {
-          detail: { summary: "logout" },
+          detail: { description: "logout" },
           response: t.Object({
             message: t.String({ default: "logout successful" }),
           }),
@@ -180,12 +180,13 @@ export const authenticationController = new Elysia({
               username: t.String(),
               role: t.String(),
               change_pw: t.Boolean(),
+              eval_level: t.Nullable(t.String()),
             }),
             400: t.Object({
               message: t.String({ default: "invalid credential" }),
             }),
           },
-          detail: { summary: "ดึงข้อมูล user ของ session ปัจจุบัน" },
+          detail: { description: "ดึงข้อมูล user ของ session ปัจจุบัน" },
         },
       ),
   );

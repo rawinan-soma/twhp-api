@@ -4,9 +4,20 @@ import { factoryService } from "../service/factory";
 import { jwtPlugin } from "../middleware/jwt";
 import { requireRoles } from "../middleware/rbac";
 import { Role } from "../service/authentication";
-import { CreateEnrollWithFilesSchema, UpdateEnrollWithFilesSchema } from "../schema/enroll";
-import { BaseAnswerSelect, BaseCoverSelect, BaseEnrollSelect, BaseQuestionSelect } from "../schema";
-import { CreateAnswerWithFilesSchema, UpdateAnswerWithFilesSchema } from "../schema/answer";
+import {
+  CreateEnrollWithFilesSchema,
+  UpdateEnrollWithFilesSchema,
+} from "../schema/enroll";
+import {
+  BaseAnswerSelect,
+  BaseCoverSelect,
+  BaseEnrollSelect,
+  BaseQuestionSelect,
+} from "../schema";
+import {
+  CreateAnswerWithFilesSchema,
+  UpdateAnswerWithFilesSchema,
+} from "../schema/answer";
 import { enrollService } from "../service/enroll";
 import { coverService } from "../service/cover";
 import { questionService } from "../service/question";
@@ -18,7 +29,7 @@ const registerFactoryController = new Elysia().post(
     return await factoryService.register(body);
   },
   {
-    detail: { summary: "ลงทะเบียนสปก." },
+    detail: { description: "ลงทะเบียนสปก." },
     body: CreateFactorySchema,
     response: {
       201: t.Object({
@@ -48,7 +59,7 @@ export const factoryController = new Elysia({
           return await factoryService.update(id, body);
         },
         {
-          detail: { summary: "อัปเดตข้อมูลสปก." },
+          detail: { description: "อัปเดตข้อมูลสปก." },
           body: UpdateFactorySchema,
           response: {
             200: t.Object({
@@ -75,7 +86,7 @@ export const factoryController = new Elysia({
           return await enrollService.create(body, id);
         },
         {
-          detail: { summary: "ลงทะเบียนการสมัครเข้าร่วมโครงการ" },
+          detail: { description: "ลงทะเบียนการสมัครเข้าร่วมโครงการ" },
           body: CreateEnrollWithFilesSchema,
           parse: "multipart/form-data",
           response: {
@@ -106,7 +117,7 @@ export const factoryController = new Elysia({
           return await enrollService.getEnrollByFactoryId(id);
         },
         {
-          detail: { summary: "ดึงข้อมูลการสมัครเข้าร่วมโครงการของตนเอง" },
+          detail: { description: "ดึงข้อมูลการสมัครเข้าร่วมโครงการของตนเอง" },
           response: t.Union([
             t.Partial(BaseEnrollSelect),
             t.Object({ message: t.String({ default: "no enrollment found" }) }),
@@ -124,7 +135,7 @@ export const factoryController = new Elysia({
           */
         },
         {
-          detail: { summary: "อัปเดตข้อมูลการสมัครเข้าร่วมโครงการ" },
+          detail: { description: "อัปเดตข้อมูลการสมัครเข้าร่วมโครงการ" },
           body: UpdateEnrollWithFilesSchema,
           response: {
             200: t.Object({
@@ -163,10 +174,17 @@ export const factoryController = new Elysia({
         */
         },
         {
-          detail: "เรียกดูข้อมูลหน้าปกแบบประเมินพร้อมสถานะล่าสุด",
+          detail: {
+            description: "เรียกดูข้อมูลหน้าปกแบบประเมินพร้อมสถานะล่าสุด",
+          },
           response: {
-            200: t.Composite([BaseCoverSelect, t.Object({ status: t.String(), update_date: t.String() })]),
-            404: t.Object({ message: t.String({ default: "cover not found" }) }),
+            200: t.Composite([
+              BaseCoverSelect,
+              t.Object({ status: t.String(), update_date: t.String() }),
+            ]),
+            404: t.Object({
+              message: t.String({ default: "cover not found" }),
+            }),
           },
         },
       )
@@ -177,13 +195,15 @@ export const factoryController = new Elysia({
           return await coverService.create(factoryId);
         },
         {
-          detail: { summary: "สร้างแบบประเมินตนเอง" },
+          detail: { description: "สร้างแบบประเมินตนเอง" },
           response: {
             201: t.Object({
               message: t.String({ default: "assessment cover created!" }),
             }),
             400: t.Object({
-              message: t.String({ default: "cover already exists for this enroll" }),
+              message: t.String({
+                default: "cover already exists for this enroll",
+              }),
             }),
             404: t.Object({
               message: t.String({
@@ -200,7 +220,7 @@ export const factoryController = new Elysia({
           return await questionService.getAllQuestions();
         },
         {
-          detail: { summary: "ดึงข้อมูลคำถาม" },
+          detail: { description: "ดึงข้อมูลคำถาม" },
           response: { 200: t.Array(BaseQuestionSelect) },
         },
       )
@@ -211,10 +231,12 @@ export const factoryController = new Elysia({
           return await answerService.getAnswerByFactoryId(factoryId);
         },
         {
-          detail: { summary: "ดึงข้อมูลคำตอบ" },
+          detail: { description: "ดึงข้อมูลคำตอบ" },
           response: {
             200: t.Array(t.Omit(BaseAnswerSelect, ["id", "cover_id"])),
-            404: t.Object({ message: t.String({ default: "answers not found" }) }),
+            404: t.Object({
+              message: t.String({ default: "answers not found" }),
+            }),
           },
         },
       )
@@ -225,7 +247,7 @@ export const factoryController = new Elysia({
           return await answerService.saveAnswer(factoryId, body);
         },
         {
-          detail: { summary: "บันทึกคำตอบ" },
+          detail: { description: "บันทึกคำตอบ" },
           body: CreateAnswerWithFilesSchema,
           parse: "multipart/form-data",
           response: {
@@ -234,7 +256,8 @@ export const factoryController = new Elysia({
               t.Object({
                 message: t.String({
                   default: "existed answer",
-                  description: "An answer for this question already exists on the current cover",
+                  description:
+                    "An answer for this question already exists on the current cover",
                 }),
               }),
               t.Object({
@@ -260,13 +283,16 @@ export const factoryController = new Elysia({
               t.Object({
                 message: t.String({
                   default: "choice 2 requires at least file_1_1 and file_2_1",
-                  description: "selectedChoice=2 but file_1_1 or file_2_1 was not provided",
+                  description:
+                    "selectedChoice=2 but file_1_1 or file_2_1 was not provided",
                 }),
               }),
               t.Object({
                 message: t.String({
-                  default: "choice 3 requires at least file_1_1, file_2_1, and file_3_1",
-                  description: "selectedChoice=3 but one or more of file_1_1, file_2_1, file_3_1 was not provided",
+                  default:
+                    "choice 3 requires at least file_1_1, file_2_1, and file_3_1",
+                  description:
+                    "selectedChoice=3 but one or more of file_1_1, file_2_1, file_3_1 was not provided",
                 }),
               }),
             ]),
@@ -274,13 +300,15 @@ export const factoryController = new Elysia({
               t.Object({
                 message: t.String({
                   default: "cover not found",
-                  description: "No assessment cover exists for the factory's current fiscal year enrollment",
+                  description:
+                    "No assessment cover exists for the factory's current fiscal year enrollment",
                 }),
               }),
               t.Object({
                 message: t.String({
                   default: "question not found",
-                  description: "The provided questionId does not match any question in the database",
+                  description:
+                    "The provided questionId does not match any question in the database",
                 }),
               }),
             ]),
@@ -313,20 +341,44 @@ export const factoryController = new Elysia({
           response: {
             200: t.Object({ message: t.String({ default: "answer update" }) }),
             400: t.Union([
-              t.Object({ message: t.String({ default: "answer cannot be updated in its current status" }) }),
-              t.Object({ message: t.String({ default: "standard question does not accept files" }) }),
               t.Object({
-                message: t.String({ default: "none of the required standards have a file in the enroll" }),
+                message: t.String({
+                  default: "answer cannot be updated in its current status",
+                }),
               }),
-              t.Object({ message: t.String({ default: "choice 1 requires at least file_1_1" }) }),
-              t.Object({ message: t.String({ default: "choice 2 requires at least file_1_1 and file_2_1" }) }),
               t.Object({
-                message: t.String({ default: "choice 3 requires at least file_1_1, file_2_1, and file_3_1" }),
+                message: t.String({
+                  default: "standard question does not accept files",
+                }),
+              }),
+              t.Object({
+                message: t.String({
+                  default:
+                    "none of the required standards have a file in the enroll",
+                }),
+              }),
+              t.Object({
+                message: t.String({
+                  default: "choice 1 requires at least file_1_1",
+                }),
+              }),
+              t.Object({
+                message: t.String({
+                  default: "choice 2 requires at least file_1_1 and file_2_1",
+                }),
+              }),
+              t.Object({
+                message: t.String({
+                  default:
+                    "choice 3 requires at least file_1_1, file_2_1, and file_3_1",
+                }),
               }),
             ]),
             404: t.Union([
               t.Object({ message: t.String({ default: "cover not found" }) }),
-              t.Object({ message: t.String({ default: "question not found" }) }),
+              t.Object({
+                message: t.String({ default: "question not found" }),
+              }),
               t.Object({ message: t.String({ default: "answer not found" }) }),
             ]),
           },
@@ -339,33 +391,37 @@ export const factoryController = new Elysia({
           return await answerService.submit(factoryId);
         },
         {
-          detail: { summary: "ส่งคำตอบทั้งชุด" },
+          detail: { description: "ส่งคำตอบทั้งชุด" },
           response: {
             200: t.Object({ message: t.String({ default: "answers submit" }) }),
             400: t.Union([
               t.Object({
                 message: t.String({
                   default: "cover is not in progress",
-                  description: 'The cover\'s latest log status is not "in_progress" — already submitted or not started',
+                  description:
+                    'The cover\'s latest log status is not "in_progress" — already submitted or not started',
                 }),
               }),
               t.Object({
                 message: t.String({
                   default: "not all questions have been answered",
-                  description: "Number of answers in this cover is less than the total number of questions",
+                  description:
+                    "Number of answers in this cover is less than the total number of questions",
                 }),
               }),
               t.Object({
                 message: t.String({
                   default: "not all answers are in review status",
-                  description: 'One or more answers have a latest log status other than "in_review"',
+                  description:
+                    'One or more answers have a latest log status other than "in_review"',
                 }),
               }),
             ]),
             404: t.Object({
               message: t.String({
                 default: "cover not found",
-                description: "No assessment cover exists for the factory's current fiscal year enrollment",
+                description:
+                  "No assessment cover exists for the factory's current fiscal year enrollment",
               }),
             }),
           },
