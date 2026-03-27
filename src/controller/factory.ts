@@ -5,8 +5,8 @@ import { jwtPlugin } from "../middleware/jwt";
 import { requireRoles } from "../middleware/rbac";
 import { Role } from "../service/authentication";
 import { CreateEnrollWithFilesSchema, UpdateEnrollWithFilesSchema } from "../schema/enroll";
-import { BaseAnswerSelect, BaseEnrollSelect, BaseQuestionSelect } from "../schema";
-import { CreateAnswerWithFilesSchema } from "../schema/answer";
+import { BaseAnswerSelect, BaseCoverSelect, BaseEnrollSelect, BaseQuestionSelect } from "../schema";
+import { CreateAnswerWithFilesSchema, UpdateAnswerWithFilesSchema } from "../schema/answer";
 import { enrollService } from "../service/enroll";
 import { coverService } from "../service/cover";
 import { questionService } from "../service/question";
@@ -118,6 +118,10 @@ export const factoryController = new Elysia({
         async ({ jwtPayload, body }) => {
           const id = Number(jwtPayload.sub);
           return await enrollService.updateEnroll(id, body);
+          /*
+          Update logic
+          - If file present in body delete old file in metadata and minio then update new file
+          */
         },
         {
           detail: { summary: "อัปเดตข้อมูลการสมัครเข้าร่วมโครงการ" },
@@ -146,6 +150,26 @@ export const factoryController = new Elysia({
     fc
       .use(jwtPlugin)
       .use(requireRoles(Role.Factory))
+      .get(
+        "covers",
+        async ({ jwtPayload }) => {
+          const id = Number(jwtPayload.sub);
+          return await coverService.getCoverById(id);
+          /*
+        Business logic
+        - Get cover data from factory id
+        - Get only this fiscal year - fucntion is in utilities
+        - Get along with latest status of cover in coverLogs
+        */
+        },
+        {
+          detail: "เรียกดูข้อมูลหน้าปกแบบประเมินพร้อมสถานะล่าสุด",
+          response: {
+            200: t.Composite([BaseCoverSelect, t.Object({ status: t.String(), update_date: t.String() })]),
+            404: t.Object({ message: t.String({ default: "cover not found" }) }),
+          },
+        },
+      )
       .post(
         "covers",
         async ({ jwtPayload }) => {
@@ -259,6 +283,51 @@ export const factoryController = new Elysia({
                   description: "The provided questionId does not match any question in the database",
                 }),
               }),
+            ]),
+          },
+        },
+      )
+      .patch(
+        "/answers",
+        async ({ jwtPayload, body }) => {
+          const factoryId = Number(jwtPayload.sub);
+          return await answerService.update(factoryId, body);
+          /*
+          Business logic
+          - Check existing of answer - if not exists return status(404, {message: "answer not found"})
+          - Check answer status in logs - status should be in in_review or rejected
+          - Check standard file existing in body
+            - If there standard are not null, file of relative standard must be present (files are in enrolls)
+          - If selectedChoice = 1 at lease 1 file in file1_x must be present
+          - If selectedChoice = 2 at lease 1 file in file1_x and file2_x must be present
+          - If selectedChoice = 3 at lease 1 file in file1_x file2_x and file3_x must be present
+          - If body has file present. delete old file in metadata and minio then upload new file
+          - If selectedChoice are 0 or n/a. there are no file required
+          Workflow: validation as above -> update data in answer -> write new log with the status in_review
+          */
+        },
+        {
+          detail: "แก้ไขคำตอบของแบบประเมิน",
+          body: UpdateAnswerWithFilesSchema,
+          parse: "multipart/form-data",
+          response: {
+            200: t.Object({ message: t.String({ default: "answer update" }) }),
+            400: t.Union([
+              t.Object({ message: t.String({ default: "answer cannot be updated in its current status" }) }),
+              t.Object({ message: t.String({ default: "standard question does not accept files" }) }),
+              t.Object({
+                message: t.String({ default: "none of the required standards have a file in the enroll" }),
+              }),
+              t.Object({ message: t.String({ default: "choice 1 requires at least file_1_1" }) }),
+              t.Object({ message: t.String({ default: "choice 2 requires at least file_1_1 and file_2_1" }) }),
+              t.Object({
+                message: t.String({ default: "choice 3 requires at least file_1_1, file_2_1, and file_3_1" }),
+              }),
+            ]),
+            404: t.Union([
+              t.Object({ message: t.String({ default: "cover not found" }) }),
+              t.Object({ message: t.String({ default: "question not found" }) }),
+              t.Object({ message: t.String({ default: "answer not found" }) }),
             ]),
           },
         },
