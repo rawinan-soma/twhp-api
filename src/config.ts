@@ -61,6 +61,7 @@ export const env = {
   MINIO_ACCESS_KEY: requireEnv("MINIO_ACCESS_KEY"),
   MINIO_SECRET_KEY: requireEnv("MINIO_SECRET_KEY"),
   MINIO_BUCKET_NAME: requireEnv("MINIO_BUCKET_NAME"),
+  MINIO_PUBLIC_URL: requireEnv("MINIO_PUBLIC_URL"),
 } as const;
 
 export type Env = typeof env;

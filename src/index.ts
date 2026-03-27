@@ -28,8 +28,8 @@ const app = new Elysia({ prefix: "/twhp/api" })
           userAgent: req?.headers?.get("user-agent"),
         }),
       },
-      customProps(ctx) {
-        return { status: ctx.set?.status };
+      customProps() {
+        return {};
       },
       autoLogging: {
         ignore(ctx) {

@@ -23,7 +23,7 @@ export const evaluatorController = new Elysia({
           return await authenticationService.editFirstPassword(accountId, password, email, "Evaluator");
         },
         {
-          detail: { summary: "แก้ password ครั้งแรกที่ login" },
+          detail: { description: "แก้ password ครั้งแรกที่ login" },
           body: t.Object({ password: t.String(), email: t.String({ format: "email" }) }),
           response: {
             200: t.Object({ message: t.String({ default: "password change" }) }),
@@ -57,7 +57,7 @@ export const evaluatorController = new Elysia({
           });
         },
         {
-          detail: { summary: "ดึงข้อมูลสปก. ทั้งหมดตามเขตสุขภาพ" },
+          detail: { description: "ดึงข้อมูลสปก. ทั้งหมดตามเขตสุขภาพ" },
           query: t.Object({
             validated: t.Boolean(),
             enrolled: t.Optional(t.Boolean()),
@@ -94,7 +94,7 @@ export const evaluatorController = new Elysia({
           return await factoryService.getFactoryById(params.id);
         },
         {
-          detail: { summary: "ดึงข้อมูลสปก. ตาม id" },
+          detail: { description: "ดึงข้อมูลสปก. ตาม id" },
           params: t.Object({ id: t.Number() }),
           response: {
             200: t.Object({
@@ -140,7 +140,7 @@ export const evaluatorController = new Elysia({
           return await enrollService.getAllEnrolls(region.evaluator.region);
         },
         {
-          detail: { summary: "ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดตามเขตสุขภาพ" },
+          detail: { description: "ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดตามเขตสุขภาพ" },
           response: {
             200: t.Array(
               t.Composite([
@@ -164,7 +164,7 @@ export const evaluatorController = new Elysia({
           return await enrollService.getEnrollById(id);
         },
         {
-          detail: { summary: "ดึงข้อมูลการสมัครเข้าร่วมโครงการตาม id" },
+          detail: { description: "ดึงข้อมูลการสมัครเข้าร่วมโครงการตาม id" },
           params: t.Object({ id: t.Number() }),
           response: {
             200: t.Composite([

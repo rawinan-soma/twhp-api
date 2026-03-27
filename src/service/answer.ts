@@ -363,7 +363,10 @@ export const createAnswerService = (database: typeof db) => {
 
         await database.transaction(async (tx) => {
           if (dto.selectedChoice !== undefined) {
-            await tx.update(answers).set({ selectedChoice: dto.selectedChoice }).where(eq(answers.id, existingAnswer.id));
+            await tx
+              .update(answers)
+              .set({ selectedChoice: dto.selectedChoice })
+              .where(eq(answers.id, existingAnswer.id));
           }
           await tx.insert(answerLogs).values({ answerId: existingAnswer.id, status: "in_review" });
         });

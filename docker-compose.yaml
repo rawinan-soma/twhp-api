@@ -43,7 +43,7 @@ services:
     depends_on:
       migrate-dev:
         condition: service_completed_successfully
-    command: bun dev
+    command: bun src/index.ts | pino-pretty
 
   # Prod Migration (one-shot: runs db:push + db:seed then exits)
   migrate-prod:

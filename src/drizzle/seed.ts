@@ -220,6 +220,12 @@ async function seed() {
   console.log("Seeding AdminDoed (test1)...");
   const adminPassword = await bcrypt.hash("12345", 12);
   await db.transaction(async (tx) => {
+    // Remove any account that already owns admin@test.com but has a different username,
+    // so the upsert-by-username below does not hit the email unique constraint.
+    await tx
+      .delete(schema.accounts)
+      .where(sql`email = 'admin@test.com' AND username != 'test1'`);
+
     const [account] = await tx
       .insert(schema.accounts)
       .values({
@@ -230,7 +236,7 @@ async function seed() {
       })
       .onConflictDoUpdate({
         target: schema.accounts.username,
-        set: { password: adminPassword, role: "DOED" },
+        set: { password: adminPassword, email: "admin@test.com", role: "DOED" },
       })
       .returning();
 

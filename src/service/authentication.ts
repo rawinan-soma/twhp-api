@@ -116,6 +116,7 @@ const createAuthentocationService = (database: typeof db) => ({
           sql<boolean>`COALESCE(${evaluators.isChangePassword}, ${provincialOfficers.isChangePassword}, false)`.as(
             "change_pw",
           ),
+        eval_level: evaluators.level,
       })
       .from(accounts)
       .leftJoin(adminsDoed, eq(accounts.id, adminsDoed.accountId))
