@@ -43,7 +43,7 @@ services:
     depends_on:
       migrate-dev:
         condition: service_completed_successfully
-    command: bun run start
+    command: bun dev
 
   # Prod Migration (one-shot: runs db:push + db:seed then exits)
   migrate-prod:
