@@ -1,16 +1,11 @@
-events {
-    worker_connections 1024;
+map_hash_bucket_size 128;
+
+map $http_x_api_key $api_key_valid {
+    default         0;
+    "${NGINX_API_KEY}" 1;
 }
 
-http {
-    map_hash_bucket_size 128;
-
-    map $http_x_api_key $api_key_valid {
-        default         0;
-        "${NGINX_API_KEY}" 1;
-    }
-
-    server {
+server {
         listen 80;
 
         # Backend API
@@ -78,4 +73,3 @@ http {
             proxy_pass http://minio:9001;
         }
     }
-}
