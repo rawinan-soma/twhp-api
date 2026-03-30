@@ -40,12 +40,13 @@ WORKDIR /app
 COPY --from=build /app/server .
 COPY --from=build /app/worker-bin .
 
-# Copy files needed for migrations and seeding 
+# Copy files needed for migrations and seeding
 # (These need the 'bun' runtime, which is why we use bun:slim)
 COPY --from=build /app/src/drizzle ./src/drizzle
 COPY --from=build /app/seed_data ./seed_data
 COPY --from=build /app/drizzle.config.ts .
 COPY --from=build /app/package.json .
+COPY --from=build /app/node_modules ./node_modules
 
 # Set environment to production
 ENV NODE_ENV=production

@@ -67,6 +67,12 @@ const app = new Elysia({ prefix: "/twhp/api" })
       }
     }
 
+    if (code === "NOT_FOUND") {
+      set.status = 404;
+      activeLogger.error({ status: 404, detail: "NOT_FOUND", request }, "Not found");
+      return { message: "Not found" };
+    }
+
     set.status = 500;
     activeLogger.error({ status: 500, detail: errorMessage, request }, "Unexpected error occurred");
     return { message: "Unexpected error" };

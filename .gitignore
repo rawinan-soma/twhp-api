@@ -52,3 +52,4 @@ coverage/
 
 # Data (Optional: ignore if large/sensitive)
 seed_data/
+.rsyncignore

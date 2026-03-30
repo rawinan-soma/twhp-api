@@ -55,18 +55,28 @@ export const createAnswerService = (database: typeof db) => {
         dto.file_3_2 ||
         dto.file_3_3;
 
-      // Standard question: no files allowed, verify enroll standard file exists
+      // Standard question branch
       if (question.standard.length > 0) {
-        if (hasFiles) {
-          return status(400, { message: "standard question does not accept files" });
-        }
-
         const enroll = await database
           .select()
           .from(enrolls)
           .where(eq(enrolls.id, cover.enrollId))
           .limit(1)
           .then((res) => res[0]);
+
+        const standardBoolMap: Record<string, boolean | null | undefined> = {
+          HC: enroll.standardHc,
+          SAN: enroll.standardSan,
+          SANPlus: enroll.standardSanPlus,
+          wellness: enroll.standardWellness,
+          safety: enroll.standardSafety,
+          TIS18001: enroll.standardTis18001,
+          ISO45001: enroll.standardIso45001,
+          ISO14001: enroll.standardIso14001,
+          zero: enroll.standardZero,
+          "5S": enroll.standard5S,
+          HAS: enroll.standardHas,
+        };
 
         const standardUrlMap: Record<string, string | null | undefined> = {
           HC: enroll.fileStandardHcUrl,
@@ -82,24 +92,28 @@ export const createAnswerService = (database: typeof db) => {
           HAS: enroll.fileStandardHasUrl,
         };
 
-        const hasStandardFile = question.standard.some((s) => !!standardUrlMap[s]);
-        if (!hasStandardFile) {
-          return status(400, {
-            message: `none of the required standards (${question.standard.join(", ")}) have a file in the enroll`,
+        const factoryHasMatchingStandard = question.standard.some((s) => !!standardBoolMap[s]);
+
+        if (factoryHasMatchingStandard) {
+          // Factory enrolled for this standard — files sourced from enroll, not from DTO
+          if (hasFiles) return status(400, { message: "standard question does not accept files" });
+
+          const hasMatchingFile = question.standard.some((s) => !!standardUrlMap[s]);
+          if (!hasMatchingFile) return status(404, { message: "standard file not found in enroll" });
+
+          // Force selectedChoice = "3" — factory holds the certified standard
+          await database.transaction(async (tx) => {
+            const [inserted] = await tx
+              .insert(answers)
+              .values({ questionId: dto.questionId, coverId: cover.coverId, selectedChoice: "3" })
+              .returning({ id: answers.id });
+            await tx.insert(answerLogs).values({ answerId: inserted.id, status: "in_review" });
           });
+
+          return status(201, { message: "answer save!" });
         }
 
-        // No file uploads needed — insert answer + log in one transaction
-        await database.transaction(async (tx) => {
-          const [inserted] = await tx
-            .insert(answers)
-            .values({ questionId: dto.questionId, coverId: cover.coverId, selectedChoice: dto.selectedChoice })
-            .returning({ id: answers.id });
-
-          await tx.insert(answerLogs).values({ answerId: inserted.id, status: "in_review" });
-        });
-
-        return status(201, { message: "answer save!" });
+        // Factory has no relevant standard → fall through to non-standard path
       }
 
       // Non-standard: validate files based on selected choice
@@ -320,25 +334,26 @@ export const createAnswerService = (database: typeof db) => {
 
       // 5. Standard question branch
       if (question.standard.length > 0) {
-        const hasFiles =
-          dto.file_1_1 ||
-          dto.file_1_2 ||
-          dto.file_1_3 ||
-          dto.file_2_1 ||
-          dto.file_2_2 ||
-          dto.file_2_3 ||
-          dto.file_3_1 ||
-          dto.file_3_2 ||
-          dto.file_3_3;
-
-        if (hasFiles) return status(400, { message: "standard question does not accept files" });
-
         const enroll = await database
           .select()
           .from(enrolls)
           .where(eq(enrolls.id, cover.enrollId))
           .limit(1)
           .then((res) => res[0]);
+
+        const standardBoolMap: Record<string, boolean | null | undefined> = {
+          HC: enroll.standardHc,
+          SAN: enroll.standardSan,
+          SANPlus: enroll.standardSanPlus,
+          wellness: enroll.standardWellness,
+          safety: enroll.standardSafety,
+          TIS18001: enroll.standardTis18001,
+          ISO45001: enroll.standardIso45001,
+          ISO14001: enroll.standardIso14001,
+          zero: enroll.standardZero,
+          "5S": enroll.standard5S,
+          HAS: enroll.standardHas,
+        };
 
         const standardUrlMap: Record<string, string | null | undefined> = {
           HC: enroll.fileStandardHcUrl,
@@ -354,24 +369,38 @@ export const createAnswerService = (database: typeof db) => {
           HAS: enroll.fileStandardHasUrl,
         };
 
-        const hasStandardFile = question.standard.some((s) => !!standardUrlMap[s]);
-        if (!hasStandardFile) {
-          return status(400, {
-            message: `none of the required standards (${question.standard.join(", ")}) have a file in the enroll`,
-          });
-        }
+        const factoryHasMatchingStandard = question.standard.some((s) => !!standardBoolMap[s]);
 
-        await database.transaction(async (tx) => {
-          if (dto.selectedChoice !== undefined) {
+        if (factoryHasMatchingStandard) {
+          const hasFiles =
+            dto.file_1_1 ||
+            dto.file_1_2 ||
+            dto.file_1_3 ||
+            dto.file_2_1 ||
+            dto.file_2_2 ||
+            dto.file_2_3 ||
+            dto.file_3_1 ||
+            dto.file_3_2 ||
+            dto.file_3_3;
+
+          if (hasFiles) return status(400, { message: "standard question does not accept files" });
+
+          const hasMatchingFile = question.standard.some((s) => !!standardUrlMap[s]);
+          if (!hasMatchingFile) return status(404, { message: "standard file not found in enroll" });
+
+          // Force selectedChoice = "3" — factory holds the certified standard
+          await database.transaction(async (tx) => {
             await tx
               .update(answers)
-              .set({ selectedChoice: dto.selectedChoice })
+              .set({ selectedChoice: "3" })
               .where(eq(answers.id, existingAnswer.id));
-          }
-          await tx.insert(answerLogs).values({ answerId: existingAnswer.id, status: "in_review" });
-        });
+            await tx.insert(answerLogs).values({ answerId: existingAnswer.id, status: "in_review" });
+          });
 
-        return { message: "answer update" };
+          return { message: "answer update" };
+        }
+
+        // Factory has no relevant standard → fall through to non-standard path
       }
 
       // 6. Non-standard: determine effective choice
