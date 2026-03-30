@@ -6,7 +6,8 @@ import { UpdateAdminSchema } from "../schema/admin";
 import { adminService } from "../service/admin";
 import { UpdateFactorySchema } from "../schema/factory";
 import { BaseEnrollSelect } from "../schema";
-import { sharedService } from "../service/shared";
+import { enrollService } from "../service/enroll";
+import { factoryService } from "../service/factory";
 
 export const adminController = new Elysia({
   prefix: "/admins",
@@ -24,6 +25,7 @@ export const adminController = new Elysia({
           return await adminService.editAdminData(id, body);
         },
         {
+          detail: { description: "แก้ไขข้อมูลของ admin" },
           body: UpdateAdminSchema,
           response: {
             200: t.Object({
@@ -43,9 +45,10 @@ export const adminController = new Elysia({
       .patch(
         "/:id",
         async ({ params, body }) => {
-          return await sharedService.factory.update(params.id, body);
+          return await factoryService.update(params.id, body);
         },
         {
+          detail: { description: "update ข้อมูลของ สปก. ตาม id ของสปก." },
           params: t.Object({ id: t.Number() }),
           body: UpdateFactorySchema,
           response: {
@@ -67,6 +70,7 @@ export const adminController = new Elysia({
           return await adminService.approveFactoryRegister(params.id);
         },
         {
+          detail: { description: "อนุมัติการลงทะเบียน" },
           params: t.Object({ id: t.Number() }),
           response: {
             200: t.Object({
@@ -89,6 +93,7 @@ export const adminController = new Elysia({
           return result;
         },
         {
+          detail: { description: "ลบข้อมูล สปก." },
           params: t.Object({ id: t.Number() }),
           response: {
             200: t.Object({
@@ -103,14 +108,13 @@ export const adminController = new Elysia({
       .get(
         "",
         async ({ query }) => {
-          return await sharedService.factory.getAllFactories(query);
+          return await factoryService.getAllFactories(query);
         },
         {
+          detail: { description: "ดึงข้อมูล สปก. ทั้งหมด" },
           query: t.Object({
             validated: t.Boolean(),
             enrolled: t.Optional(t.Boolean()),
-            provinceId: t.Optional(t.Numeric()),
-            region: t.Optional(t.Numeric()),
           }),
           response: t.Array(
             t.Object({
@@ -136,9 +140,10 @@ export const adminController = new Elysia({
       .get(
         "/:id",
         async ({ params }) => {
-          return await sharedService.factory.getFactoryById(params.id);
+          return await factoryService.getFactoryById(params.id);
         },
         {
+          detail: { description: "ดึงข้อมูลสปก. ตาม id" },
           params: t.Object({ id: t.Number() }),
           response: {
             200: t.Object({
@@ -176,9 +181,10 @@ export const adminController = new Elysia({
       .get(
         "",
         async () => {
-          return await sharedService.enroll.getAllEnrolls();
+          return await enrollService.getAllEnrolls();
         },
         {
+          detail: { description: "ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมด" },
           response: t.Array(
             t.Composite([
               BaseEnrollSelect,
@@ -194,9 +200,10 @@ export const adminController = new Elysia({
       .get(
         "/:id",
         async ({ params }) => {
-          return await sharedService.enroll.getEnrollById(params.id);
+          return await enrollService.getEnrollById(params.id);
         },
         {
+          detail: { description: "ดึงข้อมูลการสมัครเข้าร่วมโครงการตาม id" },
           params: t.Object({ id: t.Number() }),
           response: {
             200: t.Composite([

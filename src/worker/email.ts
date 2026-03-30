@@ -17,7 +17,7 @@ export const emailWorker = new Worker(
       host: env.REDIS_HOST,
       port: env.REDIS_PORT,
     },
-  }
+  },
 );
 
 const transporter = nodemailer.createTransport({
@@ -26,24 +26,21 @@ const transporter = nodemailer.createTransport({
   auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
 });
 
-const sendPasswordResetEmail = async (data: {
-  email: string;
-  token: string;
-}) => {
+const sendPasswordResetEmail = async (data: { email: string; token: string }) => {
   const resetLink = `${env.FRONTEND_URL}/resetpassword?token=${data.token}`;
 
   try {
     await transporter.sendMail({
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
-      subject: "รีเซ็ตรหัสผ่าน เว็บไซต์ EnvOcc_Card",
+      subject: "รีเซ็ตรหัสผ่าน เว็บไซต์ Total worker health program",
       text: `คลิกลิงก์เพื่อรีเซ็ตรหัสผ่าน: ${resetLink}`,
       html: ` <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
-               <h2 style="color: #8753d5; font-size: 24px;">รีเซ็ตรหัสผ่านของคุณ</h2>
+               <h2 style="color: #2E8B57; font-size: 24px;">รีเซ็ตรหัสผ่านของคุณ</h2>
                <p>สวัสดีค่ะ</p>
                <p>คุณสามารถรีเซ็ตรหัสผ่านของคุณได้โดยคลิกที่ปุ่มด้านล่าง</p>
                <div style="text-align: center; margin: 20px 0;">
-               <a href="${resetLink}" style="background-color: #8753d5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+               <a href="${resetLink}" style="background-color: #2E8B57; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
                    รีเซ็ตรหัสผ่าน
                </a>
                </div>

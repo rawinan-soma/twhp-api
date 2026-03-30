@@ -11,6 +11,19 @@ const minioClient = new Minio.Client({
   secretKey: env.MINIO_SECRET_KEY,
 });
 
+const publicReadPolicy = (bucketName: string) =>
+  JSON.stringify({
+    Version: "2012-10-17",
+    Statement: [
+      {
+        Effect: "Allow",
+        Principal: { AWS: ["*"] },
+        Action: ["s3:GetObject"],
+        Resource: [`arn:aws:s3:::${bucketName}/*`],
+      },
+    ],
+  });
+
 const uploadFile = async (file: File): Promise<string> => {
   const ext = file.name.split(".").pop();
   const fileName = `${randomUUID()}.${ext}`;
@@ -20,6 +33,7 @@ const uploadFile = async (file: File): Promise<string> => {
   if (!exists) {
     await minioClient.makeBucket(bucketName, "us-east-1");
   }
+  await minioClient.setBucketPolicy(bucketName, publicReadPolicy(bucketName));
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -27,11 +41,7 @@ const uploadFile = async (file: File): Promise<string> => {
     "Content-Type": file.type,
   });
 
-  const protocol = env.MINIO_USE_SSL ? "https" : "http";
-  const port =
-    env.MINIO_PORT === 80 || env.MINIO_PORT === 443 ? "" : `:${env.MINIO_PORT}`;
-
-  return `${protocol}://${env.MINIO_ENDPOINT}${port}/${bucketName}/${fileName}`;
+  return `${env.MINIO_PUBLIC_URL}/${fileName}`;
 };
 
 const deleteFile = async (fileUrl: string | null) => {
@@ -43,8 +53,7 @@ const deleteFile = async (fileUrl: string | null) => {
     // URL pathname usually starts with /bucketName/, e.g., /twhp-uploads/file.png
     // We need to extract just the file name.
     const pathParts = url.pathname.split("/");
-    // pathParts will be ['', 'twhp-uploads', 'file.png']
-    const fileName = pathParts.slice(2).join("/"); // join back in case filename has slashes
+    const fileName = pathParts[pathParts.length - 1];
 
     if (fileName) {
       await minioClient.removeObject(bucketName, fileName);
@@ -59,9 +68,7 @@ export const utilities = () => ({
     const currentYear = new Date().getFullYear();
     const now = new Date();
     const fiscalYearStart =
-      now >= new Date(currentYear, 9, 1)
-        ? new Date(currentYear, 9, 1)
-        : new Date(currentYear - 1, 9, 1);
+      now >= new Date(currentYear, 9, 1) ? new Date(currentYear, 9, 1) : new Date(currentYear - 1, 9, 1);
     const fiscalYearEnd = new Date(fiscalYearStart.getFullYear() + 1, 9, 1);
 
     return { fiscalYearStart, fiscalYearEnd };
@@ -78,11 +85,7 @@ export const utilities = () => ({
   uploadFile,
   deleteFile,
   getPresignedUrl: async (fileName: string) => {
-    return await minioClient.presignedGetObject(
-      env.MINIO_BUCKET_NAME,
-      fileName,
-      3600,
-    );
+    return await minioClient.presignedGetObject(env.MINIO_BUCKET_NAME, fileName, 3600);
   },
 });
 

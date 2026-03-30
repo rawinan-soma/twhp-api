@@ -10,6 +10,11 @@ services:
       - docker.env
     profiles:
       - dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     command: sh -c "bun run db:push && bun run db:seed"
 
   # Development Service with Hot-Reload
@@ -43,27 +48,28 @@ services:
     depends_on:
       migrate-dev:
         condition: service_completed_successfully
-    command: bun run start
+      redis:
+        condition: service_healthy
+    command: bun dev
 
   # Prod Migration (one-shot: runs db:push + db:seed then exits)
   migrate-prod:
-    build:
-      context: .
-      target: release
-    image: twhp-api:prod
+    image: rawinan/twhp-elysia-api:latest
     container_name: twhp-migrate-prod
     env_file:
       - docker.env
     profiles:
       - production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     command: sh -c "bun run db:push && bun run db:seed"
 
   # API Service (Production)
   api:
-    build:
-      context: .
-      target: release
-    image: twhp-api:prod
+    image: rawinan/twhp-elysia-api:latest
     container_name: twhp-api-prod
     restart: always
     environment:
@@ -74,7 +80,7 @@ services:
       test:
         [
           "CMD",
-          "./server",
+          "bun",
           "-e",
           "fetch('http://localhost:3000/twhp/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))",
         ]
@@ -87,22 +93,81 @@ services:
     depends_on:
       migrate-prod:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     command: ./server
 
-  # Worker Service
-  worker:
+  # Worker Service (Development)
+  worker-dev:
     build:
       context: .
-      target: release
+      target: build
+    container_name: twhp-workers-dev
+    restart: always
+    env_file:
+      - docker.env
+    profiles:
+      - dev
+    depends_on:
+      api-dev:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: bun run worker
+
+  # Worker Service (Production)
+  worker:
+    image: rawinan/twhp-elysia-api:latest
     container_name: twhp-workers
     restart: always
     env_file:
       - docker.env
-    # Wait for API (and thus migrations) to be ready
+    profiles:
+      - production
     depends_on:
-      api-dev:
+      api:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     command: ./worker-bin
+
+  # PostgreSQL 17
+  postgres:
+    image: postgres:17-alpine
+    container_name: twhp-postgres
+    restart: always
+    profiles:
+      - dev
+      - production
+    env_file:
+      - docker.env
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: twhp-redis
+    restart: always
+    profiles:
+      - dev
+      - production
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # MinIO Object Storage
   minio:
@@ -122,18 +187,41 @@ services:
       timeout: 20s
       retries: 3
 
-  # Nginx Reverse Proxy
-  nginx:
+  # Nginx Reverse Proxy (Development)
+  nginx-backend:
     image: nginx:alpine
     container_name: twhp-nginx
     restart: always
     ports:
-      - "80:80"
+      - "127.0.0.1:81:80"
+    env_file:
+      - docker.env
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro
+    profiles:
+      - dev
     depends_on:
       - api-dev
       - minio
 
+  # Nginx Reverse Proxy (Production)
+  nginx-backend-prod:
+    image: nginx:alpine
+    container_name: twhp-nginx
+    restart: always
+    ports:
+      - "127.0.0.1:81:80"
+    env_file:
+      - docker.env
+    volumes:
+      - ./nginx/nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro
+    profiles:
+      - production
+    depends_on:
+      - api
+      - minio
+
 volumes:
+  postgres_data:
+  redis_data:
   minio_data:

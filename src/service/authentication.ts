@@ -6,13 +6,7 @@ import { redisConnector } from "../utils";
 import { emailQueue } from "../queue/email";
 import { ElysiaCustomStatusResponse, status } from "elysia";
 import { db } from "../drizzle";
-import {
-  accounts,
-  adminsDoed,
-  evaluators,
-  factories,
-  provincialOfficers,
-} from "../drizzle/schema";
+import { accounts, adminsDoed, evaluators, factories, provincialOfficers } from "../drizzle/schema";
 import { eq, sql } from "drizzle-orm";
 import { evaluatorService } from "./evaluator";
 
@@ -25,23 +19,12 @@ export enum Role {
 
 const createAuthentocationService = (database: typeof db) => ({
   setRefreshToken: async (refreshToken: string, accountId: number) => {
-    await database
-      .update(accounts)
-      .set({ hashedRefreshToken: refreshToken })
-      .where(eq(accounts.id, accountId));
+    await database.update(accounts).set({ hashedRefreshToken: refreshToken }).where(eq(accounts.id, accountId));
   },
   removeRefreshToken: async (id: number) => {
-    await database
-      .update(accounts)
-      .set({ hashedRefreshToken: "" })
-      .where(eq(accounts.id, id));
+    await database.update(accounts).set({ hashedRefreshToken: "" }).where(eq(accounts.id, id));
   },
-  issueToken: async (
-    id: number,
-    username: string,
-    role: Role,
-    tokenType: "Authentication" | "Refresh",
-  ) => {
+  issueToken: async (id: number, username: string, role: Role, tokenType: "Authentication" | "Refresh") => {
     let token: string = "";
     if (tokenType === "Authentication") {
       const payload: {
@@ -133,20 +116,21 @@ const createAuthentocationService = (database: typeof db) => ({
           sql<boolean>`COALESCE(${evaluators.isChangePassword}, ${provincialOfficers.isChangePassword}, false)`.as(
             "change_pw",
           ),
+        eval_level: evaluators.level,
       })
       .from(accounts)
       .leftJoin(adminsDoed, eq(accounts.id, adminsDoed.accountId))
       .leftJoin(evaluators, eq(accounts.id, evaluators.accountId))
       .leftJoin(factories, eq(accounts.id, factories.accountId))
-      .leftJoin(
-        provincialOfficers,
-        eq(accounts.id, provincialOfficers.accountId),
-      )
+      .leftJoin(provincialOfficers, eq(accounts.id, provincialOfficers.accountId))
       .where(eq(accounts.id, accountId))
       .then((res) => res[0]);
 
     if (!selectedAccount) {
       return status(400, { message: "invalid credential" });
+    }
+    if (selectedAccount.role === "DOED" || selectedAccount.role === "Factory") {
+      selectedAccount.change_pw = true;
     }
 
     return selectedAccount;
@@ -232,32 +216,38 @@ export const createAuthenticationUsecase = (database: typeof db) => {
     },
 
     sendPasswordResetEmail: async (email: string) => {
+      const pending = await redisConnector.get(`reset_password_token:${email}`);
+      if (pending) {
+        return status(429, { message: "password reset email already sent, please wait before requesting again" });
+      }
+
       const token = randomBytes(32).toString("hex");
-      await redisConnector.set(
-        `reset_password_token:${token}`,
-        email,
-        "EX",
-        300,
-      );
+      const [user] = await database.select().from(accounts).where(eq(accounts.email, email));
+      if (!user) {
+        return status(404, { message: "email not found" });
+      }
+      await redisConnector.set(`reset_password_token:${token}`, email, "EX", 300);
+      await redisConnector.set(`reset_password_token:${email}`, token, "EX", 300);
 
       await emailQueue.add(
-        "password-reset-token",
+        "password-reset-request",
         {
           email: email,
           token: token,
         },
         { attempts: 3, backoff: 5000 },
       );
+      return { message: "sending password reset email" };
     },
 
     updatePassword: async (password: string, token: string) => {
-      const email = await redisConnector.get(`reset_password_token${token}`);
+      const email = await redisConnector.get(`reset_password_token:${token}`);
       if (!email) {
         return status(400, { message: "invalid token" });
       }
 
       const user = await database
-        .select({ id: accounts.id })
+        .select({ id: accounts.id, password: accounts.password })
         .from(accounts)
         .where(eq(accounts.email, email))
         .limit(1)
@@ -267,51 +257,89 @@ export const createAuthenticationUsecase = (database: typeof db) => {
         return status(400, { message: "invalid token" });
       }
 
+      if (await bcrypt.compare(password, user.password)) {
+        return status(400, { message: "old password are not allowed" });
+      }
+
       const hashedPassword = await bcrypt.hash(password, 12);
-      await database
-        .update(accounts)
-        .set({ password: hashedPassword })
-        .where(eq(accounts.email, email));
+      await database.update(accounts).set({ password: hashedPassword }).where(eq(accounts.email, email));
 
       await redisConnector.del(`reset_password_token:${token}`);
+      await redisConnector.del(`reset_password_token:${email}`);
+      return { message: "password changed!" };
     },
     editFirstPassword: async (
       accountId: number,
       password: string,
+      email: string,
       userType: "Provincial" | "Evaluator",
     ) => {
-      const table = userType === "Provincial" ? provincialOfficers : evaluators;
-      const [user] = await database
-        .select({
-          account: accounts,
-          evaluator: evaluators,
-          provincialOfficer: provincialOfficers,
-        })
-        .from(accounts)
-        .leftJoin(table, eq(table.accountId, accounts.id))
-        .where(eq(accounts.id, accountId));
+      if (userType === "Evaluator") {
+        const [user] = await database
+          .select({ account: accounts, evaluator: evaluators })
+          .from(accounts)
+          .leftJoin(evaluators, eq(evaluators.accountId, accounts.id))
+          .where(eq(accounts.id, accountId));
 
-      if (!user || user.evaluator === null || user.provincialOfficer === null) {
-        return status(404, { message: "user not found" });
+        if (!user || user.evaluator === null) {
+          return status(404, { message: "user not found" });
+        }
+
+        if (user.evaluator.isChangePassword) {
+          return status(400, { message: "password already changed" });
+        }
+
+        const [existingEmail] = await database.select().from(accounts).where(eq(accounts.email, email));
+        if (existingEmail) {
+          return status(400, { message: "email already exists" });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        await database.transaction(async (tx) => {
+          const [account] = await tx
+            .update(accounts)
+            .set({ password: hashedPassword, email })
+            .where(eq(accounts.id, accountId))
+            .returning();
+
+          await tx.update(evaluators).set({ isChangePassword: true }).where(eq(evaluators.accountId, account.id));
+        });
+      } else {
+        const [user] = await database
+          .select({ account: accounts, provincialOfficer: provincialOfficers })
+          .from(accounts)
+          .leftJoin(provincialOfficers, eq(provincialOfficers.accountId, accounts.id))
+          .where(eq(accounts.id, accountId));
+
+        if (!user || user.provincialOfficer === null) {
+          return status(404, { message: "user not found" });
+        }
+
+        if (user.provincialOfficer.isChangePassword) {
+          return status(400, { message: "password already changed" });
+        }
+
+        const [existingEmail] = await database.select().from(accounts).where(eq(accounts.email, email));
+        if (existingEmail) {
+          return status(400, { message: "email already exists" });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        await database.transaction(async (tx) => {
+          const [account] = await tx
+            .update(accounts)
+            .set({ password: hashedPassword, email })
+            .where(eq(accounts.id, accountId))
+            .returning();
+
+          await tx
+            .update(provincialOfficers)
+            .set({ isChangePassword: true })
+            .where(eq(provincialOfficers.accountId, account.id));
+        });
       }
-      if (user.evaluator.isChangePassword) {
-        return status(400, { message: "password already change" });
-      }
-
-      const hashedPassword = await bcrypt.hash(password, 12);
-
-      await database.transaction(async (tx) => {
-        const [account] = await tx
-          .update(accounts)
-          .set({ password: hashedPassword })
-          .where(eq(accounts.id, accountId))
-          .returning();
-
-        await tx
-          .update(evaluators)
-          .set({ isChangePassword: true })
-          .where(eq(evaluators.accountId, account.id));
-      });
 
       return { message: "password changed!" };
     },

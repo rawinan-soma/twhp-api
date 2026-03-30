@@ -7,10 +7,7 @@ const publicAuthenticationController = new Elysia()
     "/login",
     async ({ body, cookie: { Authentication, Refresh }, set }) => {
       const { username, password } = body;
-      const account = await authenticationService.getAutheticatedAccount(
-        username,
-        password,
-      );
+      const account = await authenticationService.getAutheticatedAccount(username, password);
 
       if (account instanceof ElysiaCustomStatusResponse) {
         return account;
@@ -40,10 +37,7 @@ const publicAuthenticationController = new Elysia()
 
       const hashedRefreshToken = Bun.SHA256.hash(refreshToken, "hex");
 
-      await authenticationService.helper.setRefreshToken(
-        hashedRefreshToken,
-        account.id,
-      );
+      await authenticationService.helper.setRefreshToken(hashedRefreshToken, account.id);
 
       Authentication.set({
         value: accessToken,
@@ -66,6 +60,7 @@ const publicAuthenticationController = new Elysia()
       };
     },
     {
+      detail: { description: "Login" },
       body: t.Object({ username: t.String(), password: t.String() }),
       cookie: t.Cookie({
         Authentication: t.Optional(t.String()),
@@ -101,31 +96,40 @@ const publicAuthenticationController = new Elysia()
   .post(
     "/reset-password-request",
     async ({ body: { email }, set }) => {
-      await authenticationService.sendPasswordResetEmail(email);
-      set.status = 200;
-      return { message: "sending password reset email" };
+      return await authenticationService.sendPasswordResetEmail(email);
     },
     {
+      detail: { description: "ขอ email เพื่อ reset password" },
       body: t.Object({ email: t.String({ format: "email" }) }),
-      response: t.Object({
-        message: t.String({ default: "sending password reset email" }),
-      }),
+      response: {
+        201: t.Object({
+          message: t.String({ default: "sending password reset email" }),
+        }),
+        404: t.Object({ message: t.String({ default: "email not found" }) }),
+        429: t.Object({
+          message: t.String({ default: "password reset email already sent, please wait before requesting again" }),
+        }),
+      },
     },
   )
   .post(
     "/reset-password",
     async ({ body: { password, token }, set }) => {
-      await authenticationService.updatePassword(password, token);
-      set.status = 200;
-      return { message: "password change!!" };
+      return await authenticationService.updatePassword(password, token);
     },
     {
+      detail: { description: "reset password" },
       body: t.Object({ password: t.String(), token: t.String() }),
       response: {
         200: t.Object({
-          message: t.String({ default: "password change!!" }),
+          message: t.String({ default: "password changed!" }),
         }),
-        400: t.Object({ message: t.String({ default: "invalid token" }) }),
+        400: t.Union([
+          t.Object({ message: t.String({ default: "invalid token" }) }),
+          t.Object({
+            message: t.String({ default: "old password are not allowed", description: "password ซ้ำกับของเดิม" }),
+          }),
+        ]),
       },
     },
   );
@@ -151,25 +155,23 @@ export const authenticationController = new Elysia({
             ...authenticationService.helper.getCookieOption("logout"),
           });
 
-          await authenticationService.helper.removeRefreshToken(
-            Number(jwtPayload.sub),
-          );
+          await authenticationService.helper.removeRefreshToken(Number(jwtPayload.sub));
 
           set.status = 200;
           return { message: "logout successful" };
         },
         {
+          detail: { description: "logout" },
           response: t.Object({
             message: t.String({ default: "logout successful" }),
           }),
         },
       )
       .get(
-        "/",
+        "",
         async ({ jwtPayload }) => {
-          return await authenticationService.helper.getAccountById(
-            Number(jwtPayload.sub),
-          );
+          const result = await authenticationService.helper.getAccountById(Number(jwtPayload.sub));
+          return result;
         },
         {
           response: {
@@ -178,11 +180,13 @@ export const authenticationController = new Elysia({
               username: t.String(),
               role: t.String(),
               change_pw: t.Boolean(),
+              eval_level: t.Nullable(t.String()),
             }),
             400: t.Object({
               message: t.String({ default: "invalid credential" }),
             }),
           },
+          detail: { description: "ดึงข้อมูล user ของ session ปัจจุบัน" },
         },
       ),
   );

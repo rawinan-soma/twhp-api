@@ -1,26 +1,8 @@
-import {
-  pgTable,
-  timestamp,
-  text,
-  integer,
-  uniqueIndex,
-  boolean,
-  serial,
-  pgEnum,
-} from "drizzle-orm/pg-core";
+import { pgTable, timestamp, text, integer, uniqueIndex, boolean, serial, pgEnum } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
-export const evaluatorLevels = pgEnum("EvaluatorLevels", [
-  "Mental",
-  "DOH",
-  "ODPC",
-]);
-export const roles = pgEnum("Roles", [
-  "Factory",
-  "Provincial",
-  "Evaluator",
-  "DOED",
-]);
+export const evaluatorLevels = pgEnum("EvaluatorLevels", ["Mental", "DOH", "ODPC"]);
+export const roles = pgEnum("Roles", ["Factory", "Provincial", "Evaluator", "DOED"]);
 
 export const evaluators = pgTable("Evaluators", {
   accountId: integer("account_id")
@@ -46,10 +28,7 @@ export const provinces = pgTable(
     healthRegion: integer("health_region").notNull(),
   },
   (table) => [
-    uniqueIndex("Provinces_province_id_key").using(
-      "btree",
-      table.provinceId.asc().nullsLast().op("int4_ops"),
-    ),
+    uniqueIndex("Provinces_province_id_key").using("btree", table.provinceId.asc().nullsLast().op("int4_ops")),
   ],
 );
 
@@ -66,10 +45,7 @@ export const districts = pgTable(
     nameTh: text("name_th").notNull(),
   },
   (table) => [
-    uniqueIndex("Districts_district_id_key").using(
-      "btree",
-      table.districtId.asc().nullsLast().op("int4_ops"),
-    ),
+    uniqueIndex("Districts_district_id_key").using("btree", table.districtId.asc().nullsLast().op("int4_ops")),
   ],
 );
 
@@ -86,10 +62,7 @@ export const subdistricts = pgTable(
       }),
   },
   (table) => [
-    uniqueIndex("Subdistricts_subdistrict_id_key").using(
-      "btree",
-      table.subdistrictId.asc().nullsLast().op("int4_ops"),
-    ),
+    uniqueIndex("Subdistricts_subdistrict_id_key").using("btree", table.subdistrictId.asc().nullsLast().op("int4_ops")),
   ],
 );
 
@@ -147,10 +120,7 @@ export const adminsDoed = pgTable(
     phoneNumber: text("phone_number").notNull(),
   },
   (table) => [
-    uniqueIndex("AdminsDoed_account_id_key").using(
-      "btree",
-      table.accountId.asc().nullsLast().op("int4_ops"),
-    ),
+    uniqueIndex("AdminsDoed_account_id_key").using("btree", table.accountId.asc().nullsLast().op("int4_ops")),
   ],
 );
 
@@ -209,6 +179,8 @@ export const enrolls = pgTable(
     fileStandardHcUrl: text("standard_HC_url"),
     standardSan: boolean("standard_SAN").notNull(),
     fileStandardSanUrl: text("standard_SAN_url"),
+    standardSanPlus: boolean("standard_SAN_plus").notNull(),
+    fileStandardSanPlusUrl: text("standard_SAN_plus_url"),
     standardWellness: boolean("standard_wellness").notNull(),
     fileStandardWellnessUrl: text("standard_wellness_url"),
     standardSafety: boolean("standard_safety").notNull(),
@@ -233,12 +205,7 @@ export const enrolls = pgTable(
     safetyOfficerPhone: text("safety_officer_phone"),
     safetyOfficerLineId: text("safety_officer_lineID"),
   },
-  (table) => [
-    uniqueIndex("enrolls_id_key").using(
-      "btree",
-      table.id.asc().nullsLast().op("int4_ops"),
-    ),
-  ],
+  (table) => [uniqueIndex("enrolls_id_key").using("btree", table.id.asc().nullsLast().op("int4_ops"))],
 );
 
 export const accounts = pgTable(
@@ -252,18 +219,9 @@ export const accounts = pgTable(
     hashedRefreshToken: text(),
   },
   (table) => [
-    uniqueIndex("Accounts_email_key").using(
-      "btree",
-      table.email.asc().nullsLast().op("text_ops"),
-    ),
-    uniqueIndex("Accounts_id_key").using(
-      "btree",
-      table.id.asc().nullsLast().op("int4_ops"),
-    ),
-    uniqueIndex("Accounts_username_key").using(
-      "btree",
-      table.username.asc().nullsLast().op("text_ops"),
-    ),
+    uniqueIndex("Accounts_email_key").using("btree", table.email.asc().nullsLast().op("text_ops")),
+    uniqueIndex("Accounts_id_key").using("btree", table.id.asc().nullsLast().op("int4_ops")),
+    uniqueIndex("Accounts_username_key").using("btree", table.username.asc().nullsLast().op("text_ops")),
   ],
 );
 
@@ -289,10 +247,7 @@ export const provincialOfficers = pgTable(
     isChangePassword: boolean().default(false).notNull(),
   },
   (table) => [
-    uniqueIndex("ProvincialOfficers_account_id_key").using(
-      "btree",
-      table.accountId.asc().nullsLast().op("int4_ops"),
-    ),
+    uniqueIndex("ProvincialOfficers_account_id_key").using("btree", table.accountId.asc().nullsLast().op("int4_ops")),
   ],
 );
 
@@ -309,19 +264,15 @@ export const covers = pgTable("Covers", {
     .notNull(),
 });
 
-export const assessmentStatus = pgEnum("AssesssmentStatus", [
-  "finished",
-  "in_progress",
-  "reviewed",
-  "sent",
-]);
+export const coverStatus = pgEnum("coverStatus", ["finished", "in_progress", "in_review"]);
+export const answerStatus = pgEnum("answerStatus", ["finished", "in_review", "rejected"]);
 
 export const coverLogs = pgTable("CoverLogs", {
   id: serial().primaryKey().notNull(),
   coverId: integer("cover_id")
     .notNull()
     .references(() => covers.id, { onDelete: "no action" }),
-  status: assessmentStatus().notNull(),
+  status: coverStatus().notNull(),
   updatedAt: timestamp("updated_at", { precision: 3, mode: "string" })
     .default(sql`CURRENT_TIMESTAMP`)
     .notNull(),
@@ -339,6 +290,7 @@ export const questionCategories = pgEnum("QuestionCategories", [
 export const standardTypes = pgEnum("StandardTypes", [
   "HC",
   "SAN",
+  "SANPlus",
   "wellness",
   "safety",
   "TIS18001",
@@ -347,18 +299,18 @@ export const standardTypes = pgEnum("StandardTypes", [
   "zero",
   "5S",
   "HAS",
-  "None",
 ]);
 
 export const questions = pgTable("Questions", {
-  id: serial().primaryKey().notNull(),
+  id: integer().primaryKey().notNull(),
   category: questionCategories().notNull(),
   questionText: text("question_text").notNull(),
-  standard: standardTypes().notNull(),
+  standard: standardTypes().array().notNull(),
   choice1: text("choice_1").notNull(),
   choice2: text("choice_2").notNull(),
-  choice_3: text("choice3").notNull(),
-  canNA: boolean().notNull(),
+  choice3: text("choice_3").notNull(),
+  choiceNA: text("choice_na"),
+  special: integer("special").notNull(),
 });
 
 export const choices = pgEnum("Choices", ["0", "1", "2", "3", "n/a"]);
@@ -388,7 +340,7 @@ export const answerLogs = pgTable("AnswerLogs", {
   answerId: integer("answer_id")
     .notNull()
     .references(() => answers.id, { onDelete: "restrict" }),
-  status: assessmentStatus().notNull(),
+  status: answerStatus().notNull(),
   description: text(),
   updatedAt: timestamp("updated_at", { precision: 3, mode: "string" })
     .default(sql`CURRENT_TIMESTAMP`)

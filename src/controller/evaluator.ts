@@ -4,7 +4,8 @@ import { requireRoles } from "../middleware/rbac";
 import { authenticationService, Role } from "../service/authentication";
 import { evaluatorService } from "../service/evaluator";
 
-import { sharedService } from "../service/shared";
+import { enrollService } from "../service/enroll";
+import { factoryService } from "../service/factory";
 import { BaseEnrollSelect } from "../schema";
 
 export const evaluatorController = new Elysia({
@@ -15,17 +16,21 @@ export const evaluatorController = new Elysia({
     ec
       .use(jwtPlugin)
       .use(requireRoles(Role.Evaluator))
-      .post(
+      .patch(
         "/password",
-        async ({ jwtPayload, body: { password } }) => {
+        async ({ jwtPayload, body: { password, email } }) => {
           const accountId = Number(jwtPayload.sub);
-          return await authenticationService.editFirstPassword(accountId, password, "Evaluator");
+          return await authenticationService.editFirstPassword(accountId, password, email, "Evaluator");
         },
         {
-          body: t.Object({ password: t.String() }),
+          detail: { description: "แก้ password ครั้งแรกที่ login" },
+          body: t.Object({ password: t.String(), email: t.String({ format: "email" }) }),
           response: {
             200: t.Object({ message: t.String({ default: "password change" }) }),
-            400: t.Object({ message: t.String({ default: "password already change" }) }),
+            400: t.Union([
+              t.Object({ message: t.String({ default: "password already change" }) }),
+              t.Object({ message: t.String({ default: "email already exists" }) }),
+            ]),
             404: t.Object({ message: t.String({ default: "user not found" }) }),
           },
         },
@@ -45,13 +50,14 @@ export const evaluatorController = new Elysia({
             return status(404, { message: "invalid evaluator" });
           }
 
-          return await sharedService.factory.getAllFactories({
+          return await factoryService.getAllFactoriesByRegion({
             validated: query.validated,
             enrolled: query.enrolled,
             region: region.evaluator.region,
           });
         },
         {
+          detail: { description: "ดึงข้อมูลสปก. ทั้งหมดตามเขตสุขภาพ" },
           query: t.Object({
             validated: t.Boolean(),
             enrolled: t.Optional(t.Boolean()),
@@ -85,9 +91,10 @@ export const evaluatorController = new Elysia({
       .get(
         "/:id",
         async ({ params }) => {
-          return await sharedService.factory.getFactoryById(params.id);
+          return await factoryService.getFactoryById(params.id);
         },
         {
+          detail: { description: "ดึงข้อมูลสปก. ตาม id" },
           params: t.Object({ id: t.Number() }),
           response: {
             200: t.Object({
@@ -130,9 +137,10 @@ export const evaluatorController = new Elysia({
           if (!region || region.evaluator === null) {
             return status(404, { message: "invalid evaluator" });
           }
-          return await sharedService.enroll.getAllEnrolls(region.evaluator.region);
+          return await enrollService.getAllEnrolls(region.evaluator.region);
         },
         {
+          detail: { description: "ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดตามเขตสุขภาพ" },
           response: {
             200: t.Array(
               t.Composite([
@@ -153,9 +161,10 @@ export const evaluatorController = new Elysia({
       .get(
         "/:id",
         async ({ params: { id } }) => {
-          return await sharedService.enroll.getEnrollById(id);
+          return await enrollService.getEnrollById(id);
         },
         {
+          detail: { description: "ดึงข้อมูลการสมัครเข้าร่วมโครงการตาม id" },
           params: t.Object({ id: t.Number() }),
           response: {
             200: t.Composite([

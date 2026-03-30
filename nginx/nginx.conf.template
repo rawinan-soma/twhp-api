@@ -7,7 +7,7 @@ http {
 
     map $http_x_api_key $api_key_valid {
         default         0;
-        "7VbkLeXwKMEHN7OXxyTnojujlgVLQBYaJcb9DJxdUneI8sdE1mmm1u9smh0VC9fH" 1;
+        "${NGINX_API_KEY}" 1;
     }
 
     server {
