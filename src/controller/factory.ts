@@ -269,13 +269,6 @@ export const factoryController = new Elysia({
               }),
               t.Object({
                 message: t.String({
-                  default: "standard HC file not found in enroll",
-                  description:
-                    "The question requires a standard but the matching standard file URL is missing from the factory's enroll",
-                }),
-              }),
-              t.Object({
-                message: t.String({
                   default: "choice 1 requires at least file_1_1",
                   description: "selectedChoice=1 but file_1_1 was not provided",
                 }),
@@ -309,6 +302,13 @@ export const factoryController = new Elysia({
                   default: "question not found",
                   description:
                     "The provided questionId does not match any question in the database",
+                }),
+              }),
+              t.Object({
+                message: t.String({
+                  default: "standard file not found in enroll",
+                  description:
+                    "Factory is enrolled for this standard but has not uploaded the standard file yet",
                 }),
               }),
             ]),
@@ -353,12 +353,6 @@ export const factoryController = new Elysia({
               }),
               t.Object({
                 message: t.String({
-                  default:
-                    "none of the required standards have a file in the enroll",
-                }),
-              }),
-              t.Object({
-                message: t.String({
                   default: "choice 1 requires at least file_1_1",
                 }),
               }),
@@ -380,6 +374,9 @@ export const factoryController = new Elysia({
                 message: t.String({ default: "question not found" }),
               }),
               t.Object({ message: t.String({ default: "answer not found" }) }),
+              t.Object({
+                message: t.String({ default: "standard file not found in enroll" }),
+              }),
             ]),
           },
         },

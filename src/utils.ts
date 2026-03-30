@@ -68,9 +68,7 @@ export const utilities = () => ({
     const currentYear = new Date().getFullYear();
     const now = new Date();
     const fiscalYearStart =
-      now >= new Date(currentYear, 9, 1)
-        ? new Date(currentYear, 9, 1)
-        : new Date(currentYear - 1, 9, 1);
+      now >= new Date(currentYear, 9, 1) ? new Date(currentYear, 9, 1) : new Date(currentYear - 1, 9, 1);
     const fiscalYearEnd = new Date(fiscalYearStart.getFullYear() + 1, 9, 1);
 
     return { fiscalYearStart, fiscalYearEnd };
@@ -87,11 +85,7 @@ export const utilities = () => ({
   uploadFile,
   deleteFile,
   getPresignedUrl: async (fileName: string) => {
-    return await minioClient.presignedGetObject(
-      env.MINIO_BUCKET_NAME,
-      fileName,
-      3600,
-    );
+    return await minioClient.presignedGetObject(env.MINIO_BUCKET_NAME, fileName, 3600);
   },
 });
 
