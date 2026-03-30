@@ -10,6 +10,7 @@ services:
       - docker.env
     profiles:
       - dev
+      - staging
     depends_on:
       postgres:
         condition: service_healthy
@@ -33,6 +34,7 @@ services:
       - /usr/src/app/node_modules
     profiles:
       - dev
+      - staging
     healthcheck:
       test:
         [
@@ -65,7 +67,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: sh -c "bun run db:push && bun run db:seed"
+    command: sh -c "echo 'do not migrate in production, import csv directly'"
 
   # API Service (Production)
   api:
@@ -108,6 +110,7 @@ services:
       - docker.env
     profiles:
       - dev
+      - staging
     depends_on:
       api-dev:
         condition: service_healthy
@@ -139,6 +142,7 @@ services:
     profiles:
       - dev
       - production
+      - staging
     env_file:
       - docker.env
     ports:
@@ -159,6 +163,7 @@ services:
     profiles:
       - dev
       - production
+      - staging
     ports:
       - "6380:6379"
     volumes:
@@ -197,7 +202,7 @@ services:
     env_file:
       - docker.env
     volumes:
-      - ./nginx/nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro
+      - ./nginx/nginx.conf:/etc/nginx/templates/nginx.conf:ro
     profiles:
       - dev
     depends_on:
@@ -217,6 +222,7 @@ services:
       - ./nginx/nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro
     profiles:
       - production
+      - staging
     depends_on:
       - api
       - minio
