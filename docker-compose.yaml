@@ -202,7 +202,8 @@ services:
     env_file:
       - docker.env
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/templates/nginx.conf:ro
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
+      - /dev/null:/etc/nginx/conf.d/default.conf:ro
     profiles:
       - dev
     depends_on:
@@ -220,14 +221,21 @@ services:
       - docker.env
     volumes:
       - ./nginx/nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro
+      - /dev/null:/etc/nginx/conf.d/default.conf:ro
     profiles:
       - production
-      - staging
     depends_on:
       - api
       - minio
+    networks:
+      - default
+      - shared-web-network
 
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+
+networks:
+  shared-web-network:
+    external: true
