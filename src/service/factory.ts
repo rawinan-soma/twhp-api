@@ -12,7 +12,7 @@ import {
   evaluators,
   provincialOfficers,
 } from "../drizzle/schema";
-import { eq, and, gte, lt, SQL, asc } from "drizzle-orm";
+import { eq, and, gte, lt, SQL, asc, or } from "drizzle-orm";
 import { utilities } from "../utils";
 
 const createFactoryHelper = (database: typeof db) => {
@@ -43,19 +43,20 @@ export const createFactoryService = (database: typeof db) => {
         .select({ existingFactory: accounts.username })
         .from(factories)
         .leftJoin(accounts, eq(accounts.id, factories.accountId))
+        .where(or(eq(accounts.username, dto.username), eq(accounts.email, dto.email)))
         .then((res) => res[0]);
 
       const existingFactory = factory?.existingFactory;
-      console.log(existingFactory);
+
       if (existingFactory) {
         return status(400, { message: "factory already registered" });
       }
       const location = await helper.getFactoryLocation(dto.subdistrictId);
-      const hashedPassword = await bcrypt.hash(dto.password, 12);
 
       if (!location) {
         return status(404, { message: "location not found" });
       }
+      const hashedPassword = await bcrypt.hash(dto.password, 12);
 
       await database.transaction(async (tx) => {
         const account = await tx
@@ -69,13 +70,14 @@ export const createFactoryService = (database: typeof db) => {
           .returning()
           .then((res) => res[0]);
 
+        const { password, email, username, ...factoryData } = dto;
         await tx
           .insert(factories)
           .values({
             accountId: account.id,
             provinceId: location.province_id,
             districtId: location.district_id,
-            ...dto,
+            ...factoryData,
           })
           .returning()
           .then((res) => res[0]);
