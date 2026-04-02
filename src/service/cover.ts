@@ -38,9 +38,14 @@ export const createCoverService = (database: typeof db) => {
       }
 
       await database.transaction(async (tx) => {
-        const [newCover] = await tx.insert(covers).values({ enrollId: enroll.id }).returning();
+        const [newCover] = await tx
+          .insert(covers)
+          .values({ enrollId: enroll.id })
+          .returning();
 
-        await tx.insert(coverLogs).values({ coverId: newCover.id, status: "in_progress" });
+        await tx
+          .insert(coverLogs)
+          .values({ coverId: newCover.id, status: "in_progress" });
       });
 
       return { message: "assessment cover created!" };
@@ -50,7 +55,11 @@ export const createCoverService = (database: typeof db) => {
       const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
 
       const cover = await database
-        .select({ id: covers.id, enrollId: covers.enrollId, startDate: covers.startDate })
+        .select({
+          id: covers.id,
+          enrollId: covers.enrollId,
+          startDate: covers.startDate,
+        })
         .from(covers)
         .innerJoin(enrolls, eq(enrolls.id, covers.enrollId))
         .where(

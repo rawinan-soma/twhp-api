@@ -11,7 +11,6 @@ const minioClient = new Minio.Client({
   secretKey: env.MINIO_SECRET_KEY,
 });
 
-
 const uploadFile = async (file: File): Promise<string> => {
   const ext = file.name.split(".").pop();
   const fileName = `${randomUUID()}.${ext}`;
@@ -46,7 +45,9 @@ export const utilities = () => ({
     const currentYear = new Date().getFullYear();
     const now = new Date();
     const fiscalYearStart =
-      now >= new Date(currentYear, 9, 1) ? new Date(currentYear, 9, 1) : new Date(currentYear - 1, 9, 1);
+      now >= new Date(currentYear, 9, 1)
+        ? new Date(currentYear, 9, 1)
+        : new Date(currentYear - 1, 9, 1);
     const fiscalYearEnd = new Date(fiscalYearStart.getFullYear() + 1, 9, 1);
 
     return { fiscalYearStart, fiscalYearEnd };
@@ -63,16 +64,23 @@ export const utilities = () => ({
   uploadFile,
   deleteFile,
   getPresignedUrl: async (fileName: string) => {
-    const internalUrl = await minioClient.presignedGetObject(env.MINIO_BUCKET_NAME, fileName, 300, {
-      "response-content-disposition": "inline",
-    });
+    const internalUrl = await minioClient.presignedGetObject(
+      env.MINIO_BUCKET_NAME,
+      fileName,
+      5,
+      {
+        "response-content-disposition": "inline",
+      },
+    );
     // Replace internal Docker hostname with public-facing URL
     const internal = new URL(internalUrl);
     const publicBase = new URL(env.MINIO_PUBLIC_URL);
     internal.protocol = publicBase.protocol;
     internal.hostname = publicBase.hostname;
     internal.port = "";
-    internal.pathname = publicBase.pathname + internal.pathname.replace(`/${env.MINIO_BUCKET_NAME}`, "");
+    internal.pathname =
+      publicBase.pathname +
+      internal.pathname.replace(`/${env.MINIO_BUCKET_NAME}`, "");
     return internal.toString();
   },
 });
