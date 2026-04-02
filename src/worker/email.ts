@@ -1,6 +1,7 @@
 import { Worker } from "bullmq";
 import { env } from "../config";
 import * as nodemailer from "nodemailer";
+import { adminService } from "../service/admin";
 
 export const emailWorker = new Worker(
   "email",
@@ -8,6 +9,10 @@ export const emailWorker = new Worker(
     switch (job.name) {
       case "password-reset-request":
         await sendPasswordResetEmail(job.data);
+        break;
+      case "factory-validation-reminder":
+        await sendFactoryValidationReminderEmail();
+        break;
       default:
         return "unknown job name";
     }
@@ -59,4 +64,67 @@ const sendPasswordResetEmail = async (data: { email: string; token: string }) =>
   }
 
   console.log(`Sending password reset email to ${data.email}`);
+};
+
+const sendFactoryValidationReminderEmail = async () => {
+  const { doedAdmins, pendingFactories } = await adminService.getPendingValidationData();
+
+  if (pendingFactories.length === 0) {
+    console.log("No pending factories — skipping validation reminder email.");
+    return;
+  }
+
+  const factoryRows = pendingFactories
+    .map(
+      (f) => `
+        <tr>
+          <td style="padding: 8px; border: 1px solid #ddd;">${f.accountId}</td>
+          <td style="padding: 8px; border: 1px solid #ddd;">${f.nameTh}</td>
+          <td style="padding: 8px; border: 1px solid #ddd;">${f.nameEn}</td>
+          <td style="padding: 8px; border: 1px solid #ddd;">${f.provinceName}</td>
+          <td style="padding: 8px; border: 1px solid #ddd;">${f.phoneNumber}</td>
+        </tr>`
+    )
+    .join("");
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 700px; margin: auto; padding: 20px;">
+      <h2 style="color: #2E8B57;">แจ้งเตือน: โรงงานที่ยังไม่ได้รับการอนุมัติ</h2>
+      <p>เรียน คุณ__ADMIN_NAME__</p>
+      <p>ขณะนี้มีโรงงานที่ลงทะเบียนแล้วแต่ยังไม่ได้รับการอนุมัติจำนวน <strong>${pendingFactories.length} แห่ง</strong> กรุณาดำเนินการตรวจสอบและอนุมัติโรงงานดังกล่าว</p>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
+        <thead>
+          <tr style="background-color: #2E8B57; color: white;">
+            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">รหัส</th>
+            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">ชื่อโรงงาน (ไทย)</th>
+            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">ชื่อโรงงาน (อังกฤษ)</th>
+            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">จังหวัด</th>
+            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">เบอร์โทรศัพท์</th>
+          </tr>
+        </thead>
+        <tbody>${factoryRows}</tbody>
+      </table>
+      <hr style="margin-top: 30px; border: none; border-top: 1px solid #ccc;" />
+      <p style="font-size: 12px; color: #999; text-align: center;">
+        อีเมลฉบับนี้ถูกส่งโดยระบบอัตโนมัติจากระบบ กรุณาอย่าตอบกลับ<br/>
+        หากมีคำถาม กรุณาติดต่อ 02-590-3867
+      </p>
+    </div>`;
+
+  for (const admin of doedAdmins) {
+    const personalizedHtml = html.replace("__ADMIN_NAME__", `${admin.firstName} ${admin.lastName}`);
+    try {
+      await transporter.sendMail({
+        from: `Total Worker health support <${env.SMTP_USER}>`,
+        to: admin.email,
+        subject: `แจ้งเตือน: โรงงานรอการอนุมัติ ${pendingFactories.length} แห่ง`,
+        text: `เรียน คุณ${admin.firstName} ${admin.lastName}\n\nมีโรงงานที่ยังไม่ได้รับการอนุมัติจำนวน ${pendingFactories.length} แห่ง กรุณาเข้าสู่ระบบเพื่อดำเนินการ`,
+        html: personalizedHtml,
+      });
+      console.log(`Sent validation reminder to ${admin.email}`);
+    } catch (error) {
+      console.error(`Failed to send validation reminder to ${admin.email}`, error);
+      throw error;
+    }
+  }
 };

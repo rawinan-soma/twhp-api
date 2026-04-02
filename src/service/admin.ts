@@ -1,10 +1,9 @@
 import { db } from "../drizzle";
-import { accounts, adminsDoed } from "../drizzle/schema";
+import { accounts, adminsDoed, factories, provinces } from "../drizzle/schema";
 import type { UpdateAdminDto } from "../schema/admin";
 import * as bcrypt from "bcrypt";
 import { status } from "elysia";
 import { eq } from "drizzle-orm";
-import { factories } from "../drizzle/schema";
 
 export const createAdminService = (database: typeof db) => {
   return {
@@ -95,6 +94,31 @@ export const createAdminService = (database: typeof db) => {
       return {
         message: "factory validated!",
       };
+    },
+
+    getPendingValidationData: async () => {
+      const doedAdmins = await database
+        .select({
+          email: accounts.email,
+          firstName: adminsDoed.firstName,
+          lastName: adminsDoed.lastName,
+        })
+        .from(adminsDoed)
+        .innerJoin(accounts, eq(accounts.id, adminsDoed.accountId));
+
+      const pendingFactories = await database
+        .select({
+          accountId: factories.accountId,
+          nameTh: factories.nameTh,
+          nameEn: factories.nameEn,
+          phoneNumber: factories.phoneNumber,
+          provinceName: provinces.nameTh,
+        })
+        .from(factories)
+        .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
+        .where(eq(factories.isValidate, false));
+
+      return { doedAdmins, pendingFactories };
     },
   };
 };

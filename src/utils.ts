@@ -85,7 +85,7 @@ export const utilities = () => ({
   uploadFile,
   deleteFile,
   getPresignedUrl: async (fileName: string) => {
-    return await minioClient.presignedGetObject(env.MINIO_BUCKET_NAME, fileName, 3600);
+    return await minioClient.presignedGetObject(env.MINIO_BUCKET_NAME, fileName, 300);
   },
 });
 
