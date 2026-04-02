@@ -22,14 +22,11 @@ server {
 
         # MinIO S3 API (for frontend to access static files)
         # Frontend accesses via /twhp/files/...
+        # No API key check here — MinIO presigned URL signature handles auth
         location /twhp/files/ {
-            if ($api_key_valid = 0) {
-                return 401;
-            }
-
             rewrite ^/twhp/files/(.*)$ /twhp/$1 break;
 
-            proxy_set_header Host $http_host;
+            proxy_set_header Host minio:9000;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;

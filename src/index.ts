@@ -7,9 +7,13 @@ import { factoryController } from "./controller/factory";
 import { locationController } from "./controller/location";
 import { logger, createPinoLogger } from "@bogeychan/elysia-logger";
 import { provincialOfficerController } from "./controller/provincialOfficer";
+import { fileController } from "./controller/file";
 import { env } from "./config";
 
-const globalLogger = createPinoLogger({ level: "info" });
+const bangkokTimestamp = () =>
+  `,"time":"${new Date().toLocaleString("en-GB", { timeZone: "Asia/Bangkok", hour12: false, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}"`;
+
+const globalLogger = createPinoLogger({ level: "info", timestamp: bangkokTimestamp });
 
 const EXPECTED_CODES = new Set(["VALIDATION", "INVALID_FILE_TYPE", "PARSE"]);
 
@@ -18,6 +22,7 @@ const app = new Elysia({ prefix: "/twhp/api" })
   .use(
     logger({
       level: "info",
+      timestamp: bangkokTimestamp,
       serializers: {
         request: (req) => ({
           method: req?.method,
@@ -95,7 +100,8 @@ const app = new Elysia({ prefix: "/twhp/api" })
   .use(authenticationController)
   .use(evaluatorController)
   .use(factoryController)
-  .use(provincialOfficerController);
+  .use(provincialOfficerController)
+  .use(fileController);
 
 app.listen(env.APP_PORT);
 

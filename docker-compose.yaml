@@ -27,6 +27,7 @@ services:
     container_name: twhp-api-dev
     environment:
       - NODE_ENV=development
+      - TZ=Asia/Bangkok
     env_file:
       - docker.env
     volumes:
@@ -76,6 +77,7 @@ services:
     restart: always
     environment:
       - NODE_ENV=production
+      - TZ=Asia/Bangkok
     env_file:
       - docker.env
     healthcheck:
@@ -106,6 +108,8 @@ services:
       target: build
     container_name: twhp-workers-dev
     restart: always
+    environment:
+      - TZ=Asia/Bangkok
     env_file:
       - docker.env
     profiles:
@@ -123,6 +127,8 @@ services:
     image: rawinan/twhp-elysia-api:latest
     container_name: twhp-workers
     restart: always
+    environment:
+      - TZ=Asia/Bangkok
     env_file:
       - docker.env
     profiles:
@@ -199,6 +205,8 @@ services:
     restart: always
     ports:
       - "127.0.0.1:81:80"
+    environment:
+      - TZ=Asia/Bangkok
     env_file:
       - docker.env
     volumes:
@@ -216,6 +224,8 @@ services:
     restart: always
     ports:
       - "127.0.0.1:81:80"
+    environment:
+      - TZ=Asia/Bangkok
     env_file:
       - docker.env
     volumes:
@@ -237,6 +247,8 @@ services:
     restart: always
     ports:
       - "127.0.0.1:81:80"
+    environment:
+      - TZ=Asia/Bangkok
     env_file:
       - docker.env
     volumes:
