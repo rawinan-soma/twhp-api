@@ -235,7 +235,7 @@ export const createAuthenticationUsecase = (database: typeof db) => {
           email: email,
           token: token,
         },
-        { attempts: 3, backoff: 5000 },
+        { attempts: 3, backoff: 5000, removeOnComplete: true, removeOnFail: { count: 10 } },
       );
       return { message: "sending password reset email" };
     },

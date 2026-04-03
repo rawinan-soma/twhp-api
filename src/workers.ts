@@ -8,6 +8,8 @@ await emailQueue.add(
   {
     repeat: { pattern: "30 8 * * *" },
     jobId: "factory-validation-reminder",
+    removeOnComplete: true,
+    removeOnFail: { count: 10 },
   }
 );
 
