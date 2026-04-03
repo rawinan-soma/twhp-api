@@ -1,12 +1,12 @@
 import "./worker/email";
 import { emailQueue } from "./queue/email";
 
-// Register daily repeatable job: 8:30 AM Bangkok Time (UTC+7) = 01:30 UTC
+// Register daily repeatable job: 8:30 AM Bangkok Time (server local time UTC+7)
 await emailQueue.add(
   "factory-validation-reminder",
   {},
   {
-    repeat: { pattern: "30 1 * * *" },
+    repeat: { pattern: "30 8 * * *" },
     jobId: "factory-validation-reminder",
   }
 );
