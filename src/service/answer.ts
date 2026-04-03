@@ -133,14 +133,20 @@ export const createAnswerService = (database: typeof db) => {
         return status(201, { message: "answer save!" });
       }
 
-      if (choice === "1" && !dto.file_1_1) {
-        return status(400, { message: "choice 1 requires at least file_1_1" });
-      }
-      if (choice === "2" && (!dto.file_1_1 || !dto.file_2_1)) {
-        return status(400, { message: "choice 2 requires at least file_1_1 and file_2_1" });
-      }
-      if (choice === "3" && (!dto.file_1_1 || !dto.file_2_1 || !dto.file_3_1)) {
-        return status(400, { message: "choice 3 requires at least file_1_1, file_2_1, and file_3_1" });
+      if (question.special === 3) {
+        if (choice === "1" && !dto.file_1_1)
+          return status(400, { message: "choice 1 requires file_1_1" });
+        if (choice === "2" && !dto.file_2_1)
+          return status(400, { message: "choice 2 requires file_2_1" });
+        if (choice === "3" && !dto.file_3_1)
+          return status(400, { message: "choice 3 requires file_3_1" });
+      } else {
+        if (choice === "1" && !dto.file_1_1)
+          return status(400, { message: "choice 1 requires at least file_1_1" });
+        if (choice === "2" && (!dto.file_1_1 || !dto.file_2_1))
+          return status(400, { message: "choice 2 requires at least file_1_1 and file_2_1" });
+        if (choice === "3" && (!dto.file_1_1 || !dto.file_2_1 || !dto.file_3_1))
+          return status(400, { message: "choice 3 requires at least file_1_1, file_2_1, and file_3_1" });
       }
 
       // Upload files outside the transaction so DB connection is not held during I/O
@@ -407,22 +413,28 @@ export const createAnswerService = (database: typeof db) => {
       const effectiveChoice = dto.selectedChoice ?? existingAnswer.selectedChoice;
 
       // 7. File validation — new DTO file OR existing DB URL both satisfy the requirement
-      if (effectiveChoice === "1" && !dto.file_1_1 && !existingAnswer.fileUrl1_1) {
-        return status(400, { message: "choice 1 requires at least file_1_1" });
-      }
-      if (
-        effectiveChoice === "2" &&
-        ((!dto.file_1_1 && !existingAnswer.fileUrl1_1) || (!dto.file_2_1 && !existingAnswer.fileUrl2_1))
-      ) {
-        return status(400, { message: "choice 2 requires at least file_1_1 and file_2_1" });
-      }
-      if (
-        effectiveChoice === "3" &&
-        ((!dto.file_1_1 && !existingAnswer.fileUrl1_1) ||
-          (!dto.file_2_1 && !existingAnswer.fileUrl2_1) ||
-          (!dto.file_3_1 && !existingAnswer.fileUrl3_1))
-      ) {
-        return status(400, { message: "choice 3 requires at least file_1_1, file_2_1, and file_3_1" });
+      if (question.special === 3) {
+        if (effectiveChoice === "1" && !dto.file_1_1 && !existingAnswer.fileUrl1_1)
+          return status(400, { message: "choice 1 requires file_1_1" });
+        if (effectiveChoice === "2" && !dto.file_2_1 && !existingAnswer.fileUrl2_1)
+          return status(400, { message: "choice 2 requires file_2_1" });
+        if (effectiveChoice === "3" && !dto.file_3_1 && !existingAnswer.fileUrl3_1)
+          return status(400, { message: "choice 3 requires file_3_1" });
+      } else {
+        if (effectiveChoice === "1" && !dto.file_1_1 && !existingAnswer.fileUrl1_1)
+          return status(400, { message: "choice 1 requires at least file_1_1" });
+        if (
+          effectiveChoice === "2" &&
+          ((!dto.file_1_1 && !existingAnswer.fileUrl1_1) || (!dto.file_2_1 && !existingAnswer.fileUrl2_1))
+        )
+          return status(400, { message: "choice 2 requires at least file_1_1 and file_2_1" });
+        if (
+          effectiveChoice === "3" &&
+          ((!dto.file_1_1 && !existingAnswer.fileUrl1_1) ||
+            (!dto.file_2_1 && !existingAnswer.fileUrl2_1) ||
+            (!dto.file_3_1 && !existingAnswer.fileUrl3_1))
+        )
+          return status(400, { message: "choice 3 requires at least file_1_1, file_2_1, and file_3_1" });
       }
 
       // 8. Process file updates: if new file → delete old + upload; else keep existing
@@ -434,27 +446,54 @@ export const createAnswerService = (database: typeof db) => {
         return oldUrl ?? null;
       };
 
-      const [
-        fileUrl1_1,
-        fileUrl1_2,
-        fileUrl1_3,
-        fileUrl2_1,
-        fileUrl2_2,
-        fileUrl2_3,
-        fileUrl3_1,
-        fileUrl3_2,
-        fileUrl3_3,
-      ] = await Promise.all([
-        processAnswerFile(dto.file_1_1, existingAnswer.fileUrl1_1),
-        processAnswerFile(dto.file_1_2, existingAnswer.fileUrl1_2),
-        processAnswerFile(dto.file_1_3, existingAnswer.fileUrl1_3),
-        processAnswerFile(dto.file_2_1, existingAnswer.fileUrl2_1),
-        processAnswerFile(dto.file_2_2, existingAnswer.fileUrl2_2),
-        processAnswerFile(dto.file_2_3, existingAnswer.fileUrl2_3),
-        processAnswerFile(dto.file_3_1, existingAnswer.fileUrl3_1),
-        processAnswerFile(dto.file_3_2, existingAnswer.fileUrl3_2),
-        processAnswerFile(dto.file_3_3, existingAnswer.fileUrl3_3),
-      ]);
+      const clearFile = async (oldUrl: string | null | undefined) => {
+        if (oldUrl) await utilities().deleteFile(oldUrl);
+        return null;
+      };
+
+      let fileUrl1_1: string | null,
+        fileUrl1_2: string | null,
+        fileUrl1_3: string | null,
+        fileUrl2_1: string | null,
+        fileUrl2_2: string | null,
+        fileUrl2_3: string | null,
+        fileUrl3_1: string | null,
+        fileUrl3_2: string | null,
+        fileUrl3_3: string | null;
+
+      if (question.special === 3) {
+        const g1 = effectiveChoice === "1";
+        const g2 = effectiveChoice === "2";
+        const g3 = effectiveChoice === "3";
+
+        ([fileUrl1_1, fileUrl1_2, fileUrl1_3,
+          fileUrl2_1, fileUrl2_2, fileUrl2_3,
+          fileUrl3_1, fileUrl3_2, fileUrl3_3] = await Promise.all([
+          g1 ? processAnswerFile(dto.file_1_1, existingAnswer.fileUrl1_1) : clearFile(existingAnswer.fileUrl1_1),
+          g1 ? processAnswerFile(dto.file_1_2, existingAnswer.fileUrl1_2) : clearFile(existingAnswer.fileUrl1_2),
+          g1 ? processAnswerFile(dto.file_1_3, existingAnswer.fileUrl1_3) : clearFile(existingAnswer.fileUrl1_3),
+          g2 ? processAnswerFile(dto.file_2_1, existingAnswer.fileUrl2_1) : clearFile(existingAnswer.fileUrl2_1),
+          g2 ? processAnswerFile(dto.file_2_2, existingAnswer.fileUrl2_2) : clearFile(existingAnswer.fileUrl2_2),
+          g2 ? processAnswerFile(dto.file_2_3, existingAnswer.fileUrl2_3) : clearFile(existingAnswer.fileUrl2_3),
+          g3 ? processAnswerFile(dto.file_3_1, existingAnswer.fileUrl3_1) : clearFile(existingAnswer.fileUrl3_1),
+          g3 ? processAnswerFile(dto.file_3_2, existingAnswer.fileUrl3_2) : clearFile(existingAnswer.fileUrl3_2),
+          g3 ? processAnswerFile(dto.file_3_3, existingAnswer.fileUrl3_3) : clearFile(existingAnswer.fileUrl3_3),
+        ]));
+      } else {
+        ([fileUrl1_1, fileUrl1_2, fileUrl1_3,
+          fileUrl2_1, fileUrl2_2, fileUrl2_3,
+          fileUrl3_1, fileUrl3_2, fileUrl3_3] = await Promise.all([
+          processAnswerFile(dto.file_1_1, existingAnswer.fileUrl1_1),
+          processAnswerFile(dto.file_1_2, existingAnswer.fileUrl1_2),
+          processAnswerFile(dto.file_1_3, existingAnswer.fileUrl1_3),
+          processAnswerFile(dto.file_2_1, existingAnswer.fileUrl2_1),
+          processAnswerFile(dto.file_2_2, existingAnswer.fileUrl2_2),
+          processAnswerFile(dto.file_2_3, existingAnswer.fileUrl2_3),
+          processAnswerFile(dto.file_3_1, existingAnswer.fileUrl3_1),
+          processAnswerFile(dto.file_3_2, existingAnswer.fileUrl3_2),
+          processAnswerFile(dto.file_3_3, existingAnswer.fileUrl3_3),
+        ]));
+      }
 
       // 9. Update answer + log atomically
       await database.transaction(async (tx) => {
