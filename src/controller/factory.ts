@@ -233,7 +233,20 @@ export const factoryController = new Elysia({
         {
           detail: { description: "ดึงข้อมูลคำตอบ" },
           response: {
-            200: t.Array(t.Omit(BaseAnswerSelect, ["id", "cover_id"])),
+            200: t.Array(
+              t.Composite([
+                t.Omit(BaseAnswerSelect, ["id", "cover_id", "selectedChoice"]),
+                t.Object({
+                  selectedChoice: t.Union([
+                    t.Literal("0"),
+                    t.Literal("1"),
+                    t.Literal("2"),
+                    t.Literal("3"),
+                    t.Literal("n/a"),
+                  ]),
+                }),
+              ]),
+            ),
             404: t.Object({
               message: t.String({ default: "answers not found" }),
             }),
@@ -375,7 +388,9 @@ export const factoryController = new Elysia({
               }),
               t.Object({ message: t.String({ default: "answer not found" }) }),
               t.Object({
-                message: t.String({ default: "standard file not found in enroll" }),
+                message: t.String({
+                  default: "standard file not found in enroll",
+                }),
               }),
             ]),
           },
