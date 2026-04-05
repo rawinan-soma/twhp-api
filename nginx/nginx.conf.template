@@ -10,6 +10,8 @@ server {
 
         # Backend API
         location /twhp/api/ {
+            client_max_body_size 130m;
+
             if ($api_key_valid = 0) {
                 return 401;
             }
