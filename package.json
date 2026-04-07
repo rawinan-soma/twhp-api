@@ -19,6 +19,7 @@
     "drizzle-orm": "^0.45.1",
     "drizzle-typebox": "^0.3.3",
     "elysia": "latest",
+    "elysia-autoload": "^1.7.0",
     "jose": "^6.2.2",
     "minio": "^8.0.7",
     "nodemailer": "^8.0.3",
