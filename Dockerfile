@@ -12,16 +12,6 @@ COPY . .
 # Set production environment
 ENV NODE_ENV=production
 
-# Compile the API to a standalone binary
-# We use --minify-whitespace and --minify-syntax to keep it small 
-# without breaking instrumentation.
-RUN bun build \
-    --compile \
-    --minify-whitespace \
-    --minify-syntax \
-    --outfile server \
-    src/index.ts
-
 # Compile the Worker to a standalone binary
 RUN bun build \
     --compile \
@@ -36,13 +26,14 @@ RUN bun build \
 FROM oven/bun:1-slim AS release
 WORKDIR /app
 
-# Copy the compiled binaries
-COPY --from=build /app/server .
+# Copy source (needed for elysia-autoload's runtime filesystem scan)
+COPY --from=build /app/src ./src
+
+# Copy the compiled worker binary
 COPY --from=build /app/worker-bin .
 
 # Copy files needed for migrations and seeding
 # (These need the 'bun' runtime, which is why we use bun:slim)
-COPY --from=build /app/src/drizzle ./src/drizzle
 COPY --from=build /app/seed_data ./seed_data
 COPY --from=build /app/drizzle.config.ts .
 COPY --from=build /app/package.json .
@@ -54,5 +45,6 @@ ENV NODE_ENV=production
 # Expose the API port
 EXPOSE 3000
 
-# Default command for the API
-CMD ["./server"]
+# Default command for the API (run source directly — elysia-autoload requires
+# filesystem access that is unavailable inside a bun --compile binary)
+CMD ["bun", "src/index.ts"]
