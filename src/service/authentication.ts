@@ -6,9 +6,14 @@ import { redisConnector } from "../utils";
 import { emailQueue } from "../queue/email";
 import { ElysiaCustomStatusResponse, status } from "elysia";
 import { db } from "../drizzle";
-import { accounts, adminsDoed, evaluators, factories, provincialOfficers } from "../drizzle/schema";
+import {
+  accounts,
+  adminsDoed,
+  evaluators,
+  factories,
+  provincialOfficers,
+} from "../drizzle/schema";
 import { eq, sql } from "drizzle-orm";
-import { evaluatorService } from "./evaluator";
 
 export enum Role {
   Factory = "Factory",
@@ -19,12 +24,23 @@ export enum Role {
 
 const createAuthentocationService = (database: typeof db) => ({
   setRefreshToken: async (refreshToken: string, accountId: number) => {
-    await database.update(accounts).set({ hashedRefreshToken: refreshToken }).where(eq(accounts.id, accountId));
+    await database
+      .update(accounts)
+      .set({ hashedRefreshToken: refreshToken })
+      .where(eq(accounts.id, accountId));
   },
   removeRefreshToken: async (id: number) => {
-    await database.update(accounts).set({ hashedRefreshToken: "" }).where(eq(accounts.id, id));
+    await database
+      .update(accounts)
+      .set({ hashedRefreshToken: "" })
+      .where(eq(accounts.id, id));
   },
-  issueToken: async (id: number, username: string, role: Role, tokenType: "Authentication" | "Refresh") => {
+  issueToken: async (
+    id: number,
+    username: string,
+    role: Role,
+    tokenType: "Authentication" | "Refresh",
+  ) => {
     let token: string = "";
     if (tokenType === "Authentication") {
       const payload: {
@@ -117,12 +133,17 @@ const createAuthentocationService = (database: typeof db) => ({
             "change_pw",
           ),
         eval_level: evaluators.level,
+        firstName: sql<string>`COALESCE(${provincialOfficers.firstName}, ${evaluators.firstName}, ${adminsDoed.firstName}, ${factories.nameTh})`,
+        lastName: sql<string>`COALESCE(${provincialOfficers.lastName}, ${evaluators.lastName}, ${adminsDoed.lastName})`,
       })
       .from(accounts)
       .leftJoin(adminsDoed, eq(accounts.id, adminsDoed.accountId))
       .leftJoin(evaluators, eq(accounts.id, evaluators.accountId))
       .leftJoin(factories, eq(accounts.id, factories.accountId))
-      .leftJoin(provincialOfficers, eq(accounts.id, provincialOfficers.accountId))
+      .leftJoin(
+        provincialOfficers,
+        eq(accounts.id, provincialOfficers.accountId),
+      )
       .where(eq(accounts.id, accountId))
       .then((res) => res[0]);
 
@@ -133,7 +154,15 @@ const createAuthentocationService = (database: typeof db) => ({
       selectedAccount.change_pw = true;
     }
 
-    return selectedAccount;
+    return {
+      ...selectedAccount,
+      full_name:
+        selectedAccount.role === "DOED"
+          ? `${selectedAccount.firstName} ${selectedAccount.lastName}`
+          : selectedAccount.role === "Factory"
+            ? `${selectedAccount.firstName}`
+            : `${selectedAccount.firstName}${selectedAccount.lastName}`,
+    };
   },
 });
 
@@ -149,9 +178,16 @@ export const createAuthenticationUsecase = (database: typeof db) => {
           id: accounts.id,
           isValidate: factories.isValidate,
           password: accounts.password,
+          firstName: sql<string>`COALESCE(${evaluators.firstName}, ${provincialOfficers.firstName})`,
+          lastName: sql<string>`COALESCE(${evaluators.lastName}, ${provincialOfficers.lastName})`,
         })
         .from(accounts)
         .leftJoin(factories, eq(accounts.id, factories.accountId))
+        .leftJoin(
+          provincialOfficers,
+          eq(accounts.id, provincialOfficers.accountId),
+        )
+        .leftJoin(evaluators, eq(accounts.id, evaluators.accountId))
         .where(eq(accounts.username, username))
         .limit(1)
         .then((res) => res[0]);
@@ -170,6 +206,7 @@ export const createAuthenticationUsecase = (database: typeof db) => {
         username: user.username,
         role: user.role,
         id: user.id,
+        full_name: `${user.firstName}${user.lastName}`,
       };
     },
 
@@ -218,16 +255,32 @@ export const createAuthenticationUsecase = (database: typeof db) => {
     sendPasswordResetEmail: async (email: string) => {
       const pending = await redisConnector.get(`reset_password_token:${email}`);
       if (pending) {
-        return status(429, { message: "password reset email already sent, please wait before requesting again" });
+        return status(429, {
+          message:
+            "password reset email already sent, please wait before requesting again",
+        });
       }
 
       const token = randomBytes(32).toString("hex");
-      const [user] = await database.select().from(accounts).where(eq(accounts.email, email));
+      const [user] = await database
+        .select()
+        .from(accounts)
+        .where(eq(accounts.email, email));
       if (!user) {
         return status(404, { message: "email not found" });
       }
-      await redisConnector.set(`reset_password_token:${token}`, email, "EX", 300);
-      await redisConnector.set(`reset_password_token:${email}`, token, "EX", 300);
+      await redisConnector.set(
+        `reset_password_token:${token}`,
+        email,
+        "EX",
+        300,
+      );
+      await redisConnector.set(
+        `reset_password_token:${email}`,
+        token,
+        "EX",
+        300,
+      );
 
       await emailQueue.add(
         "password-reset-request",
@@ -235,7 +288,12 @@ export const createAuthenticationUsecase = (database: typeof db) => {
           email: email,
           token: token,
         },
-        { attempts: 3, backoff: 5000, removeOnComplete: true, removeOnFail: { count: 10 } },
+        {
+          attempts: 3,
+          backoff: 5000,
+          removeOnComplete: true,
+          removeOnFail: { count: 10 },
+        },
       );
       return { message: "sending password reset email" };
     },
@@ -262,7 +320,10 @@ export const createAuthenticationUsecase = (database: typeof db) => {
       }
 
       const hashedPassword = await bcrypt.hash(password, 12);
-      await database.update(accounts).set({ password: hashedPassword }).where(eq(accounts.email, email));
+      await database
+        .update(accounts)
+        .set({ password: hashedPassword })
+        .where(eq(accounts.email, email));
 
       await redisConnector.del(`reset_password_token:${token}`);
       await redisConnector.del(`reset_password_token:${email}`);
@@ -289,7 +350,10 @@ export const createAuthenticationUsecase = (database: typeof db) => {
           return status(400, { message: "password already changed" });
         }
 
-        const [existingEmail] = await database.select().from(accounts).where(eq(accounts.email, email));
+        const [existingEmail] = await database
+          .select()
+          .from(accounts)
+          .where(eq(accounts.email, email));
         if (existingEmail) {
           return status(400, { message: "email already exists" });
         }
@@ -303,13 +367,19 @@ export const createAuthenticationUsecase = (database: typeof db) => {
             .where(eq(accounts.id, accountId))
             .returning();
 
-          await tx.update(evaluators).set({ isChangePassword: true }).where(eq(evaluators.accountId, account.id));
+          await tx
+            .update(evaluators)
+            .set({ isChangePassword: true })
+            .where(eq(evaluators.accountId, account.id));
         });
       } else {
         const [user] = await database
           .select({ account: accounts, provincialOfficer: provincialOfficers })
           .from(accounts)
-          .leftJoin(provincialOfficers, eq(provincialOfficers.accountId, accounts.id))
+          .leftJoin(
+            provincialOfficers,
+            eq(provincialOfficers.accountId, accounts.id),
+          )
           .where(eq(accounts.id, accountId));
 
         if (!user || user.provincialOfficer === null) {
@@ -320,7 +390,10 @@ export const createAuthenticationUsecase = (database: typeof db) => {
           return status(400, { message: "password already changed" });
         }
 
-        const [existingEmail] = await database.select().from(accounts).where(eq(accounts.email, email));
+        const [existingEmail] = await database
+          .select()
+          .from(accounts)
+          .where(eq(accounts.email, email));
         if (existingEmail) {
           return status(400, { message: "email already exists" });
         }

@@ -288,17 +288,18 @@ export const questionCategories = pgEnum("QuestionCategories", [
 ]);
 
 export const standardTypes = pgEnum("StandardTypes", [
-  "HC",
-  "SAN",
-  "SANPlus",
-  "wellness",
-  "safety",
-  "TIS18001",
-  "ISO45001",
-  "ISO14001",
-  "zero",
-  "5S",
-  "HAS",
+  // add standard_
+  "standardHC",
+  "standardSAN",
+  "standardSANPlus",
+  "standardWellness",
+  "standardSafety",
+  "standardTIS18001",
+  "standardISO45001",
+  "standardISO14001",
+  "standardZero",
+  "standard5S",
+  "standardHAS",
 ]);
 
 export const questions = pgTable("Questions", {

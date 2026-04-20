@@ -2,6 +2,7 @@ import { db } from "../drizzle";
 import { accounts, evaluators } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 import * as bcrypt from "bcrypt";
+import { NotFoundError, status } from "elysia";
 
 const createEvaluatorHelper = (database: typeof db) => {
   return {
@@ -14,6 +15,10 @@ const createEvaluatorHelper = (database: typeof db) => {
         .leftJoin(evaluators, eq(accounts.id, evaluators.accountId))
         .where(eq(accounts.id, accountId))
         .then((res) => res[0]);
+
+      if (!result || !result.evaluator) {
+        return status(404, { message: "invalid evaluator" });
+      }
 
       return result;
     },

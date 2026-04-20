@@ -1,6 +1,6 @@
 import { db } from "../drizzle";
 import { answers, answerLogs, covers, coverLogs, enrolls, questions } from "../drizzle/schema";
-import { and, count, desc, eq, getTableColumns, gte, lt } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, gte, inArray, lt } from "drizzle-orm";
 import { status } from "elysia";
 import { utilities } from "../utils";
 import { CreateAnswerWithFilesDto, UpdateAnswerWithFilesDto } from "../schema/answer";
@@ -65,31 +65,31 @@ export const createAnswerService = (database: typeof db) => {
           .then((res) => res[0]);
 
         const standardBoolMap: Record<string, boolean | null | undefined> = {
-          HC: enroll.standardHc,
-          SAN: enroll.standardSan,
-          SANPlus: enroll.standardSanPlus,
-          wellness: enroll.standardWellness,
-          safety: enroll.standardSafety,
-          TIS18001: enroll.standardTis18001,
-          ISO45001: enroll.standardIso45001,
-          ISO14001: enroll.standardIso14001,
-          zero: enroll.standardZero,
-          "5S": enroll.standard5S,
-          HAS: enroll.standardHas,
+          standardHC: enroll.standardHc,
+          standardSAN: enroll.standardSan,
+          standardSANPlus: enroll.standardSanPlus,
+          standardWellness: enroll.standardWellness,
+          standardSafety: enroll.standardSafety,
+          standardTIS18001: enroll.standardTis18001,
+          standardISO45001: enroll.standardIso45001,
+          standardISO14001: enroll.standardIso14001,
+          standardZero: enroll.standardZero,
+          standard5S: enroll.standard5S,
+          standardHAS: enroll.standardHas,
         };
 
         const standardUrlMap: Record<string, string | null | undefined> = {
-          HC: enroll.fileStandardHcUrl,
-          SAN: enroll.fileStandardSanUrl,
-          SANPlus: enroll.fileStandardSanPlusUrl,
-          wellness: enroll.fileStandardWellnessUrl,
-          safety: enroll.fileStandardSafetyUrl,
-          TIS18001: enroll.fileStandardTis18001Url,
-          ISO45001: enroll.fileStandardIso45001Url,
-          ISO14001: enroll.fileStandardIso14001Url,
-          zero: enroll.fileStandardZeroUrl,
-          "5S": enroll.fileStandard5SUrl,
-          HAS: enroll.fileStandardHasUrl,
+          standardHC: enroll.fileStandardHcUrl,
+          standardSAN: enroll.fileStandardSanUrl,
+          standardSANPlus: enroll.fileStandardSanPlusUrl,
+          standardWellness: enroll.fileStandardWellnessUrl,
+          standardSafety: enroll.fileStandardSafetyUrl,
+          standardTIS18001: enroll.fileStandardTis18001Url,
+          standardISO45001: enroll.fileStandardIso45001Url,
+          standardISO14001: enroll.fileStandardIso14001Url,
+          standardZero: enroll.fileStandardZeroUrl,
+          standard5S: enroll.fileStandard5SUrl,
+          standardHAS: enroll.fileStandardHasUrl,
         };
 
         const factoryHasMatchingStandard = question.standard.some((s) => !!standardBoolMap[s]);
@@ -204,7 +204,7 @@ export const createAnswerService = (database: typeof db) => {
       const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
 
       const cover = await database
-        .select({ coverId: covers.id })
+        .select({ coverId: covers.id, enrollId: covers.enrollId })
         .from(covers)
         .innerJoin(enrolls, eq(enrolls.id, covers.enrollId))
         .where(
@@ -229,6 +229,62 @@ export const createAnswerService = (database: typeof db) => {
 
       if (!latestCoverLog || latestCoverLog.status !== "in_progress") {
         return status(400, { message: "cover is not in progress" });
+      }
+
+      // Auto-fill unanswered standard questions for standards the factory is enrolled in
+      const enroll = await database
+        .select()
+        .from(enrolls)
+        .where(eq(enrolls.id, cover.enrollId))
+        .limit(1)
+        .then((res) => res[0]);
+
+      const standardBoolMap: Record<string, boolean | null | undefined> = {
+        standardHC: enroll.standardHc,
+        standardSAN: enroll.standardSan,
+        standardSANPlus: enroll.standardSanPlus,
+        standardWellness: enroll.standardWellness,
+        standardSafety: enroll.standardSafety,
+        standardTIS18001: enroll.standardTis18001,
+        standardISO45001: enroll.standardIso45001,
+        standardISO14001: enroll.standardIso14001,
+        standardZero: enroll.standardZero,
+        standard5S: enroll.standard5S,
+        standardHAS: enroll.standardHas,
+      };
+
+      const allStandardQuestions = await database
+        .select({ id: questions.id, standard: questions.standard })
+        .from(questions);
+
+      const matchedQuestionIds = allStandardQuestions
+        .filter((q) => q.standard.length > 0 && q.standard.some((s) => !!standardBoolMap[s]))
+        .map((q) => q.id);
+
+      if (matchedQuestionIds.length > 0) {
+        const existingAnswers = await database
+          .select({ questionId: answers.questionId })
+          .from(answers)
+          .where(and(eq(answers.coverId, cover.coverId), inArray(answers.questionId, matchedQuestionIds)));
+
+        const answeredIds = new Set(existingAnswers.map((a) => a.questionId));
+        const unansweredIds = matchedQuestionIds.filter((id) => !answeredIds.has(id));
+
+        if (unansweredIds.length > 0) {
+          await database.transaction(async (tx) => {
+            for (const questionId of unansweredIds) {
+              const [inserted] = await tx
+                .insert(answers)
+                .values({ questionId, coverId: cover.coverId, selectedChoice: "3" })
+                .returning({ id: answers.id });
+              await tx.insert(answerLogs).values({
+                answerId: inserted.id,
+                status: "in_review",
+                description: "ผ่านตามมาตรฐานเทียบเคียง",
+              });
+            }
+          });
+        }
       }
 
       const [{ totalQuestions }, { totalAnswers }] = await Promise.all([
@@ -348,31 +404,31 @@ export const createAnswerService = (database: typeof db) => {
           .then((res) => res[0]);
 
         const standardBoolMap: Record<string, boolean | null | undefined> = {
-          HC: enroll.standardHc,
-          SAN: enroll.standardSan,
-          SANPlus: enroll.standardSanPlus,
-          wellness: enroll.standardWellness,
-          safety: enroll.standardSafety,
-          TIS18001: enroll.standardTis18001,
-          ISO45001: enroll.standardIso45001,
-          ISO14001: enroll.standardIso14001,
-          zero: enroll.standardZero,
-          "5S": enroll.standard5S,
-          HAS: enroll.standardHas,
+          standardHC: enroll.standardHc,
+          standardSAN: enroll.standardSan,
+          standardSANPlus: enroll.standardSanPlus,
+          standardWellness: enroll.standardWellness,
+          standardSafety: enroll.standardSafety,
+          standardTIS18001: enroll.standardTis18001,
+          standardISO45001: enroll.standardIso45001,
+          standardISO14001: enroll.standardIso14001,
+          standardZero: enroll.standardZero,
+          standard5S: enroll.standard5S,
+          standardHAS: enroll.standardHas,
         };
 
         const standardUrlMap: Record<string, string | null | undefined> = {
-          HC: enroll.fileStandardHcUrl,
-          SAN: enroll.fileStandardSanUrl,
-          SANPlus: enroll.fileStandardSanPlusUrl,
-          wellness: enroll.fileStandardWellnessUrl,
-          safety: enroll.fileStandardSafetyUrl,
-          TIS18001: enroll.fileStandardTis18001Url,
-          ISO45001: enroll.fileStandardIso45001Url,
-          ISO14001: enroll.fileStandardIso14001Url,
-          zero: enroll.fileStandardZeroUrl,
-          "5S": enroll.fileStandard5SUrl,
-          HAS: enroll.fileStandardHasUrl,
+          standardHC: enroll.fileStandardHcUrl,
+          standardSAN: enroll.fileStandardSanUrl,
+          standardSANPlus: enroll.fileStandardSanPlusUrl,
+          standardWellness: enroll.fileStandardWellnessUrl,
+          standardSafety: enroll.fileStandardSafetyUrl,
+          standardTIS18001: enroll.fileStandardTis18001Url,
+          standardISO45001: enroll.fileStandardIso45001Url,
+          standardISO14001: enroll.fileStandardIso14001Url,
+          standardZero: enroll.fileStandardZeroUrl,
+          standard5S: enroll.fileStandard5SUrl,
+          standardHAS: enroll.fileStandardHasUrl,
         };
 
         const factoryHasMatchingStandard = question.standard.some((s) => !!standardBoolMap[s]);

@@ -1,19 +1,16 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { openapi } from "@elysiajs/openapi";
-import { adminController } from "./controller/admin";
-import { authenticationController } from "./controller/authentication";
-import { evaluatorController } from "./controller/evaluator";
-import { factoryController } from "./controller/factory";
-import { locationController } from "./controller/location";
 import { logger, createPinoLogger } from "@bogeychan/elysia-logger";
-import { provincialOfficerController } from "./controller/provincialOfficer";
-import { fileController } from "./controller/file";
 import { env } from "./config";
+import { autoload } from "elysia-autoload";
 
 const bangkokTimestamp = () =>
   `,"time":"${new Date().toLocaleString("en-GB", { timeZone: "Asia/Bangkok", hour12: false, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}"`;
 
-const globalLogger = createPinoLogger({ level: "info", timestamp: bangkokTimestamp });
+const globalLogger = createPinoLogger({
+  level: "info",
+  timestamp: bangkokTimestamp,
+});
 
 const EXPECTED_CODES = new Set(["VALIDATION", "INVALID_FILE_TYPE", "PARSE"]);
 
@@ -65,21 +62,35 @@ const app = new Elysia({ prefix: "/twhp/api" })
           },
           "Validation error",
         );
-        return { message: parsed.message, on: parsed.on, property: parsed.property, summary: parsed.summary };
+        return {
+          message: parsed.message,
+          on: parsed.on,
+          property: parsed.property,
+          summary: parsed.summary,
+        };
       } catch {
-        activeLogger.error({ status: 400, code, detail: errorMessage, request }, "Expected error");
+        activeLogger.error(
+          { status: 400, code, detail: errorMessage, request },
+          "Expected error",
+        );
         return { message: errorMessage };
       }
     }
 
     if (code === "NOT_FOUND") {
       set.status = 404;
-      activeLogger.error({ status: 404, detail: "NOT_FOUND", request }, "Not found");
+      activeLogger.error(
+        { status: 404, detail: "NOT_FOUND", request },
+        "Not found",
+      );
       return { message: "Not found" };
     }
 
     set.status = 500;
-    activeLogger.error({ status: 500, detail: errorMessage, request }, "Unexpected error occurred");
+    activeLogger.error(
+      { status: 500, detail: errorMessage, request },
+      "Unexpected error occurred",
+    );
     return { message: "Unexpected error" };
   })
   .onAfterResponse(({ set, request, log, responseValue, store }) => {
@@ -87,22 +98,25 @@ const app = new Elysia({ prefix: "/twhp/api" })
     const status = typeof set.status === "number" ? set.status : 200;
     if (status >= 400) {
       const body =
-        typeof responseValue === "object" && responseValue !== null ? (responseValue as Record<string, unknown>) : null;
-      const detail = (body?.response as Record<string, unknown>)?.message ?? body?.message;
+        typeof responseValue === "object" && responseValue !== null
+          ? (responseValue as Record<string, unknown>)
+          : null;
+      const detail =
+        (body?.response as Record<string, unknown>)?.message ?? body?.message;
       (log ?? globalLogger).error({ status, detail, request }, "Client error");
     }
   })
-  .get("/health", () => "Ready to work!!", {
-    response: t.String({ default: "Ready to work!!" }),
-  })
-  .use(locationController)
-  .use(adminController)
-  .use(authenticationController)
-  .use(evaluatorController)
-  .use(factoryController)
-  .use(provincialOfficerController)
-  .use(fileController);
+  .use(
+    await autoload({
+      dir: "./routes",
+      ignore: ["**/*.test.ts", "**/*.spec.ts"],
+    }),
+  );
+
+export type App = typeof app;
 
 app.listen({ port: env.APP_PORT, maxRequestBodySize: 130 * 1024 * 1024 });
 
-console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
+console.log(
+  `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`,
+);

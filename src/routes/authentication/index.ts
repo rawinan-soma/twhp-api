@@ -1,13 +1,17 @@
 import Elysia, { ElysiaCustomStatusResponse, t } from "elysia";
-import { authenticationService, Role } from "../service/authentication";
-import { jwtPlugin } from "../middleware/jwt";
+import { App } from "../..";
+import { authenticationService, Role } from "../../service/authentication";
+import { jwtPlugin } from "../../middleware/jwt";
 
 const publicAuthenticationController = new Elysia()
   .post(
     "/login",
     async ({ body, cookie: { Authentication, Refresh }, set }) => {
       const { username, password } = body;
-      const account = await authenticationService.getAutheticatedAccount(username, password);
+      const account = await authenticationService.getAutheticatedAccount(
+        username,
+        password,
+      );
 
       if (account instanceof ElysiaCustomStatusResponse) {
         return account;
@@ -37,7 +41,10 @@ const publicAuthenticationController = new Elysia()
 
       const hashedRefreshToken = Bun.SHA256.hash(refreshToken, "hex");
 
-      await authenticationService.helper.setRefreshToken(hashedRefreshToken, account.id);
+      await authenticationService.helper.setRefreshToken(
+        hashedRefreshToken,
+        account.id,
+      );
 
       Authentication.set({
         value: accessToken,
@@ -56,6 +63,7 @@ const publicAuthenticationController = new Elysia()
           id: account.id,
           role: account.role,
           username: account.username,
+          full_name: account.full_name,
         },
       };
     },
@@ -73,6 +81,7 @@ const publicAuthenticationController = new Elysia()
             id: t.Number(),
             role: t.String(),
             username: t.String(),
+            full_name: t.String(),
           }),
         }),
         401: t.Union([
@@ -95,7 +104,7 @@ const publicAuthenticationController = new Elysia()
   )
   .post(
     "/reset-password-request",
-    async ({ body: { email }, set }) => {
+    async ({ body: { email } }) => {
       return await authenticationService.sendPasswordResetEmail(email);
     },
     {
@@ -107,14 +116,17 @@ const publicAuthenticationController = new Elysia()
         }),
         404: t.Object({ message: t.String({ default: "email not found" }) }),
         429: t.Object({
-          message: t.String({ default: "password reset email already sent, please wait before requesting again" }),
+          message: t.String({
+            default:
+              "password reset email already sent, please wait before requesting again",
+          }),
         }),
       },
     },
   )
   .post(
     "/reset-password",
-    async ({ body: { password, token }, set }) => {
+    async ({ body: { password, token } }) => {
       return await authenticationService.updatePassword(password, token);
     },
     {
@@ -127,66 +139,74 @@ const publicAuthenticationController = new Elysia()
         400: t.Union([
           t.Object({ message: t.String({ default: "invalid token" }) }),
           t.Object({
-            message: t.String({ default: "old password are not allowed", description: "password ซ้ำกับของเดิม" }),
+            message: t.String({
+              default: "old password are not allowed",
+              description: "password ซ้ำกับของเดิม",
+            }),
           }),
         ]),
       },
     },
   );
 
-export const authenticationController = new Elysia({
-  prefix: "/authentication",
-  tags: ["authen"],
-})
-  .group("", (auth) => auth.use(publicAuthenticationController))
-  .group("", (auth) =>
-    auth
-      .use(jwtPlugin)
-      .post(
-        "/logout",
-        async ({ cookie: { Authentication, Refresh }, jwtPayload, set }) => {
-          Authentication.set({
-            value: "",
-            ...authenticationService.helper.getCookieOption("logout"),
-          });
+export default (app: App) =>
+  app
+    .group("", { detail: { tags: ["authentication"] } }, (group) =>
+      group.use(publicAuthenticationController),
+    )
+    .group("", { detail: { tags: ["authentication"] } }, (group) =>
+      group
+        .use(jwtPlugin)
+        .post(
+          "/logout",
+          async ({ cookie: { Authentication, Refresh }, jwtPayload, set }) => {
+            Authentication.set({
+              value: "",
+              ...authenticationService.helper.getCookieOption("logout"),
+            });
 
-          Refresh.set({
-            value: "",
-            ...authenticationService.helper.getCookieOption("logout"),
-          });
+            Refresh.set({
+              value: "",
+              ...authenticationService.helper.getCookieOption("logout"),
+            });
 
-          await authenticationService.helper.removeRefreshToken(Number(jwtPayload.sub));
+            await authenticationService.helper.removeRefreshToken(
+              Number(jwtPayload.sub),
+            );
 
-          set.status = 200;
-          return { message: "logout successful" };
-        },
-        {
-          detail: { description: "logout" },
-          response: t.Object({
-            message: t.String({ default: "logout successful" }),
-          }),
-        },
-      )
-      .get(
-        "",
-        async ({ jwtPayload }) => {
-          const result = await authenticationService.helper.getAccountById(Number(jwtPayload.sub));
-          return result;
-        },
-        {
-          response: {
-            200: t.Object({
-              id: t.Number(),
-              username: t.String(),
-              role: t.String(),
-              change_pw: t.Boolean(),
-              eval_level: t.Nullable(t.String()),
-            }),
-            400: t.Object({
-              message: t.String({ default: "invalid credential" }),
+            set.status = 200;
+            return { message: "logout successful" };
+          },
+          {
+            detail: { description: "logout" },
+            response: t.Object({
+              message: t.String({ default: "logout successful" }),
             }),
           },
-          detail: { description: "ดึงข้อมูล user ของ session ปัจจุบัน" },
-        },
-      ),
-  );
+        )
+        .get(
+          "",
+          async ({ jwtPayload }) => {
+            const result = await authenticationService.helper.getAccountById(
+              Number(jwtPayload.sub),
+            );
+            return result;
+          },
+          {
+            response: {
+              200: t.Object({
+                id: t.Number(),
+                username: t.String(),
+                role: t.String(),
+                change_pw: t.Boolean(),
+                eval_level: t.Nullable(t.String()),
+                full_name: t.String(),
+              }),
+              400: t.Object({
+                message: t.String({ default: "invalid credential" }),
+              }),
+            },
+            detail: { description: "ดึงข้อมูล user ของ session ปัจจุบัน" },
+          },
+        ),
+    );

@@ -8,6 +8,10 @@ map $http_x_api_key $api_key_valid {
 server {
         listen 80;
 
+        location /twhp/api/document {
+            deny all;
+        }
+
         # Backend API
         location /twhp/api/ {
             client_max_body_size 130m;

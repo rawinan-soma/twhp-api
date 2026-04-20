@@ -1,14 +1,11 @@
-import Elysia, { t } from "elysia";
-import { jwtPlugin } from "../middleware/jwt";
-import { fileService } from "../service/file";
+import { t } from "elysia";
+import { App } from "../..";
+import { jwtPlugin } from "../../middleware/jwt";
+import { fileService } from "../../service/file";
 
-export const fileController = new Elysia({
-  prefix: "/file",
-  tags: ["file"],
-}).group("", (app) =>
-  app
-    .use(jwtPlugin)
-    .get(
+export default (app: App) =>
+  app.group("", { detail: { tags: ["file"] } }, (group) =>
+    group.use(jwtPlugin).get(
       "/presigned-url",
       async ({ query: { fileName } }) => {
         return await fileService.getPresignedUrl(fileName);
@@ -22,4 +19,4 @@ export const fileController = new Elysia({
         },
       },
     ),
-);
+  );
