@@ -24,6 +24,7 @@ export default (app: App) =>
               province_name_th: t.Nullable(t.String()),
               district_name_th: t.Nullable(t.String()),
               subdistrict_name_th: t.Nullable(t.String()),
+              username: t.String(),
               account_id: t.Number(),
               factory_type: t.Number(),
               name_th: t.String(),

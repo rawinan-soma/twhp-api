@@ -217,6 +217,7 @@ export const createFactoryService = (database: typeof db) => {
 
       return await database
         .select({
+          username: accounts.username,
           province_name_th: provinces.nameTh,
           district_name_th: districts.nameTh,
           subdistrict_name_th: subdistricts.nameTh,
@@ -238,6 +239,7 @@ export const createFactoryService = (database: typeof db) => {
         .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
         .innerJoin(districts, eq(factories.districtId, districts.districtId))
         .innerJoin(subdistricts, eq(factories.subdistrictId, subdistricts.subdistrictId))
+        .innerJoin(accounts, eq(factories.accountId, accounts.id))
         .where(and(...filters, eq(factories.isValidate, validated)))
         .orderBy(asc(factories.accountId));
     },
