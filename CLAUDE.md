@@ -118,3 +118,17 @@ Uses `@bogeychan/elysia-logger` with custom Bangkok timestamp. `onError` classif
 - Ask first if a task is unclear — do not assume and implement.
 - Ask for permission before installing any new dependency.
 - For large tasks, break into subtasks and confirm approach first.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as local markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default label vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context — one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

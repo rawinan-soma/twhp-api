@@ -10,7 +10,7 @@ await emailQueue.add(
     jobId: "factory-validation-reminder",
     removeOnComplete: true,
     removeOnFail: { count: 10 },
-  }
+  },
 );
 
 console.log("Workers running....");
