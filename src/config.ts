@@ -32,12 +32,11 @@ export const env = {
   // App
   APP_PORT: requireEnvNumber("APP_PORT"),
 
-  // Auth
-  AUTH_JWT_SECRET: requireEnv("AUTH_JWT_SECRET"),
-  AUTH_TOKEN_EXP: requireEnvNumber("AUTH_TOKEN_EXP"),
-  REFRESH_JWT_SECRET: requireEnv("REFRESH_JWT_SECRET"),
-  REFRESH_TOKEN_EXP: requireEnvNumber("REFRESH_TOKEN_EXP"),
   COOKIE_SECURE: requireEnvBoolean("COOKIE_SECURE"),
+
+  // better-auth
+  BETTER_AUTH_SECRET: requireEnv("BETTER_AUTH_SECRET"),
+  BETTER_AUTH_URL: requireEnv("BETTER_AUTH_URL"),
 
   // Redis
   REDIS_HOST: requireEnv("REDIS_HOST"),

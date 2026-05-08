@@ -1,7 +1,6 @@
 import { db } from "../drizzle";
 import { accounts, evaluators } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
-import * as bcrypt from "bcrypt";
 import { NotFoundError, status } from "elysia";
 
 const createEvaluatorHelper = (database: typeof db) => {

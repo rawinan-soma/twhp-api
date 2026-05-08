@@ -4,6 +4,7 @@ import { ElysiaCustomStatusResponse, status } from "elysia";
 import { db } from "../drizzle";
 import {
   accounts,
+  credentials,
   factories,
   districts,
   subdistricts,
@@ -13,6 +14,7 @@ import {
   provincialOfficers,
 } from "../drizzle/schema";
 import { eq, and, gte, lt, SQL, asc, or } from "drizzle-orm";
+import { randomUUID } from "crypto";
 import { utilities } from "../utils";
 
 const createFactoryHelper = (database: typeof db) => {
@@ -63,12 +65,22 @@ export const createFactoryService = (database: typeof db) => {
           .insert(accounts)
           .values({
             email: dto.email,
-            password: hashedPassword,
             role: "Factory",
             username: dto.username,
           })
           .returning()
           .then((res) => res[0]);
+
+        const now = new Date();
+        await tx.insert(credentials).values({
+          id: randomUUID(),
+          accountId: randomUUID(),
+          providerId: "credential",
+          userId: account.id,
+          password: hashedPassword,
+          createdAt: now,
+          updatedAt: now,
+        });
 
         const { password, email, username, ...factoryData } = dto;
         await tx
@@ -289,26 +301,20 @@ export const createFactoryService = (database: typeof db) => {
       }
 
       const { email, password, ...factoryData } = dto;
-      const accountData = { email, password };
 
       await database.transaction(async (tx) => {
-        Object.keys(factoryData).length > 0
-          ? await tx
-              .update(factories)
-              .set(factoryData)
-              .where(eq(factories.accountId, accountId))
-              .returning()
-              .then((res) => res[0])
-          : undefined;
-
-        Object.keys(accountData).length > 0
-          ? await tx
-              .update(accounts)
-              .set(accountData)
-              .where(eq(accounts.id, accountId))
-              .returning()
-              .then((res) => res[0])
-          : undefined;
+        if (Object.keys(factoryData).length > 0) {
+          await tx.update(factories).set(factoryData).where(eq(factories.accountId, accountId));
+        }
+        if (email !== undefined) {
+          await tx.update(accounts).set({ email }).where(eq(accounts.id, accountId));
+        }
+        if (password !== undefined) {
+          await tx
+            .update(credentials)
+            .set({ password, updatedAt: new Date() })
+            .where(and(eq(credentials.userId, accountId), eq(credentials.providerId, "credential")));
+        }
       });
       return { message: "factory updated successfully" };
     },

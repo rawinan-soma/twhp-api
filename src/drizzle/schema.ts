@@ -213,10 +213,10 @@ export const accounts = pgTable(
   {
     id: serial().primaryKey().notNull(),
     username: text().notNull(),
-    password: text().notNull(),
     email: text().notNull(),
     role: roles().notNull(),
-    hashedRefreshToken: text(),
+    createdAt: timestamp("created_at", { precision: 3, mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { precision: 3, mode: "date" }).defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex("Accounts_email_key").using("btree", table.email.asc().nullsLast().op("text_ops")),
@@ -250,6 +250,32 @@ export const provincialOfficers = pgTable(
     uniqueIndex("ProvincialOfficers_account_id_key").using("btree", table.accountId.asc().nullsLast().op("int4_ops")),
   ],
 );
+
+export const sessions = pgTable("Sessions", {
+  id: text().primaryKey().notNull(),
+  expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+  token: text().notNull().unique(),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => accounts.id, { onDelete: "cascade", onUpdate: "cascade" }),
+});
+
+export const credentials = pgTable("Credentials", {
+  id: text().primaryKey().notNull(),
+  accountId: text("account_id").notNull(),
+  providerId: text("provider_id").notNull(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => accounts.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  password: text(),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).notNull(),
+});
+
 
 export const covers = pgTable("Covers", {
   id: serial().primaryKey().notNull(),

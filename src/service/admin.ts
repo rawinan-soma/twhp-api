@@ -1,5 +1,5 @@
 import { db } from "../drizzle";
-import { accounts, adminsDoed, factories, provinces } from "../drizzle/schema";
+import { accounts, adminsDoed, credentials, factories, provinces } from "../drizzle/schema";
 import type { UpdateAdminDto } from "../schema/admin";
 import * as bcrypt from "bcrypt";
 import { status } from "elysia";
@@ -31,19 +31,18 @@ export const createAdminService = (database: typeof db) => {
             lastName: dto.lastName,
             phoneNumber: dto.phoneNumber,
           })
-          .where(eq(adminsDoed.accountId, accountId))
-          .returning()
-          .then((res) => res[0]);
+          .where(eq(adminsDoed.accountId, accountId));
 
-        await tx
-          .update(accounts)
-          .set({
-            email: dto.email,
-            password: dto.password,
-          })
-          .where(eq(accounts.id, accountId))
-          .returning()
-          .then((res) => res[0]);
+        if (dto.email !== undefined) {
+          await tx.update(accounts).set({ email: dto.email }).where(eq(accounts.id, accountId));
+        }
+
+        if (dto.password !== undefined) {
+          await tx
+            .update(credentials)
+            .set({ password: dto.password, updatedAt: new Date() })
+            .where(and(eq(credentials.userId, accountId), eq(credentials.providerId, "credential")));
+        }
       });
 
       return {

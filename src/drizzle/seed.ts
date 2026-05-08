@@ -7,7 +7,8 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { parse } from "csv-parse/sync";
 import * as bcrypt from "bcrypt";
-import { sql } from "drizzle-orm";
+import { sql, and, eq, inArray } from "drizzle-orm";
+import { randomUUID } from "crypto";
 import * as schema from "./schema.js";
 
 if (!process.env.DATABASE_URL) {
@@ -121,24 +122,35 @@ async function seed() {
   const provincialAccounts = await db
     .insert(schema.accounts)
     .values(
-      provincialOfficerData.map((item: any, i: number) => ({
+      provincialOfficerData.map((item: any) => ({
         username: item.username,
-        password: provincialHashed[i],
         email: item.email,
         role: "Provincial" as const,
       })),
     )
     .onConflictDoUpdate({
       target: schema.accounts.username,
-      set: {
-        password: sql`EXCLUDED.password`,
-        email: sql`EXCLUDED.email`,
-        role: sql`EXCLUDED.role`,
-      },
+      set: { email: sql`EXCLUDED.email`, role: sql`EXCLUDED.role` },
     })
     .returning({ id: schema.accounts.id, username: schema.accounts.username });
   const provincialAccountMap = new Map(
     provincialAccounts.map((a) => [a.username, a.id]),
+  );
+  const provincialAccountIds = provincialAccounts.map((a) => a.id);
+  const now = new Date();
+  await db.delete(schema.credentials).where(
+    and(inArray(schema.credentials.userId, provincialAccountIds), eq(schema.credentials.providerId, "credential")),
+  );
+  await db.insert(schema.credentials).values(
+    provincialAccounts.map((a, i) => ({
+      id: randomUUID(),
+      accountId: randomUUID(),
+      providerId: "credential" as const,
+      userId: a.id,
+      password: provincialHashed[i],
+      createdAt: now,
+      updatedAt: now,
+    })),
   );
   await db
     .insert(schema.provincialOfficers)
@@ -173,24 +185,34 @@ async function seed() {
   const evaluatorAccounts = await db
     .insert(schema.accounts)
     .values(
-      evaluatorsData.map((item: any, i: number) => ({
+      evaluatorsData.map((item: any) => ({
         username: item.username,
-        password: evaluatorHashed[i],
         email: item.email,
         role: "Evaluator" as const,
       })),
     )
     .onConflictDoUpdate({
       target: schema.accounts.username,
-      set: {
-        password: sql`EXCLUDED.password`,
-        email: sql`EXCLUDED.email`,
-        role: sql`EXCLUDED.role`,
-      },
+      set: { email: sql`EXCLUDED.email`, role: sql`EXCLUDED.role` },
     })
     .returning({ id: schema.accounts.id, username: schema.accounts.username });
   const evaluatorAccountMap = new Map(
     evaluatorAccounts.map((a) => [a.username, a.id]),
+  );
+  const evaluatorAccountIds = evaluatorAccounts.map((a) => a.id);
+  await db.delete(schema.credentials).where(
+    and(inArray(schema.credentials.userId, evaluatorAccountIds), eq(schema.credentials.providerId, "credential")),
+  );
+  await db.insert(schema.credentials).values(
+    evaluatorAccounts.map((a, i) => ({
+      id: randomUUID(),
+      accountId: randomUUID(),
+      providerId: "credential" as const,
+      userId: a.id,
+      password: evaluatorHashed[i],
+      createdAt: now,
+      updatedAt: now,
+    })),
   );
   await db
     .insert(schema.evaluators)
@@ -230,15 +252,27 @@ async function seed() {
       .insert(schema.accounts)
       .values({
         username: "test1",
-        password: adminPassword,
         email: "admin@test.com",
         role: "DOED",
       })
       .onConflictDoUpdate({
         target: schema.accounts.username,
-        set: { password: adminPassword, email: "admin@test.com", role: "DOED" },
+        set: { email: "admin@test.com", role: "DOED" },
       })
       .returning();
+
+    await tx.delete(schema.credentials).where(
+      and(eq(schema.credentials.userId, account.id), eq(schema.credentials.providerId, "credential")),
+    );
+    await tx.insert(schema.credentials).values({
+      id: randomUUID(),
+      accountId: randomUUID(),
+      providerId: "credential",
+      userId: account.id,
+      password: adminPassword,
+      createdAt: now,
+      updatedAt: now,
+    });
 
     await tx
       .insert(schema.adminsDoed)

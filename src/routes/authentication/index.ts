@@ -1,79 +1,51 @@
 import Elysia, { ElysiaCustomStatusResponse, t } from "elysia";
 import { App } from "../..";
-import { authenticationService, Role } from "../../service/authentication";
+import { authenticationService } from "../../service/authentication";
 import { jwtPlugin } from "../../middleware/jwt";
+import { auth } from "../../auth";
+
+type SignInUsernameAPI = (opts: {
+  body: { username: string; password: string };
+  asResponse: true;
+}) => Promise<Response>;
+
+const signInUsername = auth.api.signInUsername as unknown as SignInUsernameAPI;
 
 const publicAuthenticationController = new Elysia()
   .post(
     "/login",
-    async ({ body, cookie: { Authentication, Refresh }, set }) => {
-      const { username, password } = body;
-      const account = await authenticationService.getAutheticatedAccount(
-        username,
-        password,
-      );
-
-      if (account instanceof ElysiaCustomStatusResponse) {
-        return account;
-      }
-
-      const accessToken = await authenticationService.helper.issueToken(
-        account.id,
-        account.username,
-        account.role as Role,
-        "Authentication",
-      );
-
-      if (accessToken instanceof ElysiaCustomStatusResponse) {
-        return accessToken;
-      }
-
-      const refreshToken = await authenticationService.helper.issueToken(
-        account.id,
-        account.username,
-        account.role as Role,
-        "Refresh",
-      );
-
-      if (refreshToken instanceof ElysiaCustomStatusResponse) {
-        return refreshToken;
-      }
-
-      const hashedRefreshToken = Bun.SHA256.hash(refreshToken, "hex");
-
-      await authenticationService.helper.setRefreshToken(
-        hashedRefreshToken,
-        account.id,
-      );
-
-      Authentication.set({
-        value: accessToken,
-        ...authenticationService.helper.getCookieOption("Authentication"),
+    async ({ body, set }) => {
+      const res = await signInUsername({
+        body: { username: body.username, password: body.password },
+        asResponse: true,
       });
 
-      Refresh.set({
-        value: refreshToken,
-        ...authenticationService.helper.getCookieOption("Refresh"),
-      });
+      if (!res.ok) {
+        set.status = res.status;
+        return (await res.json()) as { message: string };
+      }
+
+      const data = (await res.json()) as { user: { id: number } };
+      const setCookie = res.headers.get("set-cookie");
+      if (setCookie) set.headers["Set-Cookie"] = setCookie;
+
+      const userData = await authenticationService.helper.getAccountById(data.user.id);
+      if (userData instanceof ElysiaCustomStatusResponse) return userData;
 
       set.status = 200;
       return {
         message: "login successful",
         user: {
-          id: account.id,
-          role: account.role,
-          username: account.username,
-          full_name: account.full_name,
+          id: userData.id,
+          role: userData.role,
+          username: userData.username,
+          full_name: userData.full_name,
         },
       };
     },
     {
       detail: { description: "Login" },
       body: t.Object({ username: t.String(), password: t.String() }),
-      cookie: t.Cookie({
-        Authentication: t.Optional(t.String()),
-        Refresh: t.Optional(t.String()),
-      }),
       response: {
         200: t.Object({
           message: t.String(),
@@ -84,6 +56,7 @@ const publicAuthenticationController = new Elysia()
             full_name: t.String(),
           }),
         }),
+        400: t.Object({ message: t.String({ default: "invalid credential" }) }),
         401: t.Union([
           t.Object({
             message: t.String({
@@ -98,7 +71,6 @@ const publicAuthenticationController = new Elysia()
             }),
           }),
         ]),
-        500: t.Object({ message: t.String({ default: "cannot issue token" }) }),
       },
     },
   )
@@ -117,8 +89,7 @@ const publicAuthenticationController = new Elysia()
         404: t.Object({ message: t.String({ default: "email not found" }) }),
         429: t.Object({
           message: t.String({
-            default:
-              "password reset email already sent, please wait before requesting again",
+            default: "password reset email already sent, please wait before requesting again",
           }),
         }),
       },
@@ -151,29 +122,19 @@ const publicAuthenticationController = new Elysia()
 
 export default (app: App) =>
   app
-    .group("", { detail: { tags: ["authentication"] } }, (group) =>
-      group.use(publicAuthenticationController),
-    )
+    .group("", { detail: { tags: ["authentication"] } }, (group) => group.use(publicAuthenticationController))
     .group("", { detail: { tags: ["authentication"] } }, (group) =>
       group
         .use(jwtPlugin)
         .post(
           "/logout",
-          async ({ cookie: { Authentication, Refresh }, jwtPayload, set }) => {
-            Authentication.set({
-              value: "",
-              ...authenticationService.helper.getCookieOption("logout"),
+          async ({ request, set }) => {
+            const res = await auth.api.signOut({
+              headers: request.headers,
+              asResponse: true,
             });
-
-            Refresh.set({
-              value: "",
-              ...authenticationService.helper.getCookieOption("logout"),
-            });
-
-            await authenticationService.helper.removeRefreshToken(
-              Number(jwtPayload.sub),
-            );
-
+            const setCookie = res.headers.get("set-cookie");
+            if (setCookie) set.headers["Set-Cookie"] = setCookie;
             set.status = 200;
             return { message: "logout successful" };
           },
@@ -187,9 +148,7 @@ export default (app: App) =>
         .get(
           "",
           async ({ jwtPayload }) => {
-            const result = await authenticationService.helper.getAccountById(
-              Number(jwtPayload.sub),
-            );
+            const result = await authenticationService.helper.getAccountById(Number(jwtPayload.sub));
             return result;
           },
           {

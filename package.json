@@ -7,20 +7,20 @@
     "start": "bun src/index.ts",
     "worker": "bun src/workers.ts",
     "db:push": "bunx drizzle-kit push",
-    "db:seed": "bun src/drizzle/seed.ts"
+    "db:seed": "bun src/drizzle/seed.ts",
+    "db:migrate-better-auth": "bun src/drizzle/migrate-to-better-auth.ts"
   },
   "dependencies": {
     "@bogeychan/elysia-logger": "^0.1.10",
-    "@elysiajs/jwt": "^1.4.1",
     "@elysiajs/openapi": "^1.4.14",
     "bcrypt": "^6.0.0",
+    "better-auth": "^1.6.9",
     "bullmq": "^5.71.0",
     "csv-parse": "^6.2.0",
     "drizzle-orm": "^0.45.1",
     "drizzle-typebox": "^0.3.3",
     "elysia": "latest",
     "elysia-autoload": "^1.7.0",
-    "jose": "^6.2.2",
     "minio": "^8.0.7",
     "nodemailer": "^8.0.3",
     "pg": "^8.20.0"
