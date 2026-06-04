@@ -1,20 +1,14 @@
+import { type Static, t } from "elysia";
 import {
-  BaseAccountSelect,
   BaseDistrictSelect,
   BaseFactoryInsert,
   BaseFactorySelect,
   BaseProvinceSelect,
   BaseSubdistrictSelect,
 } from ".";
-import { t, Static } from "elysia";
 
 export const CreateFactorySchema = t.Composite([
-  t.Omit(BaseFactoryInsert, [
-    "accountId",
-    "provinceId",
-    "districtId",
-    "isValidate",
-  ]),
+  t.Omit(BaseFactoryInsert, ["accountId", "provinceId", "districtId", "isValidate"]),
   t.Object({
     username: t.String(),
     password: t.String(),
@@ -22,9 +16,7 @@ export const CreateFactorySchema = t.Composite([
   }),
 ]);
 
-export const UpdateFactorySchema = t.Partial(
-  t.Omit(CreateFactorySchema, ["username"]),
-);
+export const UpdateFactorySchema = t.Partial(t.Omit(CreateFactorySchema, ["username"]));
 
 export const AllFactoriesQueryParamsSchema = t.Object({
   validated: t.Boolean(),
@@ -44,6 +36,4 @@ export const AllFactoriesResponseSchema = t.Array(
 
 export type CreateFactoryDto = Static<typeof CreateFactorySchema>;
 export type UpdateFactoryDto = Static<typeof UpdateFactorySchema>;
-export type AllFactoriesQueryParams = Static<
-  typeof AllFactoriesQueryParamsSchema
->;
+export type AllFactoriesQueryParams = Static<typeof AllFactoriesQueryParamsSchema>;

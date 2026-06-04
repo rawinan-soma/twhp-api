@@ -1,5 +1,14 @@
-import { pgTable, timestamp, text, integer, uniqueIndex, boolean, serial, pgEnum } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import {
+  boolean,
+  integer,
+  pgEnum,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 export const evaluatorLevels = pgEnum("EvaluatorLevels", ["Mental", "DOH", "ODPC"]);
 export const roles = pgEnum("Roles", ["Factory", "Provincial", "Evaluator", "DOED"]);
@@ -28,7 +37,10 @@ export const provinces = pgTable(
     healthRegion: integer("health_region").notNull(),
   },
   (table) => [
-    uniqueIndex("Provinces_province_id_key").using("btree", table.provinceId.asc().nullsLast().op("int4_ops")),
+    uniqueIndex("Provinces_province_id_key").using(
+      "btree",
+      table.provinceId.asc().nullsLast().op("int4_ops"),
+    ),
   ],
 );
 
@@ -45,7 +57,10 @@ export const districts = pgTable(
     nameTh: text("name_th").notNull(),
   },
   (table) => [
-    uniqueIndex("Districts_district_id_key").using("btree", table.districtId.asc().nullsLast().op("int4_ops")),
+    uniqueIndex("Districts_district_id_key").using(
+      "btree",
+      table.districtId.asc().nullsLast().op("int4_ops"),
+    ),
   ],
 );
 
@@ -62,7 +77,10 @@ export const subdistricts = pgTable(
       }),
   },
   (table) => [
-    uniqueIndex("Subdistricts_subdistrict_id_key").using("btree", table.subdistrictId.asc().nullsLast().op("int4_ops")),
+    uniqueIndex("Subdistricts_subdistrict_id_key").using(
+      "btree",
+      table.subdistrictId.asc().nullsLast().op("int4_ops"),
+    ),
   ],
 );
 
@@ -120,7 +138,10 @@ export const adminsDoed = pgTable(
     phoneNumber: text("phone_number").notNull(),
   },
   (table) => [
-    uniqueIndex("AdminsDoed_account_id_key").using("btree", table.accountId.asc().nullsLast().op("int4_ops")),
+    uniqueIndex("AdminsDoed_account_id_key").using(
+      "btree",
+      table.accountId.asc().nullsLast().op("int4_ops"),
+    ),
   ],
 );
 
@@ -205,7 +226,9 @@ export const enrolls = pgTable(
     safetyOfficerPhone: text("safety_officer_phone"),
     safetyOfficerLineId: text("safety_officer_lineID"),
   },
-  (table) => [uniqueIndex("enrolls_id_key").using("btree", table.id.asc().nullsLast().op("int4_ops"))],
+  (table) => [
+    uniqueIndex("enrolls_id_key").using("btree", table.id.asc().nullsLast().op("int4_ops")),
+  ],
 );
 
 export const accounts = pgTable(
@@ -221,7 +244,10 @@ export const accounts = pgTable(
   (table) => [
     uniqueIndex("Accounts_email_key").using("btree", table.email.asc().nullsLast().op("text_ops")),
     uniqueIndex("Accounts_id_key").using("btree", table.id.asc().nullsLast().op("int4_ops")),
-    uniqueIndex("Accounts_username_key").using("btree", table.username.asc().nullsLast().op("text_ops")),
+    uniqueIndex("Accounts_username_key").using(
+      "btree",
+      table.username.asc().nullsLast().op("text_ops"),
+    ),
   ],
 );
 
@@ -247,7 +273,10 @@ export const provincialOfficers = pgTable(
     isChangePassword: boolean().default(false).notNull(),
   },
   (table) => [
-    uniqueIndex("ProvincialOfficers_account_id_key").using("btree", table.accountId.asc().nullsLast().op("int4_ops")),
+    uniqueIndex("ProvincialOfficers_account_id_key").using(
+      "btree",
+      table.accountId.asc().nullsLast().op("int4_ops"),
+    ),
   ],
 );
 

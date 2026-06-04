@@ -1,5 +1,5 @@
 import { t } from "elysia";
-import { App } from "../..";
+import type { App } from "../..";
 import { factoryGuard } from "../../middleware/guards";
 import { CreateFactorySchema, UpdateFactorySchema } from "../../schema/factory";
 import { factoryService } from "../../service/factory";

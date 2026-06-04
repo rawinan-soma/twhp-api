@@ -1,6 +1,6 @@
 import { Worker } from "bullmq";
-import { env } from "../config";
 import * as nodemailer from "nodemailer";
+import { env } from "../config";
 import { adminService } from "../service/admin";
 
 export const emailWorker = new Worker(
@@ -83,7 +83,7 @@ const sendFactoryValidationReminderEmail = async () => {
           <td style="padding: 8px; border: 1px solid #ddd;">${f.nameEn}</td>
           <td style="padding: 8px; border: 1px solid #ddd;">${f.provinceName}</td>
           <td style="padding: 8px; border: 1px solid #ddd;">${f.phoneNumber}</td>
-        </tr>`
+        </tr>`,
     )
     .join("");
 

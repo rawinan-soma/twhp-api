@@ -1,9 +1,16 @@
-import { db } from "../drizzle";
-import { factories, districts, subdistricts, enrolls, provinces, evaluators } from "../drizzle/schema";
-import { eq, and, gte, lt, SQL, getTableColumns, desc } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, gte, lt, type SQL } from "drizzle-orm";
 import { status } from "elysia";
+import { db } from "../drizzle";
+import {
+  districts,
+  enrolls,
+  evaluators,
+  factories,
+  provinces,
+  subdistricts,
+} from "../drizzle/schema";
+import type { CreateEnrollWithFilesDto, UpdateEnrollWithFilesDto } from "../schema/enroll";
 import { utilities } from "../utils";
-import { CreateEnrollWithFilesDto, UpdateEnrollWithFilesDto } from "../schema/enroll";
 
 export const createEnrollService = (database: typeof db) => {
   return {
@@ -388,7 +395,11 @@ export const createEnrollService = (database: typeof db) => {
       // Processing files: If standard is false, delete old file and return null.
       // If standard is true and new file provided, delete old and upload new.
       // Otherwise, keep old URL.
-      const processFile = async (isTrue: boolean, newFile: File | undefined, oldUrl: string | null) => {
+      const processFile = async (
+        isTrue: boolean,
+        newFile: File | undefined,
+        oldUrl: string | null,
+      ) => {
         if (!isTrue) {
           if (oldUrl) await utilities().deleteFile(oldUrl);
           return null;
@@ -416,11 +427,27 @@ export const createEnrollService = (database: typeof db) => {
         processFile(standards[0].bool, fileStandardHc, existingEnroll.fileStandardHcUrl),
         processFile(standards[1].bool, fileStandardSan, existingEnroll.fileStandardSanUrl),
         processFile(standards[2].bool, fileStandardSanPlus, existingEnroll.fileStandardSanPlusUrl),
-        processFile(standards[3].bool, fileStandardWellness, existingEnroll.fileStandardWellnessUrl),
+        processFile(
+          standards[3].bool,
+          fileStandardWellness,
+          existingEnroll.fileStandardWellnessUrl,
+        ),
         processFile(standards[4].bool, fileStandardSafety, existingEnroll.fileStandardSafetyUrl),
-        processFile(standards[5].bool, fileStandardTis18001, existingEnroll.fileStandardTis18001Url),
-        processFile(standards[6].bool, fileStandardIso45001, existingEnroll.fileStandardIso45001Url),
-        processFile(standards[7].bool, fileStandardIso14001, existingEnroll.fileStandardIso14001Url),
+        processFile(
+          standards[5].bool,
+          fileStandardTis18001,
+          existingEnroll.fileStandardTis18001Url,
+        ),
+        processFile(
+          standards[6].bool,
+          fileStandardIso45001,
+          existingEnroll.fileStandardIso45001Url,
+        ),
+        processFile(
+          standards[7].bool,
+          fileStandardIso14001,
+          existingEnroll.fileStandardIso14001Url,
+        ),
         processFile(standards[8].bool, fileStandardZero, existingEnroll.fileStandardZeroUrl),
         processFile(standards[9].bool, fileStandard5S, existingEnroll.fileStandard5SUrl),
         processFile(standards[10].bool, fileStandardHas, existingEnroll.fileStandardHasUrl),

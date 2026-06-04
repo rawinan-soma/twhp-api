@@ -1,8 +1,8 @@
 import { ElysiaCustomStatusResponse, t } from "elysia";
-import { App } from "../../..";
+import type { App } from "../../..";
 import { officerGuard } from "../../../middleware/guards";
-import { provincialOfficerService } from "../../../service/provincialOfficer";
 import { factoryService } from "../../../service/factory";
+import { provincialOfficerService } from "../../../service/provincialOfficer";
 
 export default (app: App) =>
   app.group("", { detail: { tags: ["provincialOfficers"] } }, (group) =>

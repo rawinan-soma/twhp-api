@@ -1,18 +1,16 @@
-import { type CreateFactoryDto, UpdateFactoryDto } from "../schema/factory";
 import * as bcrypt from "bcrypt";
-import { ElysiaCustomStatusResponse, status } from "elysia";
+import { and, asc, eq, gte, lt, or, type SQL } from "drizzle-orm";
+import { status } from "elysia";
 import { db } from "../drizzle";
 import {
   accounts,
-  factories,
   districts,
-  subdistricts,
-  provinces,
   enrolls,
-  evaluators,
-  provincialOfficers,
+  factories,
+  provinces,
+  subdistricts,
 } from "../drizzle/schema";
-import { eq, and, gte, lt, SQL, asc, or } from "drizzle-orm";
+import type { CreateFactoryDto, UpdateFactoryDto } from "../schema/factory";
 import { utilities } from "../utils";
 
 const createFactoryHelper = (database: typeof db) => {
@@ -161,7 +159,13 @@ export const createFactoryService = (database: typeof db) => {
         .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
         .innerJoin(districts, eq(factories.districtId, districts.districtId))
         .innerJoin(subdistricts, eq(factories.subdistrictId, subdistricts.subdistrictId))
-        .where(and(...filters, eq(factories.isValidate, validated), eq(factories.provinceId, provinceId)))
+        .where(
+          and(
+            ...filters,
+            eq(factories.isValidate, validated),
+            eq(factories.provinceId, provinceId),
+          ),
+        )
         .orderBy(asc(factories.accountId));
     },
 
@@ -203,11 +207,19 @@ export const createFactoryService = (database: typeof db) => {
         .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
         .innerJoin(districts, eq(factories.districtId, districts.districtId))
         .innerJoin(subdistricts, eq(factories.subdistrictId, subdistricts.subdistrictId))
-        .where(and(...filters, eq(factories.isValidate, validated), eq(provinces.healthRegion, region)))
+        .where(
+          and(...filters, eq(factories.isValidate, validated), eq(provinces.healthRegion, region)),
+        )
         .orderBy(asc(factories.accountId));
     },
 
-    getAllFactories: async ({ validated, enrolled }: { validated: boolean; enrolled?: boolean }) => {
+    getAllFactories: async ({
+      validated,
+      enrolled,
+    }: {
+      validated: boolean;
+      enrolled?: boolean;
+    }) => {
       const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
       const filters: (SQL | undefined)[] = [];
       if (enrolled && fiscalYearStart && fiscalYearEnd) {

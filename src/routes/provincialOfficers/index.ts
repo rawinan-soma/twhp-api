@@ -1,5 +1,5 @@
 import { t } from "elysia";
-import { App } from "../..";
+import type { App } from "../..";
 import { officerGuard } from "../../middleware/guards";
 import { authenticationService } from "../../service/authentication";
 
@@ -9,7 +9,12 @@ export default (app: App) =>
       "/password",
       async ({ jwtPayload, body: { password, email } }) => {
         const accountId = Number(jwtPayload.sub);
-        return await authenticationService.editFirstPassword(accountId, password, email, "Provincial");
+        return await authenticationService.editFirstPassword(
+          accountId,
+          password,
+          email,
+          "Provincial",
+        );
       },
       {
         detail: { description: "เปลี่ยนรหัสผ่านในครั้งแรกที่ login" },

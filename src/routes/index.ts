@@ -1,5 +1,5 @@
-import { type App } from "..";
 import { t } from "elysia";
+import type { App } from "..";
 
 export default (app: App) =>
   app.get("/health", () => "Ready to work!!", {

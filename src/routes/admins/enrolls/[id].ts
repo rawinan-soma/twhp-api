@@ -1,8 +1,8 @@
 import { t } from "elysia";
-import { App } from "../../..";
+import type { App } from "../../..";
 import { adminGuard } from "../../../middleware/guards";
-import { enrollService } from "../../../service/enroll";
 import { BaseEnrollSelect } from "../../../schema";
+import { enrollService } from "../../../service/enroll";
 
 export default (app: App) =>
   app.group("", { detail: { tags: ["admins"] } }, (group) =>

@@ -1,7 +1,7 @@
+import { randomUUID } from "node:crypto";
 import Redis from "ioredis";
-import { env } from "./config";
 import * as Minio from "minio";
-import { randomUUID } from "crypto";
+import { env } from "./config";
 
 const minioClient = new Minio.Client({
   endPoint: env.MINIO_ENDPOINT,
@@ -64,14 +64,9 @@ export const utilities = () => ({
   uploadFile,
   deleteFile,
   getPresignedUrl: async (fileName: string) => {
-    const internalUrl = await minioClient.presignedGetObject(
-      env.MINIO_BUCKET_NAME,
-      fileName,
-      5,
-      {
-        "response-content-disposition": "inline",
-      },
-    );
+    const internalUrl = await minioClient.presignedGetObject(env.MINIO_BUCKET_NAME, fileName, 5, {
+      "response-content-disposition": "inline",
+    });
     // Replace internal Docker hostname with public-facing URL
     const internal = new URL(internalUrl);
     const publicBase = new URL(env.MINIO_PUBLIC_URL);
@@ -79,8 +74,7 @@ export const utilities = () => ({
     internal.hostname = publicBase.hostname;
     internal.port = "";
     internal.pathname =
-      publicBase.pathname +
-      internal.pathname.replace(`/${env.MINIO_BUCKET_NAME}`, "");
+      publicBase.pathname + internal.pathname.replace(`/${env.MINIO_BUCKET_NAME}`, "");
     return internal.toString();
   },
 });

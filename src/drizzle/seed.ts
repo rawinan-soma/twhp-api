@@ -1,13 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+
+import * as bcrypt from "bcrypt";
+import { parse } from "csv-parse/sync";
+import { sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
 import fs from "fs";
 import path from "path";
-import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { parse } from "csv-parse/sync";
-import * as bcrypt from "bcrypt";
-import { sql } from "drizzle-orm";
 import * as schema from "./schema.js";
 
 if (!process.env.DATABASE_URL) {
@@ -26,10 +27,7 @@ async function seed() {
   const seedDataDir = path.join(process.cwd(), "seed_data");
 
   // 1. Seed Provinces
-  const provinceFile = fs.readFileSync(
-    path.join(seedDataDir, "provinces.csv"),
-    "utf8",
-  );
+  const provinceFile = fs.readFileSync(path.join(seedDataDir, "provinces.csv"), "utf8");
   const provinceRecords = parse(provinceFile, {
     columns: true,
     skip_empty_lines: true,
@@ -53,10 +51,7 @@ async function seed() {
   console.log("Provinces seeded");
 
   // 2. Seed Districts
-  const districtFile = fs.readFileSync(
-    path.join(seedDataDir, "districts.csv"),
-    "utf8",
-  );
+  const districtFile = fs.readFileSync(path.join(seedDataDir, "districts.csv"), "utf8");
   const districtRecords = parse(districtFile, {
     columns: true,
     skip_empty_lines: true,
@@ -80,10 +75,7 @@ async function seed() {
   console.log("Districts seeded");
 
   // 3. Seed Subdistricts
-  const subdistrictFile = fs.readFileSync(
-    path.join(seedDataDir, "sub_districts.csv"),
-    "utf8",
-  );
+  const subdistrictFile = fs.readFileSync(path.join(seedDataDir, "sub_districts.csv"), "utf8");
   const subdistrictRecords = parse(subdistrictFile, {
     columns: true,
     skip_empty_lines: true,
@@ -137,9 +129,7 @@ async function seed() {
       },
     })
     .returning({ id: schema.accounts.id, username: schema.accounts.username });
-  const provincialAccountMap = new Map(
-    provincialAccounts.map((a) => [a.username, a.id]),
-  );
+  const provincialAccountMap = new Map(provincialAccounts.map((a) => [a.username, a.id]));
   await db
     .insert(schema.provincialOfficers)
     .values(
@@ -163,9 +153,7 @@ async function seed() {
   console.log("Provincial Officers seeded");
 
   // 5. Seed Evaluators
-  const evaluatorsData = JSON.parse(
-    fs.readFileSync(path.join(seedDataDir, "eval.json"), "utf8"),
-  );
+  const evaluatorsData = JSON.parse(fs.readFileSync(path.join(seedDataDir, "eval.json"), "utf8"));
   console.log("Seeding Evaluators...");
   const evaluatorHashed = await Promise.all(
     evaluatorsData.map((item: any) => bcrypt.hash(item.password, 12)),
@@ -189,9 +177,7 @@ async function seed() {
       },
     })
     .returning({ id: schema.accounts.id, username: schema.accounts.username });
-  const evaluatorAccountMap = new Map(
-    evaluatorAccounts.map((a) => [a.username, a.id]),
-  );
+  const evaluatorAccountMap = new Map(evaluatorAccounts.map((a) => [a.username, a.id]));
   await db
     .insert(schema.evaluators)
     .values(
@@ -222,9 +208,7 @@ async function seed() {
   await db.transaction(async (tx) => {
     // Remove any account that already owns admin@test.com but has a different username,
     // so the upsert-by-username below does not hit the email unique constraint.
-    await tx
-      .delete(schema.accounts)
-      .where(sql`email = 'admin@test.com' AND username != 'test1'`);
+    await tx.delete(schema.accounts).where(sql`email = 'admin@test.com' AND username != 'test1'`);
 
     const [account] = await tx
       .insert(schema.accounts)

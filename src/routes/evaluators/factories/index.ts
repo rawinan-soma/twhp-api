@@ -1,5 +1,5 @@
-import { ElysiaCustomStatusResponse, status, t } from "elysia";
-import { App } from "../../..";
+import { ElysiaCustomStatusResponse, t } from "elysia";
+import type { App } from "../../..";
 import { evalGuard } from "../../../middleware/guards";
 import { evaluatorService } from "../../../service/evaluator";
 import { factoryService } from "../../../service/factory";
@@ -17,6 +17,7 @@ export default (app: App) =>
         return await factoryService.getAllFactoriesByRegion({
           validated: query.validated,
           enrolled: query.enrolled,
+          // biome-ignore lint/style/noNonNullAssertion: evaluator is guaranteed non-null after getEvaluatorData succeeds
           region: region.evaluator!.region,
         });
       },

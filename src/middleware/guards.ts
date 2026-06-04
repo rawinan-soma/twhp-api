@@ -1,7 +1,7 @@
 import Elysia from "elysia";
+import { Role } from "../service/authentication";
 import { jwtPlugin } from "./jwt";
 import { requireRoles } from "./rbac";
-import { Role } from "../service/authentication";
 
 export const adminGuard = new Elysia().use(jwtPlugin).use(requireRoles(Role.DOED));
 

@@ -1,5 +1,5 @@
+import { type Static, t } from "elysia";
 import { BaseAdminsDoedUpdate } from ".";
-import { Static, t } from "elysia";
 
 export const UpdateAdminSchema = t.Composite([
   BaseAdminsDoedUpdate,

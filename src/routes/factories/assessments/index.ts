@@ -1,11 +1,11 @@
 import { t } from "elysia";
-import { App } from "../../..";
+import type { App } from "../../..";
 import { factoryGuard } from "../../../middleware/guards";
 import { BaseAnswerSelect, BaseCoverSelect, BaseQuestionSelect } from "../../../schema";
+import { CreateAnswerWithFilesSchema, UpdateAnswerWithFilesSchema } from "../../../schema/answer";
+import { answerService } from "../../../service/answer";
 import { coverService } from "../../../service/cover";
 import { questionService } from "../../../service/question";
-import { answerService } from "../../../service/answer";
-import { CreateAnswerWithFilesSchema, UpdateAnswerWithFilesSchema } from "../../../schema/answer";
 
 export default (app: App) =>
   app.group("", { detail: { tags: ["factories"] } }, (group) =>
@@ -22,7 +22,10 @@ export default (app: App) =>
             description: "เรียกดูข้อมูลหน้าปกแบบประเมินพร้อมสถานะล่าสุด",
           },
           response: {
-            200: t.Composite([BaseCoverSelect, t.Object({ status: t.String(), update_date: t.String() })]),
+            200: t.Composite([
+              BaseCoverSelect,
+              t.Object({ status: t.String(), update_date: t.String() }),
+            ]),
             404: t.Object({
               message: t.String({ default: "cover not found" }),
             }),
@@ -135,7 +138,8 @@ export default (app: App) =>
               t.Object({
                 message: t.String({
                   default: "choice 3 requires at least file_1_1, file_2_1, and file_3_1",
-                  description: "selectedChoice=3 but one or more of file_1_1, file_2_1, file_3_1 was not provided",
+                  description:
+                    "selectedChoice=3 but one or more of file_1_1, file_2_1, file_3_1 was not provided",
                 }),
               }),
             ]),
@@ -143,19 +147,22 @@ export default (app: App) =>
               t.Object({
                 message: t.String({
                   default: "cover not found",
-                  description: "No assessment cover exists for the factory's current fiscal year enrollment",
+                  description:
+                    "No assessment cover exists for the factory's current fiscal year enrollment",
                 }),
               }),
               t.Object({
                 message: t.String({
                   default: "question not found",
-                  description: "The provided questionId does not match any question in the database",
+                  description:
+                    "The provided questionId does not match any question in the database",
                 }),
               }),
               t.Object({
                 message: t.String({
                   default: "standard file not found in enroll",
-                  description: "Factory is enrolled for this standard but has not uploaded the standard file yet",
+                  description:
+                    "Factory is enrolled for this standard but has not uploaded the standard file yet",
                 }),
               }),
             ]),
@@ -230,26 +237,30 @@ export default (app: App) =>
               t.Object({
                 message: t.String({
                   default: "cover is not in progress",
-                  description: 'The cover\'s latest log status is not "in_progress" — already submitted or not started',
+                  description:
+                    'The cover\'s latest log status is not "in_progress" — already submitted or not started',
                 }),
               }),
               t.Object({
                 message: t.String({
                   default: "not all questions have been answered",
-                  description: "Number of answers in this cover is less than the total number of questions",
+                  description:
+                    "Number of answers in this cover is less than the total number of questions",
                 }),
               }),
               t.Object({
                 message: t.String({
                   default: "not all answers are in review status",
-                  description: 'One or more answers have a latest log status other than "in_review"',
+                  description:
+                    'One or more answers have a latest log status other than "in_review"',
                 }),
               }),
             ]),
             404: t.Object({
               message: t.String({
                 default: "cover not found",
-                description: "No assessment cover exists for the factory's current fiscal year enrollment",
+                description:
+                  "No assessment cover exists for the factory's current fiscal year enrollment",
               }),
             }),
           },

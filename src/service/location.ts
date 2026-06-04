@@ -1,6 +1,6 @@
-import { db } from "../drizzle";
-import { provinces, districts, subdistricts } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
+import { db } from "../drizzle";
+import { districts, provinces, subdistricts } from "../drizzle/schema";
 
 export const createLocationService = (database: typeof db) => {
   return {

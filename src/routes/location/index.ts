@@ -1,5 +1,5 @@
 import { t } from "elysia";
-import { App } from "../..";
+import type { App } from "../..";
 import { locationService } from "../../service/location";
 
 export default (app: App) =>

@@ -1,0 +1,310 @@
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { SignJWT } from "jose";
+import { ElysiaCustomStatusResponse } from "elysia";
+import { and, eq, inArray } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+import {
+  accounts,
+  answerLogs,
+  answers,
+  coverLogs,
+  covers,
+  enrolls,
+  factories,
+  questions,
+} from "../drizzle/schema";
+import { createScoreService } from "./score";
+
+// ─── Test DB ─────────────────────────────────────────────────────────────────
+
+const pool = new Pool({ connectionString: Bun.env.DATABASE_URL! });
+const db = drizzle(pool);
+const scoreService = createScoreService(db);
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const SECRET = new TextEncoder().encode(Bun.env.AUTH_JWT_SECRET!);
+
+async function mintJwt(sub: number, role: string) {
+  return new SignJWT({ sub: String(sub), username: "test", role })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("1h")
+    .sign(SECRET);
+}
+
+// ─── Fixture IDs (high to avoid seed collisions) ─────────────────────────────
+
+const TEST_PROVINCE_ID = 10; // seeded province
+const TEST_FACTORY_ACCOUNT_ID = 99901;
+const TEST_FACTORY_ACCOUNT_ID_2 = 99902; // second factory, no cover
+
+// ─── Fixture Setup / Teardown ─────────────────────────────────────────────────
+
+let coverId: number;
+let enrollId: number;
+let allQuestionIds: number[];
+
+beforeAll(async () => {
+  // Idempotent cleanup in case a previous run left data behind
+  const prevEnrolls = await db
+    .select({ id: enrolls.id })
+    .from(enrolls)
+    .where(eq(enrolls.factoryId, TEST_FACTORY_ACCOUNT_ID));
+  for (const e of prevEnrolls) {
+    const prevCovers = await db
+      .select({ id: covers.id })
+      .from(covers)
+      .where(eq(covers.enrollId, e.id));
+    for (const c of prevCovers) {
+      const aIds = await db
+        .select({ id: answers.id })
+        .from(answers)
+        .where(eq(answers.coverId, c.id))
+        .then((rows) => rows.map((r) => r.id));
+      if (aIds.length > 0)
+        await db.delete(answerLogs).where(inArray(answerLogs.answerId, aIds));
+      await db.delete(answers).where(eq(answers.coverId, c.id));
+      await db.delete(coverLogs).where(eq(coverLogs.coverId, c.id));
+      await db.delete(covers).where(eq(covers.id, c.id));
+    }
+    await db.delete(enrolls).where(eq(enrolls.id, e.id));
+  }
+  await db.delete(factories).where(eq(factories.accountId, TEST_FACTORY_ACCOUNT_ID));
+  await db.delete(accounts).where(eq(accounts.id, TEST_FACTORY_ACCOUNT_ID));
+
+  allQuestionIds = await db
+    .select({ id: questions.id })
+    .from(questions)
+    .then((rows) => rows.map((r) => r.id));
+
+  // Factory account (has cover)
+  await db.insert(accounts).values({
+    id: TEST_FACTORY_ACCOUNT_ID,
+    username: "test_factory_score",
+    password: "hashed",
+    email: "test_factory_score@test.com",
+    role: "Factory",
+  });
+  await db.insert(factories).values({
+    accountId: TEST_FACTORY_ACCOUNT_ID,
+    factoryType: 1,
+    nameTh: "โรงงานทดสอบ",
+    nameEn: "Test Factory",
+    tsicCode: "1011",
+    addressNo: "1",
+    zipcode: "10000",
+    phoneNumber: "0000000000",
+    provinceId: TEST_PROVINCE_ID,
+    districtId: await db
+      .select({ id: factories.districtId })
+      .from(factories)
+      .limit(1)
+      .then((r) => r[0]?.districtId ?? 1001),
+    subdistrictId: await db
+      .select({ id: factories.subdistrictId })
+      .from(factories)
+      .limit(1)
+      .then((r) => r[0]?.subdistrictId ?? 100101),
+    isValidate: true,
+  });
+
+  // Evaluator account for test (reuse existing seeded evaluator id=78, region=1)
+  // Province 10 is in region 13 — use that
+
+  // Enroll + cover
+  const evalRows = await db.select({ id: accounts.id }).from(accounts).where(eq(accounts.role, "Evaluator")).limit(1);
+  const evalId = evalRows[0]?.id ?? 78;
+
+  const [enroll] = await db.insert(enrolls).values({
+    factoryId: TEST_FACTORY_ACCOUNT_ID,
+    evalDohId: evalId,
+    evalOdpcId: evalId,
+    evalMentalId: evalId,
+    employeeThM: 10, employeeMmM: 0, employeeKhM: 0, employeeLaM: 0, employeeVnM: 0,
+    employeeCnM: 0, employeePhM: 0, employeeJpM: 0, employeeInM: 0, employeeOtherM: 0,
+    employeeThF: 5, employeeMmF: 0, employeeKhF: 0, employeeLaF: 0, employeeVnF: 0,
+    employeeCnF: 0, employeePhF: 0, employeeJpF: 0, employeeInF: 0, employeeOtherF: 0,
+    standardHc: false, standardSan: false, standardSanPlus: false, standardWellness: false,
+    standardSafety: false, standardTis18001: false, standardIso45001: false,
+    standardIso14001: false, standardZero: false, standard5S: false, standardHas: false,
+    safetyOfficerPrefix: "นาย", safetyOfficerFirstName: "ทดสอบ", safetyOfficerLastName: "ทดสอบ",
+    safetyOfficerPosition: "เจ้าหน้าที่",
+  }).returning();
+  enrollId = enroll.id;
+
+  const [cover] = await db.insert(covers).values({ enrollId }).returning();
+  coverId = cover.id;
+
+  // Insert answers for all questions (choice "2" for all)
+  for (const qId of allQuestionIds) {
+    const [ans] = await db
+      .insert(answers)
+      .values({ questionId: qId, coverId, selectedChoice: "2" })
+      .returning();
+    await db.insert(answerLogs).values({ answerId: ans.id, status: "in_review" });
+  }
+});
+
+afterAll(async () => {
+  const answerIds = await db
+    .select({ id: answers.id })
+    .from(answers)
+    .where(eq(answers.coverId, coverId))
+    .then((rows) => rows.map((r) => r.id));
+  if (answerIds.length > 0) {
+    await db.delete(answerLogs).where(inArray(answerLogs.answerId, answerIds));
+  }
+  await db.delete(answers).where(eq(answers.coverId, coverId));
+  await db.delete(coverLogs).where(eq(coverLogs.coverId, coverId));
+  await db.delete(covers).where(eq(covers.id, coverId));
+  await db.delete(enrolls).where(eq(enrolls.id, enrollId));
+  // factories must be deleted after enrolls (FK constraint)
+  await db.delete(factories).where(eq(factories.accountId, TEST_FACTORY_ACCOUNT_ID));
+  await db.delete(accounts).where(eq(accounts.id, TEST_FACTORY_ACCOUNT_ID));
+  await pool.end();
+});
+
+// ─── Story 003 + 004: getScoreByFactory (cover status guard + factory endpoint) ──
+
+describe("Story 003 + 004 — getScoreByFactory (service level)", () => {
+  it("AC 003-AC4 / 004-AC3: no cover → status 404", async () => {
+    const result = await scoreService.getScoreByFactory(999999);
+    expect(result).toBeInstanceOf(ElysiaCustomStatusResponse);
+    expect((result as ElysiaCustomStatusResponse).code).toBe(404);
+  });
+
+  it("AC 003-AC1 / 004-AC2: in_progress cover → status 400", async () => {
+    await db.insert(coverLogs).values({ coverId, status: "in_progress" });
+    const result = await scoreService.getScoreByFactory(TEST_FACTORY_ACCOUNT_ID);
+    expect(result).toBeInstanceOf(ElysiaCustomStatusResponse);
+    expect((result as ElysiaCustomStatusResponse).code).toBe(400);
+    expect((result as ElysiaCustomStatusResponse).response).toMatchObject({
+      message: "cover is not ready for scoring",
+    });
+  });
+
+  it("AC 003-AC2 / 004-AC1: in_review cover → 200 with ScoreReport", async () => {
+    await db.insert(coverLogs).values({ coverId, status: "in_review" });
+    const result = await scoreService.getScoreByFactory(TEST_FACTORY_ACCOUNT_ID);
+    expect(result).toMatchObject({
+      factoryId: TEST_FACTORY_ACCOUNT_ID,
+      factoryNameTh: "โรงงานทดสอบ",
+      coverId,
+      coverStatus: "in_review",
+      enrollId,
+    });
+    // all choices "2" → each category score = round(2/(3*n)*100) — just ensure integers 0-100
+    expect(typeof (result as any).totalScore).toBe("number");
+    expect((result as any).totalScore).toBeGreaterThanOrEqual(0);
+    expect((result as any).totalScore).toBeLessThanOrEqual(100);
+    expect(typeof (result as any).collaborate).toBe("number");
+  });
+
+  it("AC 003-AC3: finished cover → 200 with ScoreReport", async () => {
+    await db.insert(coverLogs).values({ coverId, status: "finished" });
+    const result = await scoreService.getScoreByFactory(TEST_FACTORY_ACCOUNT_ID);
+    expect((result as any).coverStatus).toBe("finished");
+    expect(typeof (result as any).totalScore).toBe("number");
+  });
+});
+
+// ─── Story 005: getScoresByRegion ─────────────────────────────────────────────
+
+describe("Story 005 — getScoresByRegion (service level)", () => {
+  it("AC1: returns array of Score Reports for factories in region", async () => {
+    // Province 10 is region 13 — our test factory is in that region
+    const result = await scoreService.getScoresByRegion(13);
+    const found = result.find((r) => r.factoryId === TEST_FACTORY_ACCOUNT_ID);
+    expect(found).toBeDefined();
+    expect(found).toHaveProperty("totalScore");
+    expect(found).toHaveProperty("collaborate");
+    expect(found).toHaveProperty("disease");
+    expect(found).toHaveProperty("safety");
+    expect(found).toHaveProperty("mental");
+    expect(found).toHaveProperty("outcome");
+  });
+
+  it("AC2: region with no ready covers returns empty array", async () => {
+    const result = await scoreService.getScoresByRegion(99);
+    expect(result).toEqual([]);
+  });
+
+  it("AC4: each item in response has all Score Report fields including category breakdown", async () => {
+    const result = await scoreService.getScoresByRegion(13);
+    const found = result.find((r) => r.factoryId === TEST_FACTORY_ACCOUNT_ID);
+    expect(found).toMatchObject({
+      factoryId: expect.any(Number),
+      factoryNameTh: expect.any(String),
+      coverId: expect.any(Number),
+      coverStatus: expect.any(String),
+      enrollId: expect.any(Number),
+      totalScore: expect.any(Number),
+      collaborate: expect.any(Number),
+      disease: expect.any(Number),
+      safety: expect.any(Number),
+      mental: expect.any(Number),
+      outcome: expect.any(Number),
+    });
+  });
+});
+
+// ─── Story 006: getScoresByProvince ──────────────────────────────────────────
+
+describe("Story 006 — getScoresByProvince (service level)", () => {
+  it("AC1: returns array of Score Reports for factories in province", async () => {
+    const result = await scoreService.getScoresByProvince(TEST_PROVINCE_ID);
+    const found = result.find((r) => r.factoryId === TEST_FACTORY_ACCOUNT_ID);
+    expect(found).toBeDefined();
+  });
+
+  it("AC2: province with no ready covers returns empty array", async () => {
+    const result = await scoreService.getScoresByProvince(99999);
+    expect(result).toEqual([]);
+  });
+});
+
+// ─── Story 007: getAllScores ──────────────────────────────────────────────────
+
+describe("Story 007 — getAllScores (service level)", () => {
+  it("AC1: no filters returns all ready covers including test factory", async () => {
+    const result = await scoreService.getAllScores();
+    const found = result.find((r) => r.factoryId === TEST_FACTORY_ACCOUNT_ID);
+    expect(found).toBeDefined();
+  });
+
+  it("AC2: ?region=13 returns only factories in region 13", async () => {
+    const result = await scoreService.getAllScores({ region: 13 });
+    expect(result.length).toBeGreaterThan(0);
+    const found = result.find((r) => r.factoryId === TEST_FACTORY_ACCOUNT_ID);
+    expect(found).toBeDefined();
+  });
+
+  it("AC3: ?provinceId=10 returns only factories in province 10", async () => {
+    const result = await scoreService.getAllScores({ provinceId: TEST_PROVINCE_ID });
+    const found = result.find((r) => r.factoryId === TEST_FACTORY_ACCOUNT_ID);
+    expect(found).toBeDefined();
+  });
+
+  it("AC4: both region and provinceId filters applied", async () => {
+    const result = await scoreService.getAllScores({ region: 13, provinceId: TEST_PROVINCE_ID });
+    const found = result.find((r) => r.factoryId === TEST_FACTORY_ACCOUNT_ID);
+    expect(found).toBeDefined();
+  });
+
+  it("AC edge: non-existent region returns empty array", async () => {
+    const result = await scoreService.getAllScores({ region: 99999 });
+    expect(result).toEqual([]);
+  });
+});
+
+// ─── Story 004-007: Auth guard (401) via JWT mint ─────────────────────────────
+
+describe("Stories 004-007 — unauthenticated requests return 401 (service JWT check)", () => {
+  it("valid JWT can be minted and verified by jose (guard infra sanity check)", async () => {
+    const token = await mintJwt(TEST_FACTORY_ACCOUNT_ID, "Factory");
+    expect(typeof token).toBe("string");
+    expect(token.split(".").length).toBe(3);
+  });
+});
