@@ -1,6 +1,6 @@
 import { Elysia, status } from "elysia";
+import type { Role } from "../service/authentication";
 import { jwtPlugin } from "./jwt";
-import { Role } from "../service/authentication";
 
 export const requireRoles = (...allowedRoles: Role[]) =>
   new Elysia().use(jwtPlugin).derive({ as: "local" }, ({ jwtPayload }) => {

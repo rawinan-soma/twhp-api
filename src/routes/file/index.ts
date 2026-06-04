@@ -1,5 +1,5 @@
 import { t } from "elysia";
-import { App } from "../..";
+import type { App } from "../..";
 import { jwtPlugin } from "../../middleware/jwt";
 import { fileService } from "../../service/file";
 

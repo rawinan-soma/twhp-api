@@ -1,5 +1,5 @@
 import { t } from "elysia";
-import { App } from "../..";
+import type { App } from "../..";
 import { evalGuard } from "../../middleware/guards";
 import { authenticationService } from "../../service/authentication";
 

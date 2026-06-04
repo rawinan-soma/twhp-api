@@ -1,23 +1,19 @@
-import {
-  createSelectSchema,
-  createUpdateSchema,
-  createInsertSchema,
-} from "drizzle-typebox";
+import { createInsertSchema, createSelectSchema, createUpdateSchema } from "drizzle-typebox";
 import {
   accounts,
-  factories,
-  evaluators,
-  provinces,
-  districts,
-  subdistricts,
   adminsDoed,
-  enrolls,
-  provincialOfficers,
-  covers,
-  coverLogs,
-  questions,
-  answers,
   answerLogs,
+  answers,
+  coverLogs,
+  covers,
+  districts,
+  enrolls,
+  evaluators,
+  factories,
+  provinces,
+  provincialOfficers,
+  questions,
+  subdistricts,
 } from "../drizzle/schema";
 
 // Accounts
@@ -61,12 +57,9 @@ export const BaseEnrollInsert = createInsertSchema(enrolls);
 export const BaseEnrollUpdate = createUpdateSchema(enrolls);
 
 // ProvincialOfficers
-export const BaseProvincialOfficerSelect =
-  createSelectSchema(provincialOfficers);
-export const BaseProvincialOfficerInsert =
-  createInsertSchema(provincialOfficers);
-export const BaseProvincialOfficerUpdate =
-  createUpdateSchema(provincialOfficers);
+export const BaseProvincialOfficerSelect = createSelectSchema(provincialOfficers);
+export const BaseProvincialOfficerInsert = createInsertSchema(provincialOfficers);
+export const BaseProvincialOfficerUpdate = createUpdateSchema(provincialOfficers);
 
 // Covers
 export const BaseCoverSelect = createSelectSchema(covers);

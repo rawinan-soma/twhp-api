@@ -1,5 +1,5 @@
 import { t } from "elysia";
-import { App } from "../../../index";
+import type { App } from "../../../index";
 import { adminGuard } from "../../../middleware/guards";
 import { BaseEnrollSelect } from "../../../schema";
 import { enrollService } from "../../../service/enroll";

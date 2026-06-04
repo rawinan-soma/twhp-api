@@ -1,9 +1,9 @@
 import { ElysiaCustomStatusResponse, status, t } from "elysia";
-import { App } from "../../..";
+import type { App } from "../../..";
 import { officerGuard } from "../../../middleware/guards";
-import { provincialOfficerService } from "../../../service/provincialOfficer";
-import { enrollService } from "../../../service/enroll";
 import { BaseEnrollSelect } from "../../../schema";
+import { enrollService } from "../../../service/enroll";
+import { provincialOfficerService } from "../../../service/provincialOfficer";
 
 export default (app: App) =>
   app.group("", { detail: { tags: ["provincialOfficers"] } }, (group) =>
@@ -12,7 +12,8 @@ export default (app: App) =>
       async ({ jwtPayload }) => {
         const id = Number(jwtPayload.sub);
         const po = await provincialOfficerService.getOfficerDataById(id);
-        if (po instanceof ElysiaCustomStatusResponse) return status(404, { message: "provincial officer not found" });
+        if (po instanceof ElysiaCustomStatusResponse)
+          return status(404, { message: "provincial officer not found" });
         const result = await enrollService.getAllEnrollsByProvince(po.provinceId);
         return result;
       },

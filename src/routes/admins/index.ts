@@ -1,8 +1,8 @@
 import { t } from "elysia";
-import { App } from "../..";
+import type { App } from "../..";
+import { adminGuard } from "../../middleware/guards";
 import { UpdateAdminSchema } from "../../schema/admin";
 import { adminService } from "../../service/admin";
-import { adminGuard } from "../../middleware/guards";
 
 export default (app: App) =>
   app.group("", { detail: { tags: ["admins"] } }, (group) =>

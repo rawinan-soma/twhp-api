@@ -1,17 +1,14 @@
 import Elysia, { ElysiaCustomStatusResponse, t } from "elysia";
-import { App } from "../..";
-import { authenticationService, Role } from "../../service/authentication";
+import type { App } from "../..";
 import { jwtPlugin } from "../../middleware/jwt";
+import { authenticationService, type Role } from "../../service/authentication";
 
 const publicAuthenticationController = new Elysia()
   .post(
     "/login",
     async ({ body, cookie: { Authentication, Refresh }, set }) => {
       const { username, password } = body;
-      const account = await authenticationService.getAutheticatedAccount(
-        username,
-        password,
-      );
+      const account = await authenticationService.getAutheticatedAccount(username, password);
 
       if (account instanceof ElysiaCustomStatusResponse) {
         return account;
@@ -41,10 +38,7 @@ const publicAuthenticationController = new Elysia()
 
       const hashedRefreshToken = Bun.SHA256.hash(refreshToken, "hex");
 
-      await authenticationService.helper.setRefreshToken(
-        hashedRefreshToken,
-        account.id,
-      );
+      await authenticationService.helper.setRefreshToken(hashedRefreshToken, account.id);
 
       Authentication.set({
         value: accessToken,
@@ -117,8 +111,7 @@ const publicAuthenticationController = new Elysia()
         404: t.Object({ message: t.String({ default: "email not found" }) }),
         429: t.Object({
           message: t.String({
-            default:
-              "password reset email already sent, please wait before requesting again",
+            default: "password reset email already sent, please wait before requesting again",
           }),
         }),
       },
@@ -170,9 +163,7 @@ export default (app: App) =>
               ...authenticationService.helper.getCookieOption("logout"),
             });
 
-            await authenticationService.helper.removeRefreshToken(
-              Number(jwtPayload.sub),
-            );
+            await authenticationService.helper.removeRefreshToken(Number(jwtPayload.sub));
 
             set.status = 200;
             return { message: "logout successful" };

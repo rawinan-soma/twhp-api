@@ -1,9 +1,9 @@
 import { ElysiaCustomStatusResponse, t } from "elysia";
-import { App } from "../../..";
+import type { App } from "../../..";
 import { evalGuard } from "../../../middleware/guards";
-import { evaluatorService } from "../../../service/evaluator";
-import { enrollService } from "../../../service/enroll";
 import { BaseEnrollSelect } from "../../../schema";
+import { enrollService } from "../../../service/enroll";
+import { evaluatorService } from "../../../service/evaluator";
 
 export default (app: App) =>
   app.group("", { detail: { tags: ["evaluators"] } }, (group) =>
@@ -16,6 +16,7 @@ export default (app: App) =>
           return region;
         }
 
+        // biome-ignore lint/style/noNonNullAssertion: evaluator is guaranteed non-null after getEvaluatorData succeeds
         return await enrollService.getAllEnrolls(region.evaluator!.region);
       },
       {

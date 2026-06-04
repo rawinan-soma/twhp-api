@@ -1,8 +1,8 @@
-import { Elysia } from "elysia";
+import { createPinoLogger, logger } from "@bogeychan/elysia-logger";
 import { openapi } from "@elysiajs/openapi";
-import { logger, createPinoLogger } from "@bogeychan/elysia-logger";
-import { env } from "./config";
+import { Elysia } from "elysia";
 import { autoload } from "elysia-autoload";
+import { env } from "./config";
 
 const bangkokTimestamp = () =>
   `,"time":"${new Date().toLocaleString("en-GB", { timeZone: "Asia/Bangkok", hour12: false, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}"`;
@@ -69,28 +69,19 @@ const app = new Elysia({ prefix: "/twhp/api" })
           summary: parsed.summary,
         };
       } catch {
-        activeLogger.error(
-          { status: 400, code, detail: errorMessage, request },
-          "Expected error",
-        );
+        activeLogger.error({ status: 400, code, detail: errorMessage, request }, "Expected error");
         return { message: errorMessage };
       }
     }
 
     if (code === "NOT_FOUND") {
       set.status = 404;
-      activeLogger.error(
-        { status: 404, detail: "NOT_FOUND", request },
-        "Not found",
-      );
+      activeLogger.error({ status: 404, detail: "NOT_FOUND", request }, "Not found");
       return { message: "Not found" };
     }
 
     set.status = 500;
-    activeLogger.error(
-      { status: 500, detail: errorMessage, request },
-      "Unexpected error occurred",
-    );
+    activeLogger.error({ status: 500, detail: errorMessage, request }, "Unexpected error occurred");
     return { message: "Unexpected error" };
   })
   .onAfterResponse(({ set, request, log, responseValue, store }) => {
@@ -101,8 +92,7 @@ const app = new Elysia({ prefix: "/twhp/api" })
         typeof responseValue === "object" && responseValue !== null
           ? (responseValue as Record<string, unknown>)
           : null;
-      const detail =
-        (body?.response as Record<string, unknown>)?.message ?? body?.message;
+      const detail = (body?.response as Record<string, unknown>)?.message ?? body?.message;
       (log ?? globalLogger).error({ status, detail, request }, "Client error");
     }
   })
@@ -117,6 +107,4 @@ export type App = typeof app;
 
 app.listen({ port: env.APP_PORT, maxRequestBodySize: 130 * 1024 * 1024 });
 
-console.log(
-  `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`,
-);
+console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);

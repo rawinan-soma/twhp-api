@@ -1,9 +1,9 @@
 import { t } from "elysia";
-import { App } from "../../..";
+import type { App } from "../../..";
 import { factoryGuard } from "../../../middleware/guards";
+import { BaseEnrollSelect } from "../../../schema";
 import { CreateEnrollWithFilesSchema, UpdateEnrollWithFilesSchema } from "../../../schema/enroll";
 import { enrollService } from "../../../service/enroll";
-import { BaseEnrollSelect } from "../../../schema";
 
 export default (app: App) =>
   app.group("", { detail: { tags: ["factories"] } }, (group) =>

@@ -1,7 +1,7 @@
-import { db } from "../drizzle";
-import { covers, coverLogs, enrolls } from "../drizzle/schema";
 import { and, desc, eq, gte, lt } from "drizzle-orm";
 import { status } from "elysia";
+import { db } from "../drizzle";
+import { coverLogs, covers, enrolls } from "../drizzle/schema";
 import { utilities } from "../utils";
 
 export const createCoverService = (database: typeof db) => {
@@ -38,14 +38,9 @@ export const createCoverService = (database: typeof db) => {
       }
 
       await database.transaction(async (tx) => {
-        const [newCover] = await tx
-          .insert(covers)
-          .values({ enrollId: enroll.id })
-          .returning();
+        const [newCover] = await tx.insert(covers).values({ enrollId: enroll.id }).returning();
 
-        await tx
-          .insert(coverLogs)
-          .values({ coverId: newCover.id, status: "in_progress" });
+        await tx.insert(coverLogs).values({ coverId: newCover.id, status: "in_progress" });
       });
 
       return { message: "assessment cover created!" };

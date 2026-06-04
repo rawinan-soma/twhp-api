@@ -1,19 +1,13 @@
+import { randomBytes } from "node:crypto";
 import * as bcrypt from "bcrypt";
-import { env } from "../config";
-import { SignJWT } from "jose";
-import { randomBytes } from "crypto";
-import { redisConnector } from "../utils";
-import { emailQueue } from "../queue/email";
-import { ElysiaCustomStatusResponse, status } from "elysia";
-import { db } from "../drizzle";
-import {
-  accounts,
-  adminsDoed,
-  evaluators,
-  factories,
-  provincialOfficers,
-} from "../drizzle/schema";
 import { eq, sql } from "drizzle-orm";
+import { ElysiaCustomStatusResponse, status } from "elysia";
+import { SignJWT } from "jose";
+import { env } from "../config";
+import { db } from "../drizzle";
+import { accounts, adminsDoed, evaluators, factories, provincialOfficers } from "../drizzle/schema";
+import { emailQueue } from "../queue/email";
+import { redisConnector } from "../utils";
 
 export enum Role {
   Factory = "Factory",
@@ -30,10 +24,7 @@ const createAuthentocationService = (database: typeof db) => ({
       .where(eq(accounts.id, accountId));
   },
   removeRefreshToken: async (id: number) => {
-    await database
-      .update(accounts)
-      .set({ hashedRefreshToken: "" })
-      .where(eq(accounts.id, id));
+    await database.update(accounts).set({ hashedRefreshToken: "" }).where(eq(accounts.id, id));
   },
   issueToken: async (
     id: number,
@@ -140,10 +131,7 @@ const createAuthentocationService = (database: typeof db) => ({
       .leftJoin(adminsDoed, eq(accounts.id, adminsDoed.accountId))
       .leftJoin(evaluators, eq(accounts.id, evaluators.accountId))
       .leftJoin(factories, eq(accounts.id, factories.accountId))
-      .leftJoin(
-        provincialOfficers,
-        eq(accounts.id, provincialOfficers.accountId),
-      )
+      .leftJoin(provincialOfficers, eq(accounts.id, provincialOfficers.accountId))
       .where(eq(accounts.id, accountId))
       .then((res) => res[0]);
 
@@ -183,10 +171,7 @@ export const createAuthenticationUsecase = (database: typeof db) => {
         })
         .from(accounts)
         .leftJoin(factories, eq(accounts.id, factories.accountId))
-        .leftJoin(
-          provincialOfficers,
-          eq(accounts.id, provincialOfficers.accountId),
-        )
+        .leftJoin(provincialOfficers, eq(accounts.id, provincialOfficers.accountId))
         .leftJoin(evaluators, eq(accounts.id, evaluators.accountId))
         .where(eq(accounts.username, username))
         .limit(1)
@@ -256,31 +241,17 @@ export const createAuthenticationUsecase = (database: typeof db) => {
       const pending = await redisConnector.get(`reset_password_token:${email}`);
       if (pending) {
         return status(429, {
-          message:
-            "password reset email already sent, please wait before requesting again",
+          message: "password reset email already sent, please wait before requesting again",
         });
       }
 
       const token = randomBytes(32).toString("hex");
-      const [user] = await database
-        .select()
-        .from(accounts)
-        .where(eq(accounts.email, email));
+      const [user] = await database.select().from(accounts).where(eq(accounts.email, email));
       if (!user) {
         return status(404, { message: "email not found" });
       }
-      await redisConnector.set(
-        `reset_password_token:${token}`,
-        email,
-        "EX",
-        300,
-      );
-      await redisConnector.set(
-        `reset_password_token:${email}`,
-        token,
-        "EX",
-        300,
-      );
+      await redisConnector.set(`reset_password_token:${token}`, email, "EX", 300);
+      await redisConnector.set(`reset_password_token:${email}`, token, "EX", 300);
 
       await emailQueue.add(
         "password-reset-request",
@@ -376,10 +347,7 @@ export const createAuthenticationUsecase = (database: typeof db) => {
         const [user] = await database
           .select({ account: accounts, provincialOfficer: provincialOfficers })
           .from(accounts)
-          .leftJoin(
-            provincialOfficers,
-            eq(provincialOfficers.accountId, accounts.id),
-          )
+          .leftJoin(provincialOfficers, eq(provincialOfficers.accountId, accounts.id))
           .where(eq(accounts.id, accountId));
 
         if (!user || user.provincialOfficer === null) {

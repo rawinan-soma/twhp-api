@@ -1,3 +1,4 @@
+import { t } from "elysia";
 import {
   BaseAccountSelect,
   BaseAdminsDoedSelect,
@@ -5,7 +6,6 @@ import {
   BaseFactorySelect,
   BaseProvincialOfficerSelect,
 } from ".";
-import { t } from "elysia";
 
 export const GetMeResponse = t.Composite([
   t.Omit(BaseAccountSelect, ["password", "hashedRefreshToken"]),

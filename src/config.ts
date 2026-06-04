@@ -9,19 +9,15 @@ function requireEnv(key: string): string {
 function requireEnvNumber(key: string): number {
   const val = requireEnv(key);
   const num = Number(val);
-  if (isNaN(num))
-    throw new Error(
-      `Environment variable ${key} must be a number, got: "${val}"`,
-    );
+  if (Number.isNaN(num))
+    throw new Error(`Environment variable ${key} must be a number, got: "${val}"`);
   return num;
 }
 
 function requireEnvBoolean(key: string): boolean {
   const val = requireEnv(key);
   if (val !== "true" && val !== "false")
-    throw new Error(
-      `Environment variable ${key} must be "true" or "false", got: "${val}"`,
-    );
+    throw new Error(`Environment variable ${key} must be "true" or "false", got: "${val}"`);
   return val === "true";
 }
 
