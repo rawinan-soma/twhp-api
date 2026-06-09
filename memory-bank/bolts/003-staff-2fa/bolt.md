@@ -3,18 +3,30 @@ id: 003-staff-2fa
 unit: 001-staff-2fa
 intent: 002-staff-2fa
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 001-otp-challenge-lifecycle
   - 002-otp-generation-policy
   - 003-attempt-lockout
   - 004-email-masking
   - 005-otp-email-job
-created: 2026-06-09T00:00:00Z
-started: null
-completed: null
+created: 2026-06-09T00:00:00.000Z
+started: 2026-06-09T08:00:00.000Z
+completed: "2026-06-09T06:59:13Z"
 current_stage: null
-stages_completed: []
+stages_completed:
+  - name: model
+    completed: 2026-06-09T08:00:00.000Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-06-09T08:30:00.000Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-06-09T09:00:00.000Z
+    artifact: adr-1-fresh-code-on-resend.md, adr-2-smtp-login-critical.md
+  - name: implement
+    completed: 2026-06-09T10:00:00.000Z
+    artifact: src/service/authentication.ts, src/worker/email.ts, src/config.ts
 requires_bolts: []
 enables_bolts:
   - 004-staff-2fa

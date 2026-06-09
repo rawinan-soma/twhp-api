@@ -3,17 +3,32 @@ id: 004-staff-2fa
 unit: 001-staff-2fa
 intent: 002-staff-2fa
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 006-login-two-step
   - 007-verify-otp-endpoint
   - 008-resend-otp-endpoint
   - 009-auth-response-schemas
-created: 2026-06-09T00:00:00Z
-started: null
-completed: null
+created: 2026-06-09T00:00:00.000Z
+started: 2026-06-09T11:30:00.000Z
+completed: "2026-06-09T08:25:46Z"
 current_stage: null
-stages_completed: []
+stages_completed:
+  - name: model
+    completed: 2026-06-09T11:45:00.000Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-06-09T12:00:00.000Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-06-09T12:05:00.000Z
+    artifact: none
+  - name: implement
+    completed: 2026-06-09T12:30:00.000Z
+    artifact: src/routes/authentication/index.ts + src/schema/authentication.ts
+  - name: test
+    completed: 2026-06-09T13:00:00.000Z
+    artifact: ddd-03-test-report.md
 requires_bolts:
   - 003-staff-2fa
 enables_bolts: []

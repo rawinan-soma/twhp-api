@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import * as bcrypt from "bcrypt";
 import { eq, sql } from "drizzle-orm";
 import { ElysiaCustomStatusResponse, status } from "elysia";
@@ -8,6 +8,21 @@ import { db } from "../drizzle";
 import { accounts, adminsDoed, evaluators, factories, provincialOfficers } from "../drizzle/schema";
 import { emailQueue } from "../queue/email";
 import { redisConnector } from "../utils";
+
+function maskEmailHelper(email: string): string {
+  const atIndex = email.indexOf("@");
+  if (atIndex <= 0) return `*${email.slice(atIndex)}`;
+  const local = email.slice(0, atIndex);
+  const domain = email.slice(atIndex);
+  if (local.length === 1) return `*${domain}`;
+  return `${local[0]}****${domain}`;
+}
+
+function generateOtp(): { code: string; codeHash: string } {
+  const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  const codeHash = Bun.SHA256.hash(code, "hex");
+  return { code, codeHash };
+}
 
 export enum Role {
   Factory = "Factory",
@@ -164,8 +179,13 @@ export const createAuthenticationUsecase = (database: typeof db) => {
           username: accounts.username,
           role: accounts.role,
           id: accounts.id,
+          email: accounts.email,
           isValidate: factories.isValidate,
           password: accounts.password,
+          isChangePassword:
+            sql<boolean>`COALESCE(${evaluators.isChangePassword}, ${provincialOfficers.isChangePassword}, false)`.as(
+              "isChangePassword",
+            ),
           firstName: sql<string>`COALESCE(${evaluators.firstName}, ${provincialOfficers.firstName})`,
           lastName: sql<string>`COALESCE(${evaluators.lastName}, ${provincialOfficers.lastName})`,
         })
@@ -191,6 +211,9 @@ export const createAuthenticationUsecase = (database: typeof db) => {
         username: user.username,
         role: user.role,
         id: user.id,
+        email: user.email,
+        isChangePassword:
+          user.role === Role.DOED || user.role === Role.Factory ? true : user.isChangePassword,
         full_name: `${user.firstName}${user.lastName}`,
       };
     },
@@ -383,6 +406,183 @@ export const createAuthenticationUsecase = (database: typeof db) => {
       }
 
       return { message: "password changed!" };
+    },
+
+    requiresOtp: (role: string, isChangePassword: boolean): boolean => {
+      if (role === Role.Factory) return false;
+      if (!isChangePassword) return false;
+      return true;
+    },
+
+    maskEmail: (email: string): string => maskEmailHelper(email),
+
+    createChallenge: async (accountId: number, email: string) => {
+      const failKey = `2fa:fail:${accountId}`;
+      const activeKey = `2fa:active:${accountId}`;
+
+      const failCount = await redisConnector.get(failKey);
+      if (failCount && Number.parseInt(failCount, 10) >= env.OTP_FAIL_THRESHOLD) {
+        return status(429, { message: "too many failed attempts, please try again later" });
+      }
+
+      const existingChallengeId = await redisConnector.get(activeKey);
+      if (existingChallengeId) {
+        const throttled = await redisConnector.exists(`2fa:resend:${existingChallengeId}`);
+        if (throttled) {
+          return { challengeId: existingChallengeId };
+        }
+        await redisConnector.del(`2fa:challenge:${existingChallengeId}`);
+        await redisConnector.del(activeKey);
+      }
+
+      const challengeId = randomBytes(32).toString("hex");
+      const { code, codeHash } = generateOtp();
+
+      await redisConnector.set(
+        `2fa:challenge:${challengeId}`,
+        JSON.stringify({ accountId, codeHash, attempts: 0 }),
+        "EX",
+        env.OTP_CHALLENGE_TTL,
+      );
+      await redisConnector.set(activeKey, challengeId, "EX", env.OTP_CHALLENGE_TTL);
+      await redisConnector.set(`2fa:resend:${challengeId}`, "1", "EX", env.OTP_RESEND_THROTTLE);
+
+      await emailQueue.add(
+        "2fa-otp",
+        { email, code },
+        {
+          priority: 1,
+          attempts: 3,
+          backoff: { type: "fixed", delay: 5000 },
+          removeOnComplete: true,
+          removeOnFail: { count: 10 },
+        },
+      );
+
+      return { challengeId };
+    },
+
+    verifyChallenge: async (challengeId: string, code: string) => {
+      const challengeKey = `2fa:challenge:${challengeId}`;
+
+      const raw = await redisConnector.get(challengeKey);
+      if (!raw) {
+        return status(400, { message: "invalid or expired challenge" });
+      }
+
+      let challenge: { accountId: number; codeHash: string; attempts: number };
+      try {
+        challenge = JSON.parse(raw);
+      } catch {
+        return status(400, { message: "invalid or expired challenge" });
+      }
+
+      const { accountId, codeHash, attempts } = challenge;
+      const failKey = `2fa:fail:${accountId}`;
+      const activeKey = `2fa:active:${accountId}`;
+
+      const failCount = await redisConnector.get(failKey);
+      if (failCount && Number.parseInt(failCount, 10) >= env.OTP_FAIL_THRESHOLD) {
+        return status(429, { message: "too many failed attempts, please try again later" });
+      }
+
+      const candidateHash = Bun.SHA256.hash(code, "hex");
+      if (candidateHash !== codeHash) {
+        const newFailCount = await redisConnector.incr(failKey);
+        if (newFailCount === 1) {
+          await redisConnector.expire(failKey, env.OTP_FAIL_WINDOW);
+        }
+
+        const newAttempts = attempts + 1;
+        if (newAttempts >= env.OTP_MAX_ATTEMPTS) {
+          await redisConnector.del(challengeKey);
+          await redisConnector.del(activeKey);
+          return status(401, { message: "too many attempts, please restart login" });
+        }
+
+        const remainingTtl = await redisConnector.ttl(challengeKey);
+        const effectiveTtl = remainingTtl > 0 ? remainingTtl : env.OTP_CHALLENGE_TTL;
+        await redisConnector.set(
+          challengeKey,
+          JSON.stringify({ accountId, codeHash, attempts: newAttempts }),
+          "EX",
+          effectiveTtl,
+        );
+
+        return status(401, {
+          message: "incorrect code",
+          attemptsRemaining: env.OTP_MAX_ATTEMPTS - newAttempts,
+        });
+      }
+
+      await redisConnector.del(challengeKey);
+      await redisConnector.del(activeKey);
+      await redisConnector.del(failKey);
+
+      return helper.getAccountById(accountId);
+    },
+
+    resendOtp: async (challengeId: string) => {
+      const challengeKey = `2fa:challenge:${challengeId}`;
+
+      const raw = await redisConnector.get(challengeKey);
+      if (!raw) {
+        return status(400, { message: "invalid or expired challenge" });
+      }
+
+      let challenge: { accountId: number; codeHash: string; attempts: number };
+      try {
+        challenge = JSON.parse(raw);
+      } catch {
+        return status(400, { message: "invalid or expired challenge" });
+      }
+
+      const { accountId } = challenge;
+      const failKey = `2fa:fail:${accountId}`;
+      const throttleKey = `2fa:resend:${challengeId}`;
+
+      const failCount = await redisConnector.get(failKey);
+      if (failCount && Number.parseInt(failCount, 10) >= env.OTP_FAIL_THRESHOLD) {
+        return status(429, { message: "too many failed attempts, please try again later" });
+      }
+
+      const throttled = await redisConnector.exists(throttleKey);
+      if (throttled) {
+        return status(429, { message: "please wait before requesting another code" });
+      }
+
+      const [account] = await database
+        .select({ email: accounts.email })
+        .from(accounts)
+        .where(eq(accounts.id, accountId));
+
+      if (!account?.email) {
+        return status(400, { message: "invalid or expired challenge" });
+      }
+
+      const { code, codeHash } = generateOtp();
+
+      await redisConnector.set(
+        challengeKey,
+        JSON.stringify({ accountId, codeHash, attempts: 0 }),
+        "EX",
+        env.OTP_CHALLENGE_TTL,
+      );
+      await redisConnector.set(throttleKey, "1", "EX", env.OTP_RESEND_THROTTLE);
+
+      await emailQueue.add(
+        "2fa-otp",
+        { email: account.email, code },
+        {
+          priority: 1,
+          attempts: 3,
+          backoff: { type: "fixed", delay: 5000 },
+          removeOnComplete: true,
+          removeOnFail: { count: 10 },
+        },
+      );
+
+      return { ok: true };
     },
   };
 };

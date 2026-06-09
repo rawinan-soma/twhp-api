@@ -2,9 +2,9 @@
 unit: 001-staff-2fa
 intent: 002-staff-2fa
 phase: inception
-status: draft
-created: 2026-06-09T00:00:00Z
-updated: 2026-06-09T00:00:00Z
+status: complete
+created: 2026-06-09T00:00:00.000Z
+updated: 2026-06-09T00:00:00.000Z
 ---
 
 # Unit Brief: Staff Email-OTP 2FA

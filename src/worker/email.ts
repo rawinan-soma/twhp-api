@@ -13,6 +13,9 @@ export const emailWorker = new Worker(
       case "factory-validation-reminder":
         await sendFactoryValidationReminderEmail();
         break;
+      case "2fa-otp":
+        await sendOtpEmail(job.data);
+        break;
       default:
         return "unknown job name";
     }
@@ -30,6 +33,35 @@ const transporter = nodemailer.createTransport({
   port: env.SMTP_PORT,
   auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
 });
+
+const sendOtpEmail = async (data: { email: string; code: string }) => {
+  try {
+    await transporter.sendMail({
+      from: `Total Worker health support <${env.SMTP_USER}>`,
+      to: data.email,
+      subject: "รหัส OTP สำหรับเข้าสู่ระบบ",
+      text: `รหัส OTP ของท่านคือ: ${data.code}\n\nรหัสนี้จะหมดอายุใน 5 นาที\n\nหากท่านไม่ได้ร้องขอรหัสนี้ กรุณาติดต่อผู้ดูแลระบบ`,
+      html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
+               <h2 style="color: #2E8B57; font-size: 24px;">รหัส OTP สำหรับเข้าสู่ระบบ</h2>
+               <p>สวัสดีค่ะ</p>
+               <p>รหัส OTP สำหรับเข้าสู่ระบบของท่านคือ</p>
+               <div style="text-align: center; margin: 20px 0;">
+                 <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #2E8B57;">${data.code}</span>
+               </div>
+               <p style="font-size: 14px; color: #666;">รหัสนี้จะหมดอายุใน 5 นาที กรุณาอย่าเปิดเผยรหัสนี้แก่ผู้อื่น</p>
+               <p style="font-size: 14px; color: #666;">หากท่านไม่ได้ร้องขอรหัสนี้ กรุณาติดต่อผู้ดูแลระบบทันที</p>
+               <hr style="margin-top: 30px; border: none; border-top: 1px solid #ccc;" />
+               <p style="font-size: 12px; color: #999; text-align: center;">
+                 อีเมลฉบับนี้ถูกส่งโดยระบบอัตโนมัติจากระบบ กรุณาอย่าตอบกลับ<br/>
+                 หากมีคำถาม กรุณาติดต่อ 02-590-3867
+               </p>
+             </div>`,
+    });
+  } catch (error) {
+    console.error("Failed to send OTP email", error);
+    throw error; // Let BullMQ retry
+  }
+};
 
 const sendPasswordResetEmail = async (data: { email: string; token: string }) => {
   const resetLink = `${env.FRONTEND_URL}/resetpassword?token=${data.token}`;

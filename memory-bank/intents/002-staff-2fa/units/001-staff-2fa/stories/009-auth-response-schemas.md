@@ -2,11 +2,11 @@
 id: 009-auth-response-schemas
 unit: 001-staff-2fa
 intent: 002-staff-2fa
-status: draft
+status: complete
 priority: must
-created: 2026-06-09T00:00:00Z
+created: 2026-06-09T00:00:00.000Z
 assigned_bolt: 004-staff-2fa
-implemented: false
+implemented: true
 ---
 
 # Story: 009-auth-response-schemas

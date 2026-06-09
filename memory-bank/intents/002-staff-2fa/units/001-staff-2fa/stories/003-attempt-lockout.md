@@ -2,11 +2,11 @@
 id: 003-attempt-lockout
 unit: 001-staff-2fa
 intent: 002-staff-2fa
-status: draft
+status: complete
 priority: must
-created: 2026-06-09T00:00:00Z
+created: 2026-06-09T00:00:00.000Z
 assigned_bolt: 003-staff-2fa
-implemented: false
+implemented: true
 ---
 
 # Story: 003-attempt-lockout

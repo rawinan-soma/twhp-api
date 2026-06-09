@@ -21,6 +21,15 @@ function requireEnvBoolean(key: string): boolean {
   return val === "true";
 }
 
+function optionalEnvNumber(key: string, defaultValue: number): number {
+  const val = Bun.env[key];
+  if (!val) return defaultValue;
+  const num = Number(val);
+  if (Number.isNaN(num))
+    throw new Error(`Environment variable ${key} must be a number, got: "${val}"`);
+  return num;
+}
+
 export const env = {
   // Database
   DATABASE_URL: requireEnv("DATABASE_URL"),
@@ -49,6 +58,13 @@ export const env = {
 
   // Frontend
   FRONTEND_URL: requireEnv("FRONTEND_URL"),
+
+  // 2FA OTP
+  OTP_CHALLENGE_TTL: optionalEnvNumber("OTP_CHALLENGE_TTL", 300),
+  OTP_MAX_ATTEMPTS: optionalEnvNumber("OTP_MAX_ATTEMPTS", 5),
+  OTP_FAIL_WINDOW: optionalEnvNumber("OTP_FAIL_WINDOW", 900),
+  OTP_FAIL_THRESHOLD: optionalEnvNumber("OTP_FAIL_THRESHOLD", 10),
+  OTP_RESEND_THROTTLE: optionalEnvNumber("OTP_RESEND_THROTTLE", 60),
 
   // MinIO
   MINIO_ENDPOINT: requireEnv("MINIO_ENDPOINT"),
