@@ -2,7 +2,7 @@ import { randomBytes, randomInt } from "node:crypto";
 import * as bcrypt from "bcrypt";
 import { eq, sql } from "drizzle-orm";
 import { ElysiaCustomStatusResponse, status } from "elysia";
-import { SignJWT } from "jose";
+import { decodeJwt, SignJWT } from "jose";
 import { env } from "../config";
 import { db } from "../drizzle";
 import { accounts, adminsDoed, evaluators, factories, provincialOfficers } from "../drizzle/schema";
@@ -240,6 +240,30 @@ export const createAuthenticationUsecase = (database: typeof db) => {
 
       if (newAccessToken instanceof ElysiaCustomStatusResponse) {
         return newAccessToken;
+      }
+
+      // Sliding-session rotation: renewing the access token must NOT rotate the
+      // refresh token on every request. The refresh token is single-use (one hash
+      // stored per account), so rotating it here would invalidate the copy still
+      // held by concurrent in-flight requests, logging the user out at the first
+      // access-token expiry (~AUTH_TOKEN_EXP). Instead, only rotate the refresh
+      // token once it enters the back half of its own lifetime — keeping the
+      // session sliding while making rotation rare.
+      const rotateWhenRemainingUnder = Math.floor(env.REFRESH_TOKEN_EXP / 2);
+      let shouldRotateRefresh = true;
+      try {
+        const { exp } = decodeJwt(refreshToken);
+        if (typeof exp === "number") {
+          const remaining = exp - Math.floor(Date.now() / 1000);
+          shouldRotateRefresh = remaining <= rotateWhenRemainingUnder;
+        }
+      } catch {
+        // Unreadable exp — fall back to rotating (safe; keeps the session alive).
+        shouldRotateRefresh = true;
+      }
+
+      if (!shouldRotateRefresh) {
+        return { newAccessToken, newRefreshToken: undefined };
       }
 
       const newRefreshToken = await helper.issueToken(

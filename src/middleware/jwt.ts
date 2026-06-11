@@ -50,10 +50,13 @@ export const jwtPlugin = new Elysia({ name: "jwt-middleware" })
         const { newAccessToken, newRefreshToken } = token;
 
         const accessOpts = authenticationService.helper.getCookieOption("Authentication");
-        const refreshOpts = authenticationService.helper.getCookieOption("Refresh");
-
         Authentication.set({ value: newAccessToken, ...accessOpts });
-        Refresh.set({ value: newRefreshToken, ...refreshOpts });
+
+        // Only refreshed near expiry — otherwise the existing refresh cookie stands.
+        if (newRefreshToken) {
+          const refreshOpts = authenticationService.helper.getCookieOption("Refresh");
+          Refresh.set({ value: newRefreshToken, ...refreshOpts });
+        }
 
         const payload = (await jwt.verify(newAccessToken)) as jwtType;
         if (payload) {
