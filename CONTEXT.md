@@ -57,6 +57,57 @@ For list endpoints (Evaluator, Provincial Officer, Admin), the response is an ar
 ### Question
 An assessment item with a `category` (QuestionCategory) and a `special` integer. The `special` field controls file-upload behavior only — it has no effect on scoring.
 
+### Answer Review
+The Evaluator's per-answer verdict on a submitted Cover. Each Answer is in exactly one state, derived from its latest `answerLogs` row:
+- **in_review** — submitted by the Factory, awaiting an Evaluator verdict.
+- **rejected** — sent back by the Evaluator with a comment (`answerLogs.description`); the Factory may edit and resubmit it.
+- **finished** ("**Approved**") — the Evaluator accepted the Answer. There is no separate `approved` status; approval *is* the `finished` state.
+
+A Cover becomes **finished** only when **all** of its Answers are `finished`.
+_Avoid_: "approved" as a distinct status — it maps to `finished`.
+
+### Evaluator
+A Staff Account scoped by `region` (which factories' Covers it sees) and `level`, which sets both **what it reviews** and **its authority**. Review is **hierarchical**, not peer:
+- **Mental** and **DOH** — tier-1 reviewers. Each owns a fixed subset of the 5 QuestionCategories *(map pending PO)* and renders verdicts **only on its own categories**. Their submissions are **non-finalizing**.
+- **ODPC** — the final reviewer. Accesses **all** categories, evaluates the categories no tier-1 level owns ("the rest"), and may **backstop** any owned-category Answer that Mental/DOH left `in_review`. ODPC is the **sole finalizer** — only ODPC's action transitions the Cover and returns the result to the Factory.
+
+**Override rule:** no Evaluator can change an Answer that already has a verdict. Any Evaluator may only act on an Answer whose latest log is `in_review`; `finished`/`rejected` Answers are immutable to Evaluators (only the Factory reopens a `rejected` one by editing it). This is how ODPC "cannot override" Mental/DOH.
+
+### Evaluator Verdict
+An Evaluator commits a **single batch** — one payload of verdicts (approve / reject + comment) over the `in_review` Answers it is allowed to act on. The server writes all `answerLogs` rows **atomically in one transaction**; no partial/per-answer save. The acting evaluator is recorded via `answerLogs.eval_id` and `coverLogs.evaluatorId`.
+
+- **Tier-1 (Mental/DOH) batches are non-finalizing** — they record `finished`/`rejected` on their categories but leave the Cover `in_review`.
+- **ODPC's batch finalizes.** ODPC may also clear any Answer still `in_review` (backstop authority over unfinished tier-1 work). Finalization is only valid when **no Answer remains `in_review`** after ODPC's batch. Then the transition is computed across the **whole** Cover:
+  - All Answers `finished` → Cover `finished`.
+  - Any Answer `rejected` → Cover `in_progress` (back to factory).
+
+Because **only ODPC writes the `coverLogs` transition** and the Factory never holds the Cover while an Evaluator is active, there is no factory↔evaluator race and no cover-status race — the elaborate concurrency locking considered for a peer model is unnecessary here.
+
+### Re-evaluation Loop
+The cycle when ODPC finalizes with ≥1 `rejected` Answer:
+1. ODPC's finalize leaves ≥1 Answer `rejected` → **Cover → `in_progress`**, returning the consolidated rejections to the Factory. (At this point every Answer is `finished` or `rejected` — none `in_review`.)
+2. Factory edits the `rejected` Answers (editing flips them back to `in_review`). **`finished` Answers are locked** — the Factory cannot edit an approved Answer.
+3. Factory re-submits → Cover returns to `in_review`. Re-submission is allowed when **no Answer is still `rejected`** (replacing the old "all Answers `in_review`" rule, which a partially-approved Cover would fail).
+4. The owning tier-1 level re-judges its re-submitted Answers (or ODPC backstops); **approved (`finished`) Answers carry over** and are not re-reviewed (sticky approvals). ODPC finalizes again.
+5. Iterate until all Answers are `finished` → Cover `finished`.
+
+## Flagged ambiguities
+
+- **Can an Evaluator re-open a previously approved (`finished`) Answer?** Under the sticky-approval model, approved Answers are locked once `finished`. **Pending PO decision** — if re-opening is required, the model needs an Evaluator-side action to revert `finished → in_review` (or `rejected`).
+- **Email notifications needed?** v1 proposes state-visibility only (no email). **Pending PO** — if the Factory must be actively emailed when ODPC sends results back (and/or Evaluators when a Factory submits), this adds new BullMQ `email` job types + templates and widens the login-critical email-worker surface flagged in ADR-0002.
+- **`level → category` ownership map (tier-1).** Which of the 5 QuestionCategories (`Collaborate | Disease | Safety | Mental | Outcome`) **Mental** owns and which **DOH** owns is **pending PO decision**. ODPC owns "the rest" (categories no tier-1 level claims) and has all-category access regardless, so only the Mental/DOH split needs confirming. Likely `Mental → Mental`, but the DOH set and any remainder are unconfirmed.
+
+## Review Endpoints
+
+Evaluator-facing, under `evalGuard`. The verdict endpoint is **level-aware** — the service reads the caller's `level` (via `evaluatorService.helper.getEvaluatorData`) and applies the tier-1 vs ODPC rules.
+
+| Endpoint | Caller | Behaviour |
+|----------|--------|-----------|
+| `GET /twhp/api/evaluators/covers/:coverId/answers` | Any Evaluator (region-scoped) | Each Answer with current status, question + category, and existing verdict/comment. Mental/DOH see their own categories; ODPC sees all. |
+| `POST /twhp/api/evaluators/covers/:coverId/verdict` | Any Evaluator | Batch of `{ answerId, decision: approve\|reject, comment? }` over `in_review` Answers the caller may act on. Tier-1 (Mental/DOH) → records verdicts, Cover stays `in_review` (non-finalizing). ODPC → records + **finalizes**: requires no Answer left `in_review`, then all `finished` → Cover `finished`, any `rejected` → Cover `in_progress`. One transaction. |
+
+**v1 scope (proposed):** state-visibility only — "sent to evaluators / factory" means the Cover surfaces in the other party's list endpoint; **no email notifications** by default (keeps the feature off the login-critical email worker — see ADR-0002). **Whether email notifications are required is pending PO** (see Flagged ambiguities). A `reject` requires a `comment`; `approve` does not. After ODPC finalizes to `finished`, the **existing** factory score endpoint (`GET /twhp/api/factories/assessments/score`) is the final-score report — no new score work (ADR-0001).
+
 ## Score Endpoints
 
 | Role | Path | Scope |
