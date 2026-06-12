@@ -1,6 +1,13 @@
 export type CategoryKey = "Collaborate" | "Disease" | "Safety" | "Mental" | "Outcome";
 export type AnswerWithCategory = { selectedChoice: string; category: CategoryKey };
 
+export type ScoreGroup = {
+  scoredCount: number;
+  maxScore: number;
+  achievedScore: number;
+  percentage: number;
+};
+
 export const CHOICE_POINTS: Record<string, number | null> = {
   "3": 3,
   "2": 2,
@@ -9,15 +16,23 @@ export const CHOICE_POINTS: Record<string, number | null> = {
   "n/a": null,
 };
 
-export const scoreGroup = (items: AnswerWithCategory[]): number => {
+export const scoreGroup = (items: AnswerWithCategory[]): ScoreGroup => {
   const valid = items.filter((a) => CHOICE_POINTS[a.selectedChoice] !== null);
-  if (valid.length === 0) return 0;
-  const sum = valid.reduce((acc, a) => acc + (CHOICE_POINTS[a.selectedChoice] as number), 0);
-  return Math.round((sum / (3 * valid.length)) * 100);
+  const scoredCount = valid.length;
+  if (scoredCount === 0) {
+    return { scoredCount: 0, maxScore: 0, achievedScore: 0, percentage: 0 };
+  }
+  const achievedScore = valid.reduce(
+    (acc, a) => acc + (CHOICE_POINTS[a.selectedChoice] as number),
+    0,
+  );
+  const maxScore = 3 * scoredCount;
+  const percentage = Math.round((achievedScore / maxScore) * 100);
+  return { scoredCount, maxScore, achievedScore, percentage };
 };
 
 export const calculateBreakdown = (items: AnswerWithCategory[]) => ({
-  totalScore: scoreGroup(items),
+  total: scoreGroup(items),
   collaborate: scoreGroup(items.filter((a) => a.category === "Collaborate")),
   disease: scoreGroup(items.filter((a) => a.category === "Disease")),
   safety: scoreGroup(items.filter((a) => a.category === "Safety")),

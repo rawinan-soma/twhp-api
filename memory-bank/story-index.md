@@ -2,10 +2,10 @@
 
 ## Overview
 
-- **Total stories**: 17
+- **Total stories**: 18
 - **Completed**: 8
-- **Planned**: 9
-- **Last updated**: 2026-06-09
+- **Planned**: 10
+- **Last updated**: 2026-06-12
 
 ---
 
@@ -23,6 +23,7 @@ Unit: `001-score-service`
 - [x] **006-provincial-endpoint** ✅ COMPLETE — Provincial officer score list endpoint — Must
 - [x] **007-admin-endpoint** ✅ COMPLETE — Admin score list endpoint with filters — Must
 - [x] **008-score-report-shape** ✅ COMPLETE — Score report TypeBox schema — Must
+- [ ] **009-scoring-breakdown-fields** ⏳ PLANNED — Nested `scoring`: count/max/achieved/percentage per group (breaking) — Must — bolt `005-score-service`
 
 ### 002-staff-2fa
 
@@ -42,7 +43,7 @@ Unit: `001-staff-2fa`
 
 ## Stories by Status
 
-- **Planned**: 9
+- **Planned**: 10
 - **Generated**: 0
 - **In Progress**: 0
 - **Completed**: 8

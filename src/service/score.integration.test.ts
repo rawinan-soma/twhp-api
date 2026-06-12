@@ -195,18 +195,25 @@ describe("Story 003 + 004 — getScoreByFactory (service level)", () => {
       coverStatus: "in_review",
       enrollId,
     });
-    // all choices "2" → each category score = round(2/(3*n)*100) — just ensure integers 0-100
-    expect(typeof (result as any).totalScore).toBe("number");
-    expect((result as any).totalScore).toBeGreaterThanOrEqual(0);
-    expect((result as any).totalScore).toBeLessThanOrEqual(100);
-    expect(typeof (result as any).collaborate).toBe("number");
+    // all choices "2" → each group percentage = round(2/3*100) = 67; verify nested scoring shape
+    const scoring = (result as any).scoring;
+    expect(scoring.total).toMatchObject({
+      scoredCount: expect.any(Number),
+      maxScore: expect.any(Number),
+      achievedScore: expect.any(Number),
+      percentage: expect.any(Number),
+    });
+    expect(scoring.total.maxScore).toBe(3 * scoring.total.scoredCount);
+    expect(scoring.total.percentage).toBeGreaterThanOrEqual(0);
+    expect(scoring.total.percentage).toBeLessThanOrEqual(100);
+    expect(scoring.collaborate).toHaveProperty("percentage");
   });
 
   it("AC 003-AC3: finished cover → 200 with ScoreReport", async () => {
     await db.insert(coverLogs).values({ coverId, status: "finished" });
     const result = await scoreService.getScoreByFactory(TEST_FACTORY_ACCOUNT_ID);
     expect((result as any).coverStatus).toBe("finished");
-    expect(typeof (result as any).totalScore).toBe("number");
+    expect(typeof (result as any).scoring.total.percentage).toBe("number");
   });
 });
 
@@ -218,12 +225,13 @@ describe("Story 005 — getScoresByRegion (service level)", () => {
     const result = await scoreService.getScoresByRegion(13);
     const found = result.find((r) => r.factoryId === TEST_FACTORY_ACCOUNT_ID);
     expect(found).toBeDefined();
-    expect(found).toHaveProperty("totalScore");
-    expect(found).toHaveProperty("collaborate");
-    expect(found).toHaveProperty("disease");
-    expect(found).toHaveProperty("safety");
-    expect(found).toHaveProperty("mental");
-    expect(found).toHaveProperty("outcome");
+    expect(found).toHaveProperty("scoring");
+    expect(found!.scoring).toHaveProperty("total");
+    expect(found!.scoring).toHaveProperty("collaborate");
+    expect(found!.scoring).toHaveProperty("disease");
+    expect(found!.scoring).toHaveProperty("safety");
+    expect(found!.scoring).toHaveProperty("mental");
+    expect(found!.scoring).toHaveProperty("outcome");
   });
 
   it("AC2: region with no ready covers returns empty array", async () => {
@@ -234,18 +242,26 @@ describe("Story 005 — getScoresByRegion (service level)", () => {
   it("AC4: each item in response has all Score Report fields including category breakdown", async () => {
     const result = await scoreService.getScoresByRegion(13);
     const found = result.find((r) => r.factoryId === TEST_FACTORY_ACCOUNT_ID);
+    const groupMatcher = {
+      scoredCount: expect.any(Number),
+      maxScore: expect.any(Number),
+      achievedScore: expect.any(Number),
+      percentage: expect.any(Number),
+    };
     expect(found).toMatchObject({
       factoryId: expect.any(Number),
       factoryNameTh: expect.any(String),
       coverId: expect.any(Number),
       coverStatus: expect.any(String),
       enrollId: expect.any(Number),
-      totalScore: expect.any(Number),
-      collaborate: expect.any(Number),
-      disease: expect.any(Number),
-      safety: expect.any(Number),
-      mental: expect.any(Number),
-      outcome: expect.any(Number),
+      scoring: {
+        total: groupMatcher,
+        collaborate: groupMatcher,
+        disease: groupMatcher,
+        safety: groupMatcher,
+        mental: groupMatcher,
+        outcome: groupMatcher,
+      },
     });
   });
 });

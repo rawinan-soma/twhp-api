@@ -3,7 +3,7 @@ intent: 001-score-calculator-and-report
 phase: inception
 status: complete
 created: 2026-06-03T00:00:00.000Z
-updated: 2026-06-03T00:00:00.000Z
+updated: 2026-06-12T00:00:00.000Z
 ---
 
 # Requirements: Score Calculator and Report
@@ -72,6 +72,17 @@ Add a score calculation feature that derives a numeric score from a factory's as
 - **Acceptance Criteria**: All fields present in every response item. Score values are rounded integers (0–100, percentage).
 - **Priority**: Must
 
+### FR-9: Score Report exposes scored-question count, max, achieved, and percentage per group (breaking restructure)
+
+- **Description**: Replace the flat score fields with a nested `scoring` object so every score group — overall (`total`) plus the five categories (`collaborate`, `disease`, `safety`, `mental`, `outcome`) — reports four values: `scoredCount` (number of **non-`n/a`** answers in the group), `maxScore` (`3 × scoredCount`), `achievedScore` (`sum(choice_points)` — the formula numerator), and `percentage` (`round(achievedScore / maxScore × 100)`). The previously flat fields (`totalScore`, `collaborate`, `disease`, `safety`, `mental`, `outcome`) are **removed** from the response. `n/a` answers are excluded from all four values.
+- **Acceptance Criteria**:
+  - Response has no top-level `totalScore`/`collaborate`/`disease`/`safety`/`mental`/`outcome`; instead a `scoring` object with keys `total`, `collaborate`, `disease`, `safety`, `mental`, `outcome`.
+  - For each group: `maxScore === 3 × scoredCount`; `0 ≤ achievedScore ≤ maxScore`; `percentage === round(achievedScore / maxScore × 100)` when `scoredCount > 0`, else all four are `0`.
+  - `scoring.total.percentage` equals the value the old `totalScore` would have returned (formula unchanged — only the response shape changed).
+  - Worked example (50 non-n/a answers, 120 pts): `scoring.total = { scoredCount: 50, maxScore: 150, achievedScore: 120, percentage: 80 }`.
+  - Applies identically to the single-object response (factory) and the array responses (evaluator/provincial/admin).
+- **Priority**: Must
+
 ---
 
 ## Non-Functional Requirements
@@ -88,6 +99,14 @@ Add a score calculation feature that derives a numeric score from a factory's as
 |-------------|----------|-------|
 | Authentication | Cookie-based JWT | All endpoints require valid `Authentication` cookie |
 | Authorization | RBAC via existing guards | `factoryGuard`, `evalGuard`, `officerGuard`, `adminGuard` |
+
+### Compatibility (FR-9)
+
+| Requirement | Notes |
+|-------------|-------|
+| Breaking response change | FR-9 removes the flat score fields and nests them under `scoring`. **All consumers must migrate** from `totalScore`/`collaborate`/… to `scoring.total.percentage`/`scoring.collaborate.percentage`/… |
+| Consumer migration | Frontend score views + any client reading the four score endpoints must be updated in lockstep with this release |
+| Test migration | `src/service/score.test.ts` and `src/service/score.integration.test.ts` assert the flat shape and must be rewritten for the nested shape |
 
 ---
 
@@ -120,3 +139,5 @@ Add a score calculation feature that derives a numeric score from a factory's as
 | Question | Owner | Due Date | Resolution |
 |----------|-------|----------|-----------|
 | Should score be expressed as a float (e.g. 82.5) or rounded integer? | rawinan | 2026-06-03 | Resolved — rounded integer (e.g. 83) |
+| Should the new count/max/achieved be overall-only or per-category? | rawinan | 2026-06-12 | Resolved — overall + per category (FR-9) |
+| Keep flat percentage fields for backward-compat, or restructure? | rawinan | 2026-06-12 | Resolved — restructure: remove flat fields, nest under `scoring` (breaking) |

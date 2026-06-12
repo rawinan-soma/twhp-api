@@ -28,6 +28,7 @@ last_updated: 2026-06-03T00:00:00Z
 |---------|---------|--------|---------|
 | 001-score-service | 001, 002, 003, 008 | ✅ completed | - |
 | 002-score-service | 004, 005, 006, 007 | ✅ completed | - |
+| 005-score-service | 009 | ✅ completed | added 2026-06-12 (FR-9 enhancement) |
 
 ## Execution History
 
@@ -40,6 +41,11 @@ last_updated: 2026-06-03T00:00:00Z
 | 2026-06-03T00:00:00Z | 001-score-service | completed | All 5 stages done |
 | 2026-06-03T00:00:00Z | 002-score-service | started | Stage 1: Domain Model |
 | 2026-06-03T00:00:00Z | 002-score-service | completed | All 5 stages done |
+| 2026-06-12T10:00:00Z | 005-score-service | started | Stage 1: Domain Model |
+| 2026-06-12T10:20:00Z | 005-score-service | stage-complete | Model → Design |
+| 2026-06-12T10:36:00Z | 005-score-service | stage-complete | Design → ADR (skipped) → Implement |
+| 2026-06-12T11:00:00Z | 005-score-service | stage-complete | Implement → Test |
+| 2026-06-12T11:20:00Z | 005-score-service | completed | All 5 stages done (ADR skipped) |
 
 ## Execution Summary
 

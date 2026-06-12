@@ -71,7 +71,7 @@ export const createScoreService = (database: typeof db) => {
       coverId: c.coverId,
       coverStatus: statusMap.get(c.coverId) as string,
       enrollId: c.enrollId,
-      ...calculateBreakdown(answersByCover.get(c.coverId) ?? []),
+      scoring: calculateBreakdown(answersByCover.get(c.coverId) ?? []),
     }));
   };
 
@@ -130,7 +130,7 @@ export const createScoreService = (database: typeof db) => {
         coverId: coverRow.coverId,
         coverStatus,
         enrollId: coverRow.enrollId,
-        ...calculateBreakdown(
+        scoring: calculateBreakdown(
           answerRows.map((a) => ({ ...a, category: a.category as CategoryKey })),
         ),
       };

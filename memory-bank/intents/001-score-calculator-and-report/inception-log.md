@@ -48,7 +48,7 @@ status: complete
 
 | Date | Change | Reason | Impact |
 |------|--------|--------|--------|
-| — | — | — | — |
+| 2026-06-12 | FR-9: nest scores under `scoring` with `scoredCount`/`maxScore`/`achievedScore`/`percentage` per group; remove flat fields | Consumers need the scoring basis (non-n/a count + max) and raw achieved, not just the percentage | Breaking response change on all 4 endpoints; new story 009 + bolt 005; score tests + frontend must migrate |
 
 ## Ready for Construction
 
