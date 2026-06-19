@@ -1,6 +1,6 @@
 ---
-last_updated: 2026-06-09T09:00:00Z
-total_decisions: 2
+last_updated: 2026-06-19T01:40:07Z
+total_decisions: 3
 ---
 
 # Decision Index
@@ -17,6 +17,14 @@ Use this to find relevant prior decisions when working on related features.
 ---
 
 ## Decisions
+
+### ADR-3: National Admin (DOED) as a Second ODPC-Level Finalizer — Unlocked
+- **Status**: accepted
+- **Date**: 2026-06-19
+- **Bolt**: 011-admin-as-evaluator (admin-as-evaluator)
+- **Path**: `bolts/011-admin-as-evaluator/adr-3-admin-national-odpc-second-finalizer.md`
+- **Summary**: Letting a national DOED admin finalize any Cover with full ODPC parity adds a second potential finalizer, amending ADR-0003's single-finalizer-per-region model. We leave the two-finalizer window unguarded in v1 — no locking or region-claim — relying on the existing per-Answer invariants (`finished` is sticky/immutable; the finalize gate blocks unresolved commits) to keep double-commits benign.
+- **Read when**: Working on the cover-review/finalize flow, admin-as-evaluator endpoints, concurrency/race-freedom assumptions, or any feature that adds a new actor able to transition a Cover; reconsidering ADR-0003's single-finalizer model
 
 ### ADR-2: Accept SMTP as a Login-Critical Dependency (No Fallback Channel)
 - **Status**: accepted

@@ -2,10 +2,10 @@
 
 ## Overview
 
-- **Total stories**: 18
-- **Completed**: 8
-- **Planned**: 10
-- **Last updated**: 2026-06-12
+- **Total stories**: 31
+- **Completed**: 11
+- **Planned**: 20
+- **Last updated**: 2026-06-19
 
 ---
 
@@ -39,11 +39,34 @@ Unit: `001-staff-2fa`
 - [ ] **008-resend-otp-endpoint** ⏳ PLANNED — `POST /login/resend-otp` — Should — bolt `004-staff-2fa`
 - [ ] **009-auth-response-schemas** ⏳ PLANNED — TypeBox DTOs for new/modified responses — Must — bolt `004-staff-2fa`
 
+### 003-evaluator-review
+
+Unit: `001-evaluator-review`
+
+- [ ] **001-schema-changes** ⏳ PLANNED — `verdict_choice` col + `recommended` status + `grade` field — Must — bolt `006-evaluator-review`
+- [ ] **002-level-category-access** ⏳ PLANNED — level→category map + region scoping — Must — bolt `006-evaluator-review`
+- [ ] **003-answers-list-endpoint** ⏳ PLANNED — GET answers, hard category filter — Must — bolt `007-evaluator-review`
+- [ ] **004-verdict-batch-endpoint** ⏳ PLANNED — POST verdict, atomic batch + `403` guard + 3 outcomes — Must — bolt `007-evaluator-review`
+- [ ] **005-finalize-and-transition** ⏳ PLANNED — ODPC override/backstop/finalize + cover transition — Must — bolt `008-evaluator-review`
+- [ ] **006-file-deletion-on-reject** ⏳ PLANNED — MinIO delete at ODPC commit, outside txn — Must — bolt `008-evaluator-review`
+- [ ] **007-factory-accept-object-redo** ⏳ PLANNED — Factory negotiation actions + file validator — Must — bolt `009-evaluator-review`
+- [ ] **008-resubmit-gate** ⏳ PLANNED — Re-submit when no answer rejected — Must — bolt `009-evaluator-review`
+- [ ] **009-grade-and-live-choice** ⏳ PLANNED — Live-choice scoring + 4-tier grade + Score Report field — Must — bolt `010-evaluator-review`
+- [ ] **010-verdict-email** ⏳ PLANNED — Verdict-result email on every ODPC commit — Must — bolt `010-evaluator-review`
+
+### 004-admin-as-evaluator
+
+Unit: `001-admin-as-evaluator` — depends on `003-evaluator-review` (do not construct before it)
+
+- [x] **001-reviewer-context-seam** ✅ COMPLETE — Generalize reviewer context `{accountId, level, region|null}` + region-less cover check — Must — bolt `011-admin-as-evaluator`
+- [x] **002-admin-answers-endpoint** ✅ COMPLETE — `GET /admin/covers/:coverId/answers`, national ODPC, all categories — Must — bolt `011-admin-as-evaluator`
+- [x] **003-admin-verdict-endpoint** ✅ COMPLETE — `POST /admin/covers/:coverId/verdict` → ODPC finalize + admin audit + Grade/email parity — Must — bolt `012-admin-as-evaluator`
+
 ---
 
 ## Stories by Status
 
-- **Planned**: 10
+- **Planned**: 20
 - **Generated**: 0
 - **In Progress**: 0
-- **Completed**: 8
+- **Completed**: 11

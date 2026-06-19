@@ -1,7 +1,17 @@
 import { eq } from "drizzle-orm";
 import { status } from "elysia";
 import { db } from "../drizzle";
-import { accounts, evaluators } from "../drizzle/schema";
+import { accounts, type evaluatorLevels, evaluators } from "../drizzle/schema";
+
+export type EvaluatorLevel = (typeof evaluatorLevels.enumValues)[number];
+
+export const CATEGORIES_FOR_LEVEL: Record<EvaluatorLevel, string[]> = {
+  Mental: ["Mental"],
+  DOH: ["Disease", "Safety"],
+  ODPC: ["Collaborate", "Disease", "Safety", "Mental", "Outcome"],
+};
+
+export const categoriesFor = (level: EvaluatorLevel): string[] => CATEGORIES_FOR_LEVEL[level];
 
 const createEvaluatorHelper = (database: typeof db) => {
   return {

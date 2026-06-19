@@ -1,5 +1,9 @@
 export type CategoryKey = "Collaborate" | "Disease" | "Safety" | "Mental" | "Outcome";
-export type AnswerWithCategory = { selectedChoice: string; category: CategoryKey };
+export type AnswerWithCategory = {
+  selectedChoice: string;
+  category: CategoryKey;
+  special?: number;
+};
 
 export type ScoreGroup = {
   scoredCount: number;
@@ -39,3 +43,36 @@ export const calculateBreakdown = (items: AnswerWithCategory[]) => ({
   mental: scoreGroup(items.filter((a) => a.category === "Mental")),
   outcome: scoreGroup(items.filter((a) => a.category === "Outcome")),
 });
+
+export type Grade = "gold" | "silver" | "certificate" | "joined";
+
+export const computeGrade = (
+  breakdown: ReturnType<typeof calculateBreakdown>,
+  answers: AnswerWithCategory[],
+): Grade => {
+  const categories = [
+    breakdown.collaborate,
+    breakdown.disease,
+    breakdown.safety,
+    breakdown.mental,
+    breakdown.outcome,
+  ];
+
+  const specialAnswers = answers.filter((a) => (a.special ?? 0) > 0);
+  const allSpecialFullScore =
+    specialAnswers.length === 0 || specialAnswers.every((a) => a.selectedChoice === "3");
+
+  if (
+    categories.every((c) => c.percentage > 80) &&
+    breakdown.total.percentage >= 90 &&
+    allSpecialFullScore
+  )
+    return "gold";
+
+  if (categories.every((c) => c.percentage > 60) && breakdown.total.percentage >= 80)
+    return "silver";
+
+  if (breakdown.total.percentage >= 60) return "certificate";
+
+  return "joined";
+};

@@ -16,6 +16,12 @@ export const emailWorker = new Worker(
       case "2fa-otp":
         await sendOtpEmail(job.data);
         break;
+      case "verdict-result-finished":
+        await sendVerdictResultFinishedEmail(job.data);
+        break;
+      case "verdict-result-in-progress":
+        await sendVerdictResultInProgressEmail(job.data);
+        break;
       default:
         return "unknown job name";
     }
@@ -70,7 +76,7 @@ const sendPasswordResetEmail = async (data: { email: string; token: string }) =>
     await transporter.sendMail({
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
-      subject: "รีเซ็ตรหัสผ่าน เว็บไซต์ Total worker health program",
+      subject: "รีเซ็ตรหัสผ่าน เว็บไซต์ โครงการพัฒนาสถานประกอบการปลอดโรค ปลอดภัย กายใจเป็นสุข",
       text: `คลิกลิงก์เพื่อรีเซ็ตรหัสผ่าน: ${resetLink}`,
       html: ` <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
                <h2 style="color: #2E8B57; font-size: 24px;">รีเซ็ตรหัสผ่านของคุณ</h2>
@@ -96,6 +102,74 @@ const sendPasswordResetEmail = async (data: { email: string; token: string }) =>
   }
 
   console.log(`Sending password reset email to ${data.email}`);
+};
+
+const GRADE_LABEL: Record<string, string> = {
+  gold: "รางวัลเชิดชูเกียรติและประกาศนียบัตรระดับประเทศ ประเภท โล่ทอง",
+  silver: "รางวัลเชิดชูเกียรติและประกาศนียบัตรระดับประเทศ ประเภท โล่เงิน",
+  certificate: "ใบประกาศเกียรติคุณระดับจังหวัด",
+  joined: "ใบประกาศเกียรติคุณเข้าร่วมโครงการฯ",
+};
+
+const sendVerdictResultFinishedEmail = async (data: {
+  email: string;
+  grade: string | null;
+  factoryNameTh: string;
+}) => {
+  const gradeLabel = data.grade ? (GRADE_LABEL[data.grade] ?? data.grade) : "-";
+  try {
+    await transporter.sendMail({
+      from: `Total Worker health support <${env.SMTP_USER}>`,
+      to: data.email,
+      subject: "ผลการประเมินโครงการ พัฒนาสถานประกอบการปลอดโรค ปลอดภัย กายใจเป็นสุข",
+      text: `เรียน คุณผู้รับผิดชอบ ${data.factoryNameTh}\n\nขอแจ้งให้ทราบว่าโรงงานของท่านผ่านการประเมินโครงการ พัฒนาสถานประกอบการปลอดโรค ปลอดภัย กายใจเป็นสุข เรียบร้อยแล้ว\nผลการประเมิน: ${gradeLabel}\n\nกรุณาเข้าสู่ระบบเพื่อดูผลการประเมินอย่างละเอียด`,
+      html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
+               <h2 style="color: #2E8B57;">ผลการประเมินโครงการ พัฒนาสถานประกอบการปลอดโรค ปลอดภัย กายใจเป็นสุข</h2>
+               <p>เรียน คุณผู้รับผิดชอบ ${data.factoryNameTh}</p>
+               <p>ขอแจ้งให้ทราบว่าโรงงานของท่านได้รับการประเมินโครงการ พัฒนาสถานประกอบการปลอดโรค ปลอดภัย กายใจเป็นสุข เรียบร้อยแล้ว</p>
+               <div style="background-color: #f0f9f0; border-left: 4px solid #2E8B57; padding: 16px; margin: 20px 0;">
+                 <p style="margin: 0; font-size: 16px;"><strong>ผลการประเมิน:</strong> <span style="color: #2E8B57; font-size: 18px;">${gradeLabel}</span></p>
+               </div>
+               <p>กรุณาเข้าสู่ระบบเพื่อดูผลการประเมินและคะแนนอย่างละเอียด</p>
+               <hr style="margin-top: 30px; border: none; border-top: 1px solid #ccc;" />
+               <p style="font-size: 12px; color: #999; text-align: center;">
+                 อีเมลฉบับนี้ถูกส่งโดยระบบอัตโนมัติ กรุณาอย่าตอบกลับ<br/>
+                 หากมีคำถาม กรุณาติดต่อ 02-590-3867
+               </p>
+             </div>`,
+    });
+  } catch (error) {
+    console.error("Failed to send verdict-result-finished email", error);
+    throw error;
+  }
+};
+
+const sendVerdictResultInProgressEmail = async (data: { email: string; factoryNameTh: string }) => {
+  try {
+    await transporter.sendMail({
+      from: `Total Worker health support <${env.SMTP_USER}>`,
+      to: data.email,
+      subject: "แจ้งผลการพิจารณา — โปรดดำเนินการปรับปรุงคำตอบ",
+      text: `เรียน คุณผู้รับผิดชอบ ${data.factoryNameTh}\n\nขอแจ้งให้ทราบว่าผู้ประเมินได้ส่งคืนผลการประเมินของท่านเพื่อให้ดำเนินการปรับปรุงแก้ไข\nกรุณาเข้าสู่ระบบและตรวจสอบคำตอบที่ต้องแก้ไข จากนั้นส่งคำตอบกลับมาใหม่`,
+      html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
+               <h2 style="color: #E07B39;">แจ้งผลการพิจารณา — โปรดดำเนินการปรับปรุงคำตอบ</h2>
+               <p>เรียน คุณผู้รับผิดชอบ ${data.factoryNameTh}</p>
+               <p>ขอแจ้งให้ทราบว่าผู้ประเมินได้ทำการพิจารณาแบบประเมินของท่านและส่งคืนเพื่อให้ดำเนินการปรับปรุงแก้ไขในบางรายการ</p>
+               <div style="background-color: #fff8f0; border-left: 4px solid #E07B39; padding: 16px; margin: 20px 0;">
+                 <p style="margin: 0; font-size: 16px;"><strong>สถานะ:</strong> <span style="color: #E07B39;">ต้องปรับปรุงแก้ไข</span></p>
+               </div>
+               <p>กรุณาเข้าสู่ระบบเพื่อตรวจสอบรายการที่ต้องแก้ไข และส่งคำตอบกลับมาใหม่หลังจากดำเนินการเสร็จสิ้น</p>
+               <hr style="margin-top: 30px; border: none; border-top: 1px solid #ccc;" />
+               <p style="font-size: 12px; color: #999; text-align: center;">
+                 อีเมลฉบับนี้ถูกส่งโดยระบบอัตโนมัติ กรุณาอย่าตอบกลับ<br/>
+                 หากมีคำถาม กรุณาติดต่อ 02-590-3867
+               </p>
+             </div>`,
+    });
+  } catch (error) {
+    console.error("Failed to send verdict-result-in-progress email", error);
+    throw error;
+  }
 };
 
 const sendFactoryValidationReminderEmail = async () => {

@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TWHP — ฟีเจอร์การประเมิน (Evaluation API Reference)</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --panel: #f6f8fa;
+    --ink: #1f2328;
+    --muted: #59636e;
+    --line: #d1d9e0;
+    --factory: #0969da;
+    --review: #9a6700;
+    --odpc: #8250df;
+    --good: #1a7f37;
+    --bad: #cf222e;
+    --warn: #bc4c00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2.5rem 1rem 4rem;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.7 "Sukhumvit Set", "Noto Sans Thai", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { text-align: center; font-size: 1.6rem; margin: 0 0 .25rem; }
+  .sub { text-align: center; color: var(--muted); margin: 0 0 2.5rem; font-size: .9rem; }
+  h2 {
+    font-size: 1.15rem; margin: 2.8rem 0 1rem; padding-bottom: .4rem;
+    border-bottom: 2px solid var(--line);
+  }
+  h2 .n {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.7rem; height: 1.7rem; margin-inline-end: .5rem;
+    background: var(--ink); color: #fff; border-radius: 50%;
+    font-size: .88rem; vertical-align: middle;
+  }
+  h3 { font-size: 1rem; margin: 1.5rem 0 .5rem; color: var(--ink); }
+  p { margin: .5rem 0; }
+  code {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 5px;
+    padding: .05rem .35rem; font: 13px/1.4 ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--ink);
+  }
+  pre {
+    background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 1rem 1.1rem;
+    font: 13px/1.6 ui-monospace, "SF Mono", Menlo, monospace; overflow-x: auto;
+    margin: .6rem 0;
+  }
+  pre .k { color: #89b4fa; } /* key */
+  pre .s { color: #a6e3a1; } /* string */
+  pre .n { color: #fab387; } /* number / literal */
+  pre .c { color: #6c7086; } /* comment */
+
+  .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 1rem 1.1rem;
+  }
+  .card h3 { margin: 0 0 .5rem; font-size: 1rem; display: flex; align-items: center; gap: .5rem; }
+  .card.mental { border-top: 4px solid var(--review); }
+  .card.doh    { border-top: 4px solid var(--factory); }
+  .card.odpc   { border-top: 4px solid var(--odpc); }
+  .tag {
+    display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .02em;
+    padding: .1rem .5rem; border-radius: 999px; color: #fff;
+  }
+  .tag.mental   { background: var(--review); }
+  .tag.doh      { background: var(--factory); }
+  .tag.odpc     { background: var(--odpc); }
+  .tag.approve  { background: var(--good); }
+  .tag.change   { background: var(--warn); }
+  .tag.reject   { background: var(--bad); }
+
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 13.5px; }
+  th, td { border: 1px solid var(--line); padding: .55rem .75rem; text-align: start; vertical-align: top; }
+  th { background: var(--panel); font-weight: 700; white-space: nowrap; }
+  td code { font-size: .82em; }
+
+  /* endpoint blocks */
+  .ep {
+    border: 1px solid var(--line); border-radius: 10px; margin: 1.2rem 0; overflow: hidden;
+  }
+  .ep-head {
+    display: flex; align-items: center; gap: .7rem; padding: .65rem 1rem;
+    background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  .method {
+    font: 700 .75rem/1 ui-monospace, monospace; padding: .2rem .55rem; border-radius: 5px;
+    color: #fff; white-space: nowrap;
+  }
+  .method.get    { background: #1a7f37; }
+  .method.post   { background: #0969da; }
+  .method.patch  { background: #bc4c00; }
+  .ep-path { font: 600 .9rem/1.3 ui-monospace, monospace; color: var(--ink); }
+  .ep-desc { color: var(--muted); font-size: .85rem; flex: 1; }
+  .ep-guard {
+    font-size: .72rem; font-weight: 700; padding: .15rem .4rem; border-radius: 999px;
+    white-space: nowrap;
+  }
+  .ep-guard.factory { background: #ddf4ff; color: #0550ae; }
+  .ep-guard.eval    { background: #fbefff; color: #6639ba; }
+  .ep-body { padding: .85rem 1rem; }
+  .ep-section { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: .8rem 0 .2rem; }
+  .ep-section:first-child { margin-top: 0; }
+  .ep-row { display: flex; gap: 1rem; }
+  .ep-row > * { flex: 1; min-width: 0; }
+
+  .flow { display: flex; flex-direction: column; align-items: center; gap: .15rem; margin: 1.2rem 0; }
+  .node {
+    width: 100%; max-width: 520px; text-align: center; border-radius: 10px;
+    padding: .75rem 1rem; border: 1.5px solid var(--line); background: var(--panel);
+  }
+  .node small { display: block; color: var(--muted); font-size: .82rem; margin-top: .2rem; }
+  .node.factory { border-color: var(--factory); }
+  .node.review  { border-color: var(--review); }
+  .node.odpc    { border-color: var(--odpc); }
+  .node.good    { border-color: var(--good); background: #eaffea; }
+  .node.back    { border-color: var(--warn); background: #fff4e6; }
+  .arrow-s { color: var(--muted); font-size: 1.2rem; line-height: 1; }
+  .arrow-s small { display: block; font-size: .78rem; }
+
+  .callout {
+    border-inline-start: 4px solid var(--odpc); background: #faf7ff;
+    padding: .75rem 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0; font-size: .88rem;
+  }
+  .callout.warn { border-color: var(--warn); background: #fff9f0; }
+  .callout.good { border-color: var(--good); background: #f0fff4; }
+  .callout.bad  { border-color: var(--bad); background: #fff5f5; }
+
+  .grade-row { display: flex; align-items: center; gap: .5rem; }
+  .medal { font-size: 1.2rem; }
+
+  ul.clean { margin: .4rem 0; padding-inline-start: 1.2rem; }
+  ul.clean li { margin: .25rem 0; }
+
+  footer { margin-top: 3rem; text-align: center; color: var(--muted); font-size: .8rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>ระบบการประเมิน Cover — API Reference (ภาษาไทย)</h1>
+  <p class="sub">การตรวจประเมินแบบลำดับชั้น โดยมี ODPC เป็นผู้ตัดสินสุดท้าย · อ้างอิง <code>CONTEXT.md</code>, ADR-0003, ADR-0004 · อัปเดต bolt-006 ถึง bolt-010</p>
+
+  <!-- ─── 1. ROLES ─── -->
+  <h2><span class="n">1</span>ผู้ประเมินและการแบ่งหมวด</h2>
+  <p>ผู้ประเมิน (Evaluator) แต่ละคนถูกจำกัดด้วย <code>region</code> (เห็นเฉพาะ Cover ในภูมิภาคของตน) และ <code>level</code> ซึ่งกำหนด<strong>หมวดที่ตรวจ</strong>และ<strong>อำนาจ</strong> การตรวจเป็นแบบ<strong>ลำดับชั้น</strong> ไม่ใช่แบบเท่าเทียม</p>
+  <div class="grid">
+    <div class="card mental">
+      <h3><span class="tag mental">Mental</span> Tier-1</h3>
+      <p>หมวด: <strong>Mental</strong></p>
+      <p>ตัดสินได้เฉพาะหมวดของตน · ไม่จบกระบวนการ (non-finalizing) — Cover คง <code>in_review</code></p>
+    </div>
+    <div class="card doh">
+      <h3><span class="tag doh">DOH</span> Tier-1</h3>
+      <p>หมวด: <strong>Disease</strong>, <strong>Safety</strong></p>
+      <p>ตัดสินได้เฉพาะหมวดของตน · ไม่จบกระบวนการ — แก้ไขผลของตนเองได้ขณะ Cover ยัง <code>in_review</code></p>
+    </div>
+    <div class="card odpc">
+      <h3><span class="tag odpc">ODPC</span> Finalizer</h3>
+      <p>หมวดหลัก: <strong>Collaborate</strong>, <strong>Outcome</strong></p>
+      <p><strong>อำนาจเหนือทุกหมวด</strong> — แก้ผลที่ยังไม่ <code>finished</code> ได้ · เป็น<strong>ผู้เดียวที่ปิดงาน</strong> (เขียน coverLogs + คำนวณเกรด + ส่งอีเมล)</p>
+    </div>
+  </div>
+  <div class="callout">
+    <strong>กฎ override:</strong> Tier-1 แก้ได้เฉพาะผลของตนขณะ <code>in_review</code> · ODPC แก้ได้ทุกรายการที่ยังไม่ <code>finished</code> · <strong>คำตอบที่ <code>finished</code> แล้วล็อกถาวร — แม้แต่ ODPC ก็แก้ไม่ได้</strong>
+  </div>
+
+  <!-- ─── 2. VERDICT OUTCOMES ─── -->
+  <h2><span class="n">2</span>ผลการตัดสิน 3 แบบต่อหนึ่งคำตอบ</h2>
+  <table>
+    <thead>
+      <tr><th>ผลการตัดสิน</th><th>สถานะคำตอบ</th><th><code>verdict_choice</code></th><th>description</th><th>ไฟล์</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="tag approve">Approve</span> อนุมัติ</td>
+        <td>Tier-1 → <code>recommended</code><br>ODPC → <code>finished</code></td>
+        <td>—</td>
+        <td>ไม่บังคับ</td>
+        <td>คงไว้</td>
+      </tr>
+      <tr>
+        <td><span class="tag change">Change-score</span> ปรับคะแนน</td>
+        <td><code>rejected</code></td>
+        <td><code>0</code>–<code>3</code> (ไม่มี <code>n/a</code>)</td>
+        <td><strong>บังคับ</strong></td>
+        <td>คงไว้ (โรงงานใช้คัดค้าน)</td>
+      </tr>
+      <tr>
+        <td><span class="tag reject">Reject</span> ตีกลับ</td>
+        <td><code>rejected</code></td>
+        <td><code>null</code></td>
+        <td><strong>บังคับ</strong></td>
+        <td><strong>ลบจาก MinIO ทันที</strong></td>
+      </tr>
+    </tbody>
+  </table>
+  <p>ทั้ง change_score และ reject ใช้สถานะ <code>rejected</code> ร่วมกัน — แยกด้วยการมี <code>verdict_choice</code> หรือไม่<br>
+  <strong>Answer status enum (4 ค่า):</strong> <code>in_review</code> · <code>recommended</code> · <code>rejected</code> · <code>finished</code></p>
+
+  <!-- ─── 3. ANSWER STATUS ─── -->
+  <h2><span class="n">3</span>เส้นทางสถานะของคำตอบ (Answer Status Flow)</h2>
+  <div class="flow">
+    <div class="node factory"><code>in_review</code><small>โรงงานส่งแบบประเมิน</small></div>
+    <div class="arrow-s">▼</div>
+    <div class="node review"><code>recommended</code><small>Tier-1 approve หรือโรงงาน accept verdict</small></div>
+    <div class="arrow-s">▼ <small style="display:inline">ODPC confirm (backstop หรือ approve)</small></div>
+    <div class="node good"><code>finished</code><small>ล็อกถาวร — ไม่มีใครแก้ได้อีก</small></div>
+  </div>
+  <div class="flow" style="margin-top:0;">
+    <div class="node"><code>in_review</code></div>
+    <div class="arrow-s">▼ <small style="display:inline">ผู้ตรวจ change_score หรือ reject</small></div>
+    <div class="node back"><code>rejected</code><small>โรงงานต้อง accept หรือ redo ก่อนส่งใหม่ได้</small></div>
+    <div class="arrow-s">▼ <small style="display:inline">factory negotiate: accept หรือ redo</small></div>
+    <div class="node review"><code>recommended</code> หรือ <code>in_review</code></div>
+  </div>
+
+  <!-- ─── 4. NEGOTIATION ─── -->
+  <h2><span class="n">4</span>รอบเจรจาคะแนน (Negotiation Loop)</h2>
+  <p>เมื่อ ODPC ตีกลับ Cover เป็น <code>in_progress</code> โรงงานต้องจัดการแต่ละคำตอบที่ <code>rejected</code> ด้วย <code>POST /answers/negotiate</code>:</p>
+  <table>
+    <thead>
+      <tr><th>กรณี</th><th>action</th><th>เงื่อนไข</th><th>ผลลัพธ์</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2"><span class="tag change">Change-score</span><br>(มี verdict_choice)</td>
+        <td><code>"accept"</code></td>
+        <td>ไม่ต้องส่ง selectedChoice ใหม่ · ตรวจไฟล์ตาม verdict_choice<br>ถ้า verdict_choice สูงกว่าเดิมต้องมีไฟล์ถึง level นั้น</td>
+        <td>คำตอบ → <code>recommended</code><br>selectedChoice อัปเดตเป็น verdict_choice</td>
+      </tr>
+      <tr>
+        <td><code>"redo"</code></td>
+        <td>ส่ง selectedChoice + ไฟล์ใหม่ · ตรวจไฟล์ตาม selectedChoice ใหม่</td>
+        <td>คำตอบ → <code>in_review</code></td>
+      </tr>
+      <tr>
+        <td><span class="tag reject">Reject</span><br>(verdict_choice = null)</td>
+        <td><code>"redo"</code></td>
+        <td>ส่ง selectedChoice + ไฟล์ใหม่ · <strong>ห้าม accept</strong> (ไม่มี verdict_choice)</td>
+        <td>คำตอบ → <code>in_review</code></td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="callout warn">
+    <strong>Re-submit gate:</strong> โรงงานกด <code>POST /submission</code> ได้ก็ต่อเมื่อ<strong>ไม่มีคำตอบใดเป็น <code>rejected</code></strong> — ต้อง accept หรือ redo ครบก่อน ถ้า Cover เป็น <code>finished</code> ส่งใหม่ไม่ได้เลย
+  </div>
+  <div class="callout">
+    <strong>Live Choice:</strong> คะแนนที่ใช้คำนวณสกอร์ = <code>answers.selectedChoice</code> เสมอ — อัปเดตอัตโนมัติเมื่อโรงงาน accept · ดังนั้น open verdict (ยังไม่ accept) <strong>ไม่กระทบ</strong>คะแนนรายงาน
+  </div>
+
+  <!-- ─── 5. GRADE ─── -->
+  <h2><span class="n">5</span>เกรด/ระดับรางวัล (Grade)</h2>
+  <p>คำนวณสดทุกครั้ง (ไม่บันทึกถาวร) จาก live choice ของทุกคำตอบ โดยใช้ลำดับ<strong>จากบนลงล่าง — ใช้ระดับแรกที่ผ่านทุกเงื่อนไข</strong>:</p>
+  <table>
+    <thead><tr><th>ระดับ</th><th>เงื่อนไข (ต้องครบทุกข้อ)</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><div class="grade-row"><span class="medal">🥇</span><strong>gold</strong></div></td>
+        <td>ทุกหมวด <strong>&gt; 80%</strong> · คะแนนรวม <strong>≥ 90%</strong> · ทุกข้อที่ <code>special &gt; 0</code> ได้คะแนน <code>"3"</code></td>
+      </tr>
+      <tr>
+        <td><div class="grade-row"><span class="medal">🥈</span><strong>silver</strong></div></td>
+        <td>ทุกหมวด <strong>&gt; 60%</strong> · คะแนนรวม <strong>≥ 80%</strong></td>
+      </tr>
+      <tr>
+        <td><div class="grade-row"><span class="medal">📜</span><strong>certificate</strong></div></td>
+        <td>คะแนนรวม <strong>≥ 60%</strong></td>
+      </tr>
+      <tr>
+        <td><div class="grade-row"><span class="medal">🎗️</span><strong>joined</strong></div></td>
+        <td>คะแนนรวม <strong>&lt; 60%</strong></td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="callout bad">
+    <strong>Silver→Certificate cliff:</strong> ถ้าหมวดใด <strong>≤ 60%</strong> จะตกมา Certificate แม้คะแนนรวมจะสูงมาก เช่น รวม 90% แต่หมวดหนึ่งได้ 55% → Certificate
+  </div>
+  <p><strong>grade ปรากฏใน:</strong> response ของ <code>POST /verdict</code> (ODPC เท่านั้น) + ทุก score endpoint (<code>null</code> ถ้า Cover ยังไม่ <code>finished</code>)</p>
+
+  <!-- ─── 6. COVER FLOW ─── -->
+  <h2><span class="n">6</span>ลำดับสถานะของ Cover</h2>
+  <div class="flow">
+    <div class="node factory">โรงงานกรอกคำตอบ — Cover: <code>in_progress</code><small>POST /answers, PATCH /answers</small></div>
+    <div class="arrow-s">▼ POST /submission</div>
+    <div class="node review">Cover: <code>in_review</code></div>
+    <div class="arrow-s">▼</div>
+    <div class="node review">Tier-1 ตรวจ (Mental/DOH) — non-finalizing<small>POST /evaluators/covers/:coverId/verdict</small></div>
+    <div class="arrow-s">▼</div>
+    <div class="node odpc">ODPC ตรวจ + ปิดงาน — FINALIZER<small>POST /evaluators/covers/:coverId/verdict</small></div>
+    <div class="arrow-s">▼ <small style="display:inline">มีคำตอบ rejected?</small></div>
+    <div style="display:flex; gap:1rem; width:100%; max-width:560px;">
+      <div class="node back" style="flex:1;">มี → <code>in_progress</code><small>ส่งอีเมล "ต้องแก้ไข" · ไม่มีเกรด</small></div>
+      <div class="node good" style="flex:1;">ไม่มี → <code>finished</code><small>คำนวณเกรด · ส่งอีเมล "เสร็จสมบูรณ์ + เกรด"</small></div>
+    </div>
+    <div class="arrow-s"><small>Factory negotiate → re-submit → วนกลับ in_review (ไม่จำกัดรอบ)</small>↺</div>
+  </div>
+
+  <!-- ─── 7. ENDPOINTS ─── -->
+  <h2><span class="n">7</span>Endpoints ทั้งหมด (สำหรับ Frontend)</h2>
+  <p>Base path: <code>/twhp/api</code> · Auth: Cookie-based JWT (<code>Authentication</code> + <code>Refresh</code>) · Content-Type: <code>application/json</code> ยกเว้น endpoint ที่มีไฟล์ใช้ <code>multipart/form-data</code></p>
+
+  <!-- ── FACTORY SECTION ── -->
+  <h3>Factory Endpoints <span class="tag doh" style="font-size:.75rem;">factoryGuard</span></h3>
+
+  <!-- GET covers -->
+  <div class="ep">
+    <div class="ep-head">
+      <span class="method get">GET</span>
+      <span class="ep-path">/factories/assessments/covers</span>
+      <span class="ep-desc">ดูข้อมูล Cover + สถานะล่าสุด</span>
+      <span class="ep-guard factory">Factory</span>
+    </div>
+    <div class="ep-body">
+      <div class="ep-section">Response 200</div>
+<pre>{ <span class="k">id</span>: <span class="n">number</span>, <span class="k">enrollId</span>: <span class="n">number</span>, <span class="k">status</span>: <span class="s">"in_progress"</span> | <span class="s">"in_review"</span> | <span class="s">"finished"</span>, <span class="k">update_date</span>: <span class="s">string</span>, ... }</pre>
+      <div class="ep-section">Errors</div>
+      <code>404</code> — cover not found (ยังไม่ได้สร้าง)
+    </div>
+  </div>
+
+  <!-- POST covers -->
+  <div class="ep">
+    <div class="ep-head">
+      <span class="method post">POST</span>
+      <span class="ep-path">/factories/assessments/covers</span>
+      <span class="ep-desc">สร้าง Cover ปีงบฯ ปัจจุบัน</span>
+      <span class="ep-guard factory">Factory</span>
+    </div>
+    <div class="ep-body">
+      <div class="ep-section">Response 201</div>
+      <code>{ message: "assessment cover created!" }</code>
+      <div class="ep-section">Errors</div>
+      <code>400</code> — cover already exists for this enroll<br>
+      <code>404</code> — enroll not found (ยังไม่ได้สมัครโครงการ)
+    </div>
+  </div>
+
+  <!-- GET questions -->
+  <div class="ep">
+    <div class="ep-head">
+      <span class="method get">GET</span>
+      <span class="ep-path">/factories/assessments/questions</span>
+      <span class="ep-desc">ดึงคำถามทั้งหมด</span>
+      <span class="ep-guard factory">Factory</span>
+    </div>
+    <div class="ep-body">
+      <div class="ep-section">Response 200</div>
+<pre>[{ <span class="k">id</span>: <span class="n">number</span>, <span class="k">category</span>: <span class="s">"Collaborate"</span>|<span class="s">"Disease"</span>|<span class="s">"Safety"</span>|<span class="s">"Mental"</span>|<span class="s">"Outcome"</span>, <span class="k">special</span>: <span class="n">number</span>, ... }]</pre>
+      <p><code>special &gt; 0</code> = ข้อที่ต้องได้คะแนนเต็ม (<code>"3"</code>) เพื่อได้ระดับ Gold</p>
+    </div>
+  </div>
+
+  <!-- GET answers -->
+  <div class="ep">
+    <div class="ep-head">
+      <span class="method get">GET</span>
+      <span class="ep-path">/factories/assessments/answers</span>
+      <span class="ep-desc">ดึงคำตอบทั้งหมดของโรงงาน</span>
+      <span class="ep-guard factory">Factory</span>
+    </div>
+    <div class="ep-body">
+      <div class="ep-section">Response 200</div>
+<pre>[{
+  <span class="k">questionId</span>: <span class="n">number</span>, <span class="k">selectedChoice</span>: <span class="s">"0"</span>|<span class="s">"1"</span>|<span class="s">"2"</span>|<span class="s">"3"</span>|<span class="s">"n/a"</span>,
+  <span class="k">fileUrl1_1</span>: <span class="n">string</span>|<span class="n">null</span>, <span class="k">fileUrl1_2</span>: <span class="n">string</span>|<span class="n">null</span>, ... <span class="c">// 9 fileUrl fields</span>
+}]</pre>
+    </div>
+  </div>
+
+  <!-- POST answers -->
+  <div class="ep">
+    <div class="ep-head">
+      <span class="method post">POST</span>
+      <span class="ep-path">/factories/assessments/answers</span>
+      <span class="ep-desc">บันทึกคำตอบใหม่ · multipart/form-data</span>
+      <span class="ep-guard factory">Factory</span>
+    </div>
+    <div class="ep-body">
+      <div class="ep-section">Request Body (multipart/form-data)</div>
+<pre>{
+  <span class="k">questionId</span>: <span class="n">number</span>,
+  <span class="k">selectedChoice</span>: <span class="s">"0"</span>|<span class="s">"1"</span>|<span class="s">"2"</span>|<span class="s">"3"</span>|<span class="s">"n/a"</span>,
+  <span class="k">file_1_1</span>?: <span class="n">File</span> (PDF ≤10MB), <span class="k">file_1_2</span>?: <span class="n">File</span>, <span class="k">file_1_3</span>?: <span class="n">File</span>,
+  <span class="k">file_2_1</span>?: <span class="n">File</span>, <span class="k">file_2_2</span>?: <span class="n">File</span>, <span class="k">file_2_3</span>?: <span class="n">File</span>,
+  <span class="k">file_3_1</span>?: <span class="n">File</span>, <span class="k">file_3_2</span>?: <span class="n">File</span>, <span class="k">file_3_3</span>?: <span class="n">File</span>
+}</pre>
+      <div class="ep-section">ข้อกำหนดไฟล์ตาม selectedChoice</div>
+      <table>
+        <tr><th>selectedChoice</th><th>ต้องมีไฟล์อย่างน้อย</th></tr>
+        <tr><td><code>"0"</code> / <code>"n/a"</code></td><td>ไม่ต้องใช้ไฟล์</td></tr>
+        <tr><td><code>"1"</code></td><td><code>file_1_1</code></td></tr>
+        <tr><td><code>"2"</code></td><td><code>file_1_1</code>, <code>file_2_1</code></td></tr>
+        <tr><td><code>"3"</code></td><td><code>file_1_1</code>, <code>file_2_1</code>, <code>file_3_1</code></td></tr>
+      </table>
+      <div class="ep-section">Response</div>
+      <code>201</code> <code>{ message: "answer save!" }</code>
+      <div class="ep-section">Errors</div>
+      <code>400</code> — answer already exists / ไฟล์ไม่ครบตาม choice<br>
+      <code>404</code> — cover/question not found
+    </div>
+  </div>
+
+  <!-- PATCH answers -->
+  <div class="ep">
+    <div class="ep-head">
+      <span class="method patch">PATCH</span>
+      <span class="ep-path">/factories/assessments/answers</span>
+      <span class="ep-desc">แก้ไขคำตอบ · multipart/form-data · ใช้ได้เฉพาะสถานะ <code>in_review</code> หรือ <code>in_progress</code></span>
+      <span class="ep-guard factory">Factory</span>
+    </div>
+    <div class="ep-body">
+      <div class="ep-section">Request Body (multipart/form-data)</div>
+<pre>{
+  <span class="k">questionId</span>: <span class="n">number</span>,
+  <span class="k">selectedChoice</span>?: <span class="s">"0"</span>|<span class="s">"1"</span>|<span class="s">"2"</span>|<span class="s">"3"</span>|<span class="s">"n/a"</span>,  <span class="c">// ถ้าไม่ส่ง = คงค่าเดิม</span>
+  <span class="k">file_1_1</span>?: <span class="n">File</span>, ... <span class="c">// ไฟล์ที่ส่งมาจะแทนที่ของเดิม, ไม่ส่ง = คงเดิม</span>
+}</pre>
+      <div class="ep-section">Response</div>
+      <code>200</code> <code>{ message: "answer update" }</code>
+      <div class="ep-section">Errors</div>
+      <code>400</code> — answer cannot be updated in its current status (เช่น <code>finished</code> / <code>recommended</code>)<br>
+      <code>404</code> — cover/question/answer not found
+    </div>
+  </div>
+
+  <!-- POST negotiate -->
+  <div class="ep">
+    <div class="ep-head">
+      <span class="method post">POST</span>
+      <span class="ep-path">/factories/assessments/answers/negotiate</span>
+      <span class="ep-desc">ยอมรับ (accept) หรือทำใหม่ (redo) คำตอบที่ <code>rejected</code> · multipart/form-data</span>
+      <span class="ep-guard factory">Factory</span>
+    </div>
+    <div class="ep-body">
+      <div class="ep-section">Request Body (multipart/form-data)</div>
+<pre>{
+  <span class="k">action</span>: <span class="s">"accept"</span> | <span class="s">"redo"</span>,
+  <span class="k">questionId</span>: <span class="n">number</span>,
+  <span class="c">// สำหรับ "redo" เท่านั้น:</span>
+  <span class="k">selectedChoice</span>?: <span class="s">"0"</span>|<span class="s">"1"</span>|<span class="s">"2"</span>|<span class="s">"3"</span>|<span class="s">"n/a"</span>,
+  <span class="k">file_1_1</span>?: <span class="n">File</span>, <span class="k">file_1_2</span>?: <span class="n">File</span>, <span class="k">file_1_3</span>?: <span class="n">File</span>,
+  <span class="k">file_2_1</span>?: <span class="n">File</span>, <span class="k">file_2_2</span>?: <span class="n">File</span>, <span class="k">file_2_3</span>?: <span class="n">File</span>,
+  <span class="k">file_3_1</span>?: <span class="n">File</span>, <span class="k">file_3_2</span>?: <span class="n">File</span>, <span class="k">file_3_3</span>?: <span class="n">File</span>
+}</pre>
+      <div class="ep-section">Logic</div>
+      <table>
+        <tr><th>action</th><th>ใช้ได้กับ</th><th>ผลลัพธ์</th></tr>
+        <tr>
+          <td><code>"accept"</code></td>
+          <td>คำตอบที่ <code>rejected</code> และมี <code>verdict_choice</code> (change_score เท่านั้น)</td>
+          <td>คำตอบ → <code>recommended</code> · <code>selectedChoice</code> อัปเดตเป็น <code>verdict_choice</code></td>
+        </tr>
+        <tr>
+          <td><code>"redo"</code></td>
+          <td>คำตอบที่ <code>rejected</code> ทุกกรณี (ทั้ง change_score และ reject)</td>
+          <td>คำตอบ → <code>in_review</code> · อัปโหลดไฟล์ใหม่ตาม selectedChoice ใหม่</td>
+        </tr>
+      </table>
+      <div class="ep-section">Response</div>
+      <code>200</code> <code>{ message: "answer accepted" }</code>
+      <div class="ep-section">Errors</div>
+      <code>400</code> — cover not in_progress / answer not rejected / hard-reject cannot accept / ไฟล์ไม่ครบ<br>
+      <code>404</code> — cover/question/answer not found
+    </div>
+  </div>
+
+  <!-- POST submission -->
+  <div class="ep">
+    <div class="ep-head">
+      <span class="method post">POST</span>
+      <span class="ep-path">/factories/assessments/submission</span>
+      <span class="ep-desc">ส่งคำตอบทั้งชุด (submit / re-submit)</span>
+      <span class="ep-guard factory">Factory</span>
+    </div>
+    <div class="ep-body">
+      <div class="ep-section">เงื่อนไข</div>
+      <ul class="clean">
+        <li>Cover ต้องเป็น <code>in_progress</code></li>
+        <li>จำนวนคำตอบต้องครบทุกคำถาม</li>
+        <li><strong>ห้ามมีคำตอบใดเป็น <code>rejected</code></strong> (ต้อง negotiate ก่อน)</li>
+      </ul>
+      <div class="ep-section">Response</div>
+      <code>200</code> <code>{ message: "answers submit" }</code>
+      <div class="ep-section">Errors</div>
+      <code>400</code> — cover not in progress / คำตอบไม่ครบ / มี rejected answers (พร้อม <code>rejectedAnswerIds: number[]</code>)
+    </div>
+  </div>
+
+  <!-- GET factory score -->
+  <div class="ep">
+    <div class="ep-head">
+      <span class="method get">GET</span>
+      <span class="ep-path">/factories/assessments/score</span>
+      <span class="ep-desc">ดูคะแนนประเมินของโรงงานตัวเอง</span>
+      <span class="ep-guard factory">Factory</span>
+    </div>
+    <div class="ep-body">
+      <div class="ep-section">Response 200 — ScoreReport</div>
+<pre>{
+  <span class="k">factoryId</span>: <span class="n">number</span>, <span class="k">factoryNameTh</span>: <span class="n">string</span>, <span class="k">coverId</span>: <span class="n">number</span>,
+  <span class="k">coverStatus</span>: <span class="s">"in_review"</span> | <span class="s">"finished"</span>,  <span class="c">// in_progress = 400</span>
+  <span class="k">enrollId</span>: <span class="n">number</span>,
+  <span class="k">grade</span>: <span class="s">"gold"</span>|<span class="s">"silver"</span>|<span class="s">"certificate"</span>|<span class="s">"joined"</span>|<span class="n">null</span>,  <span class="c">// null ถ้าไม่ finished</span>
+  <span class="k">scoring</span>: {
+    <span class="k">total</span>:       { <span class="k">scoredCount</span>: <span class="n">number</span>, <span class="k">maxScore</span>: <span class="n">number</span>, <span class="k">achievedScore</span>: <span class="n">number</span>, <span class="k">percentage</span>: <span class="n">number</span> },
+    <span class="k">collaborate</span>: { ... }, <span class="k">disease</span>: { ... }, <span class="k">safety</span>: { ... },
+    <span class="k">mental</span>:      { ... }, <span class="k">outcome</span>: { ... }
+  }
+}</pre>
+      <div class="ep-section">Errors</div>
+      <code>400</code> — cover is not ready for scoring (ยัง in_progress)<br>
+      <code>404</code> — cover not found
+    </div>
+  </div>
+
+  <!-- ── EVALUATOR SECTION ── -->
+  <h3>Evaluator Endpoints <span class="tag odpc" style="font-size:.75rem;">evalGuard</span></h3>
+  <p>ทุก endpoint กรองข้อมูลตาม <code>region</code> ของผู้ประเมินอัตโนมัติ</p>
+
+  <!-- GET factories -->
+  <div class="ep">
+    <div class="ep-head">
+      <span class="method get">GET</span>
+      <span class="ep-path">/evaluators/factories?validated=bool&amp;enrolled=bool</span>
+      <span class="ep-desc">รายชื่อโรงงานในเขต</span>
+      <span class="ep-guard eval">Evaluator</span>
+    </div>
+    <div class="ep-body">
+      <div class="ep-section">Query Params</div>
+      <code>validated: boolean</code> — กรองสถานะการอนุมัติ<br>
+      <code>enrolled: boolean</code> (optional) — กรองสถานะการสมัครโครงการ
+      <div class="ep-section">Response 200</div>
+<pre>[{ <span class="k">account_id</span>: <span class="n">number</span>, <span class="k">name_th</span>: <span class="n">string</span>, <span class="k">name_en</span>: <span class="n">string</span>, <span class="k">province_name_th</span>: <span class="n">string</span>|<span class="n">null</span>, <span class="k">is_validate</span>: <span class="n">boolean</span>, ... }]</pre>
+    </div>
+  </div>
+
+  <!-- GET enrolls -->
+  <div class="ep">
+    <div class="ep-head">
+      <span class="method get">GET</span>
+      <span class="ep-path">/evaluators/enrolls</span>
+      <span class="ep-desc">รายการ enrollment ปีงบฯ ปัจจุบันในเขต</span>
+      <span class="ep-guard eval">Evaluator</span>
+    </div>
+    <div class="ep-body">
+      <div class="ep-section">Response 200</div>
+<pre>[{ <span class="k">id</span>: <span class="n">number</span>, <span class="k">factoryId</span>: <span class="n">number</span>, <span class="k">factory_name_th</span>: <span class="n">string</span>, <span class="k">region</span>: <span class="n">number</span>, <span class="k">enrollDate</span>: <span class="n">string</span>, ... }]</pre>
+    </div>
+  </div>
+
+  <!-- GET answers (evaluator) -->
+  <div class="ep">
+    <div class="ep-head">
+      <span class="method get">GET</span>
+      <span class="ep-path">/evaluators/covers/:coverId/answers</span>
+      <span class="ep-desc">ดูคำตอบสำหรับประเมิน กรองตาม level/category ของผู้ประเมิน</span>
+      <span class="ep-guard eval">Evaluator</span>
+    </div>
+    <div class="ep-body">
+      <div class="ep-section">Visibility</div>
+      <table>
+        <tr><th>Level</th><th>เห็นหมวด</th></tr>
+        <tr><td>Mental</td><td>Mental เท่านั้น</td></tr>
+        <tr><td>DOH</td><td>Disease, Safety</td></tr>
+        <tr><td>ODPC</td><td>ทุกหมวด (Collaborate, Disease, Safety, Mental, Outcome)</td></tr>
+      </table>
+      <div class="ep-section">Response 200</div>
+<pre>[{
+  <span class="k">answerId</span>: <span class="n">number</span>, <span class="k">questionId</span>: <span class="n">number</span>,
+  <span class="k">category</span>: <span class="s">"Collaborate"</span>|<span class="s">"Disease"</span>|<span class="s">"Safety"</span>|<span class="s">"Mental"</span>|<span class="s">"Outcome"</span>,
+  <span class="k">status</span>: <span class="s">"in_review"</span>|<span class="s">"recommended"</span>|<span class="s">"rejected"</span>|<span class="s">"finished"</span>,
+  <span class="k">selectedChoice</span>: <span class="n">string</span>,  <span class="c">// คะแนนที่โรงงานตอบ (live choice)</span>
+  <span class="k">latestVerdictChoice</span>: <span class="n">string</span>|<span class="n">null</span>,  <span class="c">// คะแนนที่ผู้ตรวจเสนอ (ถ้ามี)</span>
+  <span class="k">latestDescription</span>: <span class="n">string</span>|<span class="n">null</span>
+}]</pre>
+      <div class="ep-section">Errors</div>
+      <code>404</code> — cover not found หรือ Cover ไม่อยู่ใน region ของผู้ประเมิน
+    </div>
+  </div>
+
+  <!-- POST verdict -->
+  <div class="ep">
+    <div class="ep-head">
+      <span class="method post">POST</span>
+      <span class="ep-path">/evaluators/covers/:coverId/verdict</span>
+      <span class="ep-desc">ส่งชุดผลการตัดสิน (batch) — 1 transaction</span>
+      <span class="ep-guard eval">Evaluator</span>
+    </div>
+    <div class="ep-body">
+      <div class="ep-section">Request Body (JSON Array)</div>
+<pre>[
+  { <span class="k">answerId</span>: <span class="n">number</span>, <span class="k">decision</span>: <span class="s">"approve"</span> },
+  { <span class="k">answerId</span>: <span class="n">number</span>, <span class="k">decision</span>: <span class="s">"change_score"</span>, <span class="k">verdictChoice</span>: <span class="s">"0"</span>|<span class="s">"1"</span>|<span class="s">"2"</span>|<span class="s">"3"</span>, <span class="k">description</span>: <span class="n">string</span> },
+  { <span class="k">answerId</span>: <span class="n">number</span>, <span class="k">decision</span>: <span class="s">"reject"</span>, <span class="k">description</span>: <span class="n">string</span> }
+]</pre>
+      <div class="ep-section">Tier-1 vs ODPC</div>
+      <table>
+        <tr><th></th><th>Tier-1 (Mental/DOH)</th><th>ODPC (Finalizer)</th></tr>
+        <tr><td>หมวดที่ตัดสินได้</td><td>เฉพาะหมวดของตน</td><td>ทุกหมวด</td></tr>
+        <tr><td>ผลต่อ Cover</td><td>คง <code>in_review</code></td><td>เปลี่ยน → <code>finished</code> หรือ <code>in_progress</code></td></tr>
+        <tr><td>Side effects</td><td>บันทึก answerLogs</td><td>backstop + ลบไฟล์ที่ reject + coverLog + อีเมล</td></tr>
+        <tr><td>grade ใน response</td><td>ไม่มี</td><td>มี (null ถ้า in_progress)</td></tr>
+      </table>
+      <div class="ep-section">ODPC Finalize Gate</div>
+      <div class="callout" style="margin:.3rem 0 .5rem;">ปิดงานได้ก็ต่อเมื่อ<strong>ไม่มีคำตอบใดเป็น <code>in_review</code></strong> อีก หลัง backstop แปลง <code>recommended</code> → <code>finished</code> อัตโนมัติ</div>
+      <div class="ep-section">Response 200</div>
+<pre>{
+  <span class="k">message</span>: <span class="s">"verdict submitted"</span>,
+  <span class="k">grade</span>: <span class="s">"gold"</span>|<span class="s">"silver"</span>|<span class="s">"certificate"</span>|<span class="s">"joined"</span>|<span class="n">null</span>
+  <span class="c">// grade มีค่าเฉพาะ ODPC commit → finished · Tier-1 และ ODPC→in_progress = null/undefined</span>
+}</pre>
+      <div class="ep-section">Errors</div>
+      <code>400</code> — finalization blocked (มี in_review เหลือ) / ผลคำตอบไม่อยู่ในหมวดของ evaluator<br>
+      <code>403</code> — unauthorized level<br>
+      <code>404</code> — cover not found / ไม่อยู่ใน region
+    </div>
+  </div>
+
+  <!-- GET evaluator score -->
+  <div class="ep">
+    <div class="ep-head">
+      <span class="method get">GET</span>
+      <span class="ep-path">/evaluators/score</span>
+      <span class="ep-desc">คะแนนโรงงานทั้งหมดในเขตสุขภาพ (เฉพาะ in_review + finished)</span>
+      <span class="ep-guard eval">Evaluator</span>
+    </div>
+    <div class="ep-body">
+      <div class="ep-section">Response 200</div>
+<pre>[{ <span class="k">factoryId</span>: <span class="n">number</span>, <span class="k">factoryNameTh</span>: <span class="n">string</span>, <span class="k">coverId</span>: <span class="n">number</span>, <span class="k">coverStatus</span>: <span class="n">string</span>, <span class="k">enrollId</span>: <span class="n">number</span>,
+   <span class="k">grade</span>: <span class="s">"gold"</span>|<span class="s">"silver"</span>|<span class="s">"certificate"</span>|<span class="s">"joined"</span>|<span class="n">null</span>, <span class="k">scoring</span>: { <span class="k">total</span>: ScoreGroup, ... } }]</pre>
+      <p><code>grade</code> = <code>null</code> ถ้า <code>coverStatus !== "finished"</code></p>
+    </div>
+  </div>
+
+  <!-- ─── 8. SCHEMA REFERENCE ─── -->
+  <h2><span class="n">8</span>Schema อ้างอิง</h2>
+
+  <h3>ScoreGroup</h3>
+<pre>{ <span class="k">scoredCount</span>: <span class="n">number</span>, <span class="k">maxScore</span>: <span class="n">number</span>, <span class="k">achievedScore</span>: <span class="n">number</span>, <span class="k">percentage</span>: <span class="n">0–100</span> }</pre>
+  <p><code>percentage = Math.round(achievedScore / maxScore * 100)</code> · <code>n/a</code> ไม่นับใน denominator</p>
+
+  <h3>Grade</h3>
+  <p>Union literal: <code>"gold"</code> | <code>"silver"</code> | <code>"certificate"</code> | <code>"joined"</code> — หรือ <code>null</code> ถ้า Cover ยังไม่ <code>finished</code></p>
+
+  <h3>Answer Status</h3>
+  <p>Enum: <code>"in_review"</code> · <code>"recommended"</code> · <code>"rejected"</code> · <code>"finished"</code></p>
+
+  <h3>Cover Status</h3>
+  <p>Derived จาก latest <code>coverLogs</code>: <code>"in_progress"</code> · <code>"in_review"</code> · <code>"finished"</code></p>
+
+  <h3>File Layout (9 slots per Answer)</h3>
+  <table style="font-size:13px;">
+    <thead><tr><th>Slot</th><th>ใช้กับ selectedChoice</th><th>หมายเหตุ</th></tr></thead>
+    <tbody>
+      <tr><td><code>file_1_1</code>, <code>file_1_2</code>, <code>file_1_3</code></td><td>≥ 1</td><td>หลักฐานระดับ 1</td></tr>
+      <tr><td><code>file_2_1</code>, <code>file_2_2</code>, <code>file_2_3</code></td><td>≥ 2</td><td>หลักฐานระดับ 2</td></tr>
+      <tr><td><code>file_3_1</code>, <code>file_3_2</code>, <code>file_3_3</code></td><td>= 3</td><td>หลักฐานระดับ 3</td></tr>
+    </tbody>
+  </table>
+  <p>ไฟล์ที่อัปโหลดได้: PDF เท่านั้น ขนาดสูงสุด 10MB · URL เก็บเป็น presigned URL (MinIO) · ไฟล์ถูก<strong>ลบถาวร</strong>เมื่อ ODPC <em>reject</em> คำตอบนั้น</p>
+
+  <!-- ─── 9. EMAIL NOTIFICATIONS ─── -->
+  <h2><span class="n">9</span>การแจ้งเตือนทางอีเมล</h2>
+  <table>
+    <thead><tr><th>เหตุการณ์</th><th>ผู้รับ</th><th>เนื้อหา</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>ODPC commit → <code>finished</code></td>
+        <td><code>enrolls.safetyOfficerEmail</code> (ถ้าไม่ null)</td>
+        <td>Thai email "ผ่านการประเมิน" + ระดับรางวัล (<code>grade</code>)</td>
+      </tr>
+      <tr>
+        <td>ODPC commit → <code>in_progress</code></td>
+        <td><code>enrolls.safetyOfficerEmail</code> (ถ้าไม่ null)</td>
+        <td>Thai email "ต้องปรับปรุงแก้ไข"</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="callout good">
+    <strong>ข้อสังเกต:</strong> อีเมลส่งเฉพาะจาก ODPC commit เท่านั้น — <strong>ไม่ส่ง</strong>สำหรับผลจาก Tier-1 (Mental/DOH) หรือการ re-submit ของโรงงาน · ถ้า email เป็น null จะข้ามโดยไม่มี error
+  </div>
+
+  <footer>TWHP API · Evaluation Feature Reference · อัปเดต 2026-06-17 (bolt-006 → bolt-010)</footer>
+
+</div>
+</body>
+</html>

@@ -294,7 +294,12 @@ export const covers = pgTable("Covers", {
 });
 
 export const coverStatus = pgEnum("coverStatus", ["finished", "in_progress", "in_review"]);
-export const answerStatus = pgEnum("answerStatus", ["finished", "in_review", "rejected"]);
+export const answerStatus = pgEnum("answerStatus", [
+  "finished",
+  "in_review",
+  "recommended",
+  "rejected",
+]);
 
 export const coverLogs = pgTable("CoverLogs", {
   id: serial().primaryKey().notNull(),
@@ -371,6 +376,7 @@ export const answerLogs = pgTable("AnswerLogs", {
     .notNull()
     .references(() => answers.id, { onDelete: "restrict" }),
   status: answerStatus().notNull(),
+  verdictChoice: choices("verdict_choice"),
   description: text(),
   updatedAt: timestamp("updated_at", { precision: 3, mode: "string" })
     .default(sql`CURRENT_TIMESTAMP`)

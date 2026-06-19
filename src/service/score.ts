@@ -15,9 +15,10 @@ import {
   type AnswerWithCategory,
   type CategoryKey,
   calculateBreakdown,
+  computeGrade,
 } from "./scoreHelpers";
 
-export { calculateBreakdown, scoreGroup } from "./scoreHelpers";
+export { calculateBreakdown, computeGrade, scoreGroup } from "./scoreHelpers";
 
 type CoverWithFactoryInfo = {
   coverId: number;
@@ -53,6 +54,7 @@ export const createScoreService = (database: typeof db) => {
         coverId: answers.coverId,
         selectedChoice: answers.selectedChoice,
         category: questions.category,
+        special: questions.special,
       })
       .from(answers)
       .innerJoin(questions, eq(questions.id, answers.questionId))
@@ -61,18 +63,29 @@ export const createScoreService = (database: typeof db) => {
     const answersByCover = new Map<number, AnswerWithCategory[]>();
     for (const a of allAnswers) {
       const arr = answersByCover.get(a.coverId) ?? [];
-      arr.push({ selectedChoice: a.selectedChoice, category: a.category as CategoryKey });
+      arr.push({
+        selectedChoice: a.selectedChoice,
+        category: a.category as CategoryKey,
+        special: a.special,
+      });
       answersByCover.set(a.coverId, arr);
     }
 
-    return readyCovers.map((c) => ({
-      factoryId: c.factoryId,
-      factoryNameTh: c.factoryNameTh,
-      coverId: c.coverId,
-      coverStatus: statusMap.get(c.coverId) as string,
-      enrollId: c.enrollId,
-      scoring: calculateBreakdown(answersByCover.get(c.coverId) ?? []),
-    }));
+    return readyCovers.map((c) => {
+      const coverAnswers = answersByCover.get(c.coverId) ?? [];
+      const coverStatus = statusMap.get(c.coverId) as string;
+      const scoring = calculateBreakdown(coverAnswers);
+      const grade = coverStatus === "finished" ? computeGrade(scoring, coverAnswers) : null;
+      return {
+        factoryId: c.factoryId,
+        factoryNameTh: c.factoryNameTh,
+        coverId: c.coverId,
+        coverStatus,
+        enrollId: c.enrollId,
+        grade,
+        scoring,
+      };
+    });
   };
 
   return {
@@ -119,10 +132,18 @@ export const createScoreService = (database: typeof db) => {
           coverId: answers.coverId,
           selectedChoice: answers.selectedChoice,
           category: questions.category,
+          special: questions.special,
         })
         .from(answers)
         .innerJoin(questions, eq(questions.id, answers.questionId))
         .where(eq(answers.coverId, coverRow.coverId));
+
+      const mappedAnswers = answerRows.map((a) => ({
+        ...a,
+        category: a.category as CategoryKey,
+      }));
+      const scoring = calculateBreakdown(mappedAnswers);
+      const grade = coverStatus === "finished" ? computeGrade(scoring, mappedAnswers) : null;
 
       return {
         factoryId: coverRow.factoryId,
@@ -130,9 +151,8 @@ export const createScoreService = (database: typeof db) => {
         coverId: coverRow.coverId,
         coverStatus,
         enrollId: coverRow.enrollId,
-        scoring: calculateBreakdown(
-          answerRows.map((a) => ({ ...a, category: a.category as CategoryKey })),
-        ),
+        grade,
+        scoring,
       };
     },
 
