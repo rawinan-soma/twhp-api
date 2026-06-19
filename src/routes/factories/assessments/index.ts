@@ -2,7 +2,11 @@ import { t } from "elysia";
 import type { App } from "../../..";
 import { factoryGuard } from "../../../middleware/guards";
 import { BaseAnswerSelect, BaseCoverSelect, BaseQuestionSelect } from "../../../schema";
-import { CreateAnswerWithFilesSchema, UpdateAnswerWithFilesSchema } from "../../../schema/answer";
+import {
+  CreateAnswerWithFilesSchema,
+  NegotiateAnswerSchema,
+  UpdateAnswerWithFilesSchema,
+} from "../../../schema/answer";
 import { answerService } from "../../../service/answer";
 import { coverService } from "../../../service/cover";
 import { questionService } from "../../../service/question";
@@ -224,6 +228,42 @@ export default (app: App) =>
         },
       )
       .post(
+        "/answers/negotiate",
+        async ({ jwtPayload, body }) => {
+          const factoryId = Number(jwtPayload.sub);
+          return await answerService.negotiate(factoryId, body);
+        },
+        {
+          detail: { description: "รับหรือปฏิเสธคำตัดสินของผู้ตรวจประเมิน (accept/redo)" },
+          body: NegotiateAnswerSchema,
+          parse: "multipart/form-data",
+          response: {
+            200: t.Object({ message: t.String({ default: "answer accepted" }) }),
+            400: t.Union([
+              t.Object({
+                message: t.String({
+                  default: "negotiation only allowed when cover is in progress",
+                }),
+              }),
+              t.Object({
+                message: t.String({ default: "answer is not in a state that can be negotiated" }),
+              }),
+              t.Object({
+                message: t.String({
+                  default: "hard-rejected answer cannot be accepted; redo instead",
+                }),
+              }),
+              t.Object({ message: t.String({ default: "choice 1 requires at least file_1_1" }) }),
+            ]),
+            404: t.Union([
+              t.Object({ message: t.String({ default: "cover not found" }) }),
+              t.Object({ message: t.String({ default: "question not found" }) }),
+              t.Object({ message: t.String({ default: "answer not found" }) }),
+            ]),
+          },
+        },
+      )
+      .post(
         "/submission",
         async ({ jwtPayload }) => {
           const factoryId = Number(jwtPayload.sub);
@@ -250,10 +290,11 @@ export default (app: App) =>
               }),
               t.Object({
                 message: t.String({
-                  default: "not all answers are in review status",
+                  default: "submit blocked: some answers are still rejected",
                   description:
-                    'One or more answers have a latest log status other than "in_review"',
+                    "One or more answers are still rejected — factory must accept or redo them first",
                 }),
+                rejectedAnswerIds: t.Optional(t.Array(t.Number())),
               }),
             ]),
             404: t.Object({

@@ -2,7 +2,11 @@ import { and, count, desc, eq, getTableColumns, gte, inArray, lt } from "drizzle
 import { status } from "elysia";
 import { db } from "../drizzle";
 import { answerLogs, answers, coverLogs, covers, enrolls, questions } from "../drizzle/schema";
-import type { CreateAnswerWithFilesDto, UpdateAnswerWithFilesDto } from "../schema/answer";
+import type {
+  CreateAnswerWithFilesDto,
+  NegotiateAnswerDto,
+  UpdateAnswerWithFilesDto,
+} from "../schema/answer";
 import { utilities } from "../utils";
 
 export const createAnswerService = (database: typeof db) => {
@@ -317,15 +321,24 @@ export const createAnswerService = (database: typeof db) => {
       }
 
       const latestAnswerLogs = await database
-        .selectDistinctOn([answerLogs.answerId], { status: answerLogs.status })
+        .selectDistinctOn([answerLogs.answerId], {
+          status: answerLogs.status,
+          answerId: answerLogs.answerId,
+        })
         .from(answerLogs)
         .innerJoin(answers, eq(answers.id, answerLogs.answerId))
         .where(eq(answers.coverId, cover.coverId))
         .orderBy(answerLogs.answerId, desc(answerLogs.id));
 
-      const notInReview = latestAnswerLogs.some((log) => log.status !== "in_review");
-      if (notInReview) {
-        return status(400, { message: "not all answers are in review status" });
+      // Gate: no answer may be rejected at submit/re-submit time.
+      // On initial submit all answers are in_review (no evaluator has acted yet), so this passes.
+      // On re-submit the factory must have accepted/redone every rejection before re-submitting.
+      const rejectedLogs = latestAnswerLogs.filter((log) => log.status === "rejected");
+      if (rejectedLogs.length > 0) {
+        return status(400, {
+          message: "submit blocked: some answers are still rejected",
+          rejectedAnswerIds: rejectedLogs.map((l) => l.answerId),
+        });
       }
 
       await database.insert(coverLogs).values({ coverId: cover.coverId, status: "in_review" });
@@ -394,7 +407,9 @@ export const createAnswerService = (database: typeof db) => {
 
       if (!existingAnswer) return status(404, { message: "answer not found" });
 
-      // 4. Latest answerLog must be "in_review" or "rejected"
+      // 4. Latest answerLog must be "in_review" or "rejected".
+      // "recommended" (tier-1 provisional approval) and "finished" (ODPC final) are both
+      // intentionally blocked — factory cannot edit while an evaluator verdict is in flight.
       const latestLog = await database
         .select({ status: answerLogs.status })
         .from(answerLogs)
@@ -629,6 +644,371 @@ export const createAnswerService = (database: typeof db) => {
       });
 
       return { message: "answer update" };
+    },
+
+    negotiate: async (factoryId: number, dto: NegotiateAnswerDto) => {
+      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+
+      const cover = await database
+        .select({ coverId: covers.id, enrollId: covers.enrollId })
+        .from(covers)
+        .innerJoin(enrolls, eq(enrolls.id, covers.enrollId))
+        .where(
+          and(
+            eq(enrolls.factoryId, factoryId),
+            gte(enrolls.enrollDate, fiscalYearStart.toISOString()),
+            lt(enrolls.enrollDate, fiscalYearEnd.toISOString()),
+          ),
+        )
+        .limit(1)
+        .then((res) => res[0]);
+
+      if (!cover) return status(404, { message: "cover not found" });
+
+      const latestCoverLog = await database
+        .select({ status: coverLogs.status })
+        .from(coverLogs)
+        .where(eq(coverLogs.coverId, cover.coverId))
+        .orderBy(desc(coverLogs.id))
+        .limit(1)
+        .then((res) => res[0]);
+
+      if (!latestCoverLog || latestCoverLog.status !== "in_progress") {
+        return status(400, { message: "negotiation only allowed when cover is in progress" });
+      }
+
+      const question = await database
+        .select()
+        .from(questions)
+        .where(eq(questions.id, dto.questionId))
+        .limit(1)
+        .then((res) => res[0]);
+
+      if (!question) return status(404, { message: "question not found" });
+
+      const existingAnswer = await database
+        .select()
+        .from(answers)
+        .where(and(eq(answers.coverId, cover.coverId), eq(answers.questionId, dto.questionId)))
+        .limit(1)
+        .then((res) => res[0]);
+
+      if (!existingAnswer) return status(404, { message: "answer not found" });
+
+      const latestLog = await database
+        .select({ status: answerLogs.status, verdictChoice: answerLogs.verdictChoice })
+        .from(answerLogs)
+        .where(eq(answerLogs.answerId, existingAnswer.id))
+        .orderBy(desc(answerLogs.id))
+        .limit(1)
+        .then((res) => res[0]);
+
+      if (!latestLog || latestLog.status !== "rejected") {
+        return status(400, { message: "answer is not in a state that can be negotiated" });
+      }
+
+      if (dto.action === "accept") {
+        if (!latestLog.verdictChoice) {
+          return status(400, { message: "hard-rejected answer cannot be accepted; redo instead" });
+        }
+
+        const effectiveChoice = latestLog.verdictChoice;
+
+        // Standard question branch — force selectedChoice="3" and write recommended log
+        if (question.standard.length > 0) {
+          const enroll = await database
+            .select()
+            .from(enrolls)
+            .where(eq(enrolls.id, cover.enrollId))
+            .limit(1)
+            .then((res) => res[0]);
+
+          const standardBoolMap: Record<string, boolean | null | undefined> = {
+            standardHC: enroll.standardHc,
+            standardSAN: enroll.standardSan,
+            standardSANPlus: enroll.standardSanPlus,
+            standardWellness: enroll.standardWellness,
+            standardSafety: enroll.standardSafety,
+            standardTIS18001: enroll.standardTis18001,
+            standardISO45001: enroll.standardIso45001,
+            standardISO14001: enroll.standardIso14001,
+            standardZero: enroll.standardZero,
+            standard5S: enroll.standard5S,
+            standardHAS: enroll.standardHas,
+          };
+
+          const factoryHasMatchingStandard = question.standard.some((s) => !!standardBoolMap[s]);
+
+          if (factoryHasMatchingStandard) {
+            await database.transaction(async (tx) => {
+              await tx
+                .update(answers)
+                .set({ selectedChoice: "3" })
+                .where(eq(answers.id, existingAnswer.id));
+              await tx
+                .insert(answerLogs)
+                .values({ answerId: existingAnswer.id, status: "recommended" });
+            });
+            return status(200, { message: "answer accepted" });
+          }
+        }
+
+        // Non-standard: validate that existing files satisfy the verdict choice requirements
+        if (question.special === 3) {
+          if (effectiveChoice === "1" && !existingAnswer.fileUrl1_1)
+            return status(400, { message: "choice 1 requires file_1_1" });
+          if (effectiveChoice === "2" && !existingAnswer.fileUrl2_1)
+            return status(400, { message: "choice 2 requires file_2_1" });
+          if (effectiveChoice === "3" && !existingAnswer.fileUrl3_1)
+            return status(400, { message: "choice 3 requires file_3_1" });
+        } else {
+          if (effectiveChoice === "1" && !existingAnswer.fileUrl1_1)
+            return status(400, { message: "choice 1 requires at least file_1_1" });
+          if (effectiveChoice === "2" && (!existingAnswer.fileUrl1_1 || !existingAnswer.fileUrl2_1))
+            return status(400, {
+              message: "choice 2 requires at least file_1_1 and file_2_1",
+            });
+          if (
+            effectiveChoice === "3" &&
+            (!existingAnswer.fileUrl1_1 || !existingAnswer.fileUrl2_1 || !existingAnswer.fileUrl3_1)
+          )
+            return status(400, {
+              message: "choice 3 requires at least file_1_1, file_2_1, and file_3_1",
+            });
+        }
+
+        // No MinIO changes on accept — files stay as-is
+        await database.transaction(async (tx) => {
+          await tx
+            .update(answers)
+            .set({ selectedChoice: effectiveChoice })
+            .where(eq(answers.id, existingAnswer.id));
+          await tx
+            .insert(answerLogs)
+            .values({ answerId: existingAnswer.id, status: "recommended" });
+        });
+
+        return status(200, { message: "answer accepted" });
+      }
+
+      // REDO branch (object or redo — factory re-answers with own evidence)
+
+      // Standard question branch
+      if (question.standard.length > 0) {
+        const enroll = await database
+          .select()
+          .from(enrolls)
+          .where(eq(enrolls.id, cover.enrollId))
+          .limit(1)
+          .then((res) => res[0]);
+
+        const standardBoolMap: Record<string, boolean | null | undefined> = {
+          standardHC: enroll.standardHc,
+          standardSAN: enroll.standardSan,
+          standardSANPlus: enroll.standardSanPlus,
+          standardWellness: enroll.standardWellness,
+          standardSafety: enroll.standardSafety,
+          standardTIS18001: enroll.standardTis18001,
+          standardISO45001: enroll.standardIso45001,
+          standardISO14001: enroll.standardIso14001,
+          standardZero: enroll.standardZero,
+          standard5S: enroll.standard5S,
+          standardHAS: enroll.standardHas,
+        };
+
+        const standardUrlMap: Record<string, string | null | undefined> = {
+          standardHC: enroll.fileStandardHcUrl,
+          standardSAN: enroll.fileStandardSanUrl,
+          standardSANPlus: enroll.fileStandardSanPlusUrl,
+          standardWellness: enroll.fileStandardWellnessUrl,
+          standardSafety: enroll.fileStandardSafetyUrl,
+          standardTIS18001: enroll.fileStandardTis18001Url,
+          standardISO45001: enroll.fileStandardIso45001Url,
+          standardISO14001: enroll.fileStandardIso14001Url,
+          standardZero: enroll.fileStandardZeroUrl,
+          standard5S: enroll.fileStandard5SUrl,
+          standardHAS: enroll.fileStandardHasUrl,
+        };
+
+        const factoryHasMatchingStandard = question.standard.some((s) => !!standardBoolMap[s]);
+
+        if (factoryHasMatchingStandard) {
+          const hasFiles =
+            dto.file_1_1 ||
+            dto.file_1_2 ||
+            dto.file_1_3 ||
+            dto.file_2_1 ||
+            dto.file_2_2 ||
+            dto.file_2_3 ||
+            dto.file_3_1 ||
+            dto.file_3_2 ||
+            dto.file_3_3;
+
+          if (hasFiles) return status(400, { message: "standard question does not accept files" });
+
+          const hasMatchingFile = question.standard.some((s) => !!standardUrlMap[s]);
+          if (!hasMatchingFile)
+            return status(404, { message: "standard file not found in enroll" });
+
+          await database.transaction(async (tx) => {
+            await tx
+              .update(answers)
+              .set({ selectedChoice: "3" })
+              .where(eq(answers.id, existingAnswer.id));
+            await tx
+              .insert(answerLogs)
+              .values({ answerId: existingAnswer.id, status: "in_review" });
+          });
+
+          return status(200, { message: "answer redone" });
+        }
+      }
+
+      const effectiveChoice = dto.selectedChoice ?? existingAnswer.selectedChoice;
+
+      // File validation — new DTO file OR existing DB URL satisfies requirement
+      if (question.special === 3) {
+        if (effectiveChoice === "1" && !dto.file_1_1 && !existingAnswer.fileUrl1_1)
+          return status(400, { message: "choice 1 requires file_1_1" });
+        if (effectiveChoice === "2" && !dto.file_2_1 && !existingAnswer.fileUrl2_1)
+          return status(400, { message: "choice 2 requires file_2_1" });
+        if (effectiveChoice === "3" && !dto.file_3_1 && !existingAnswer.fileUrl3_1)
+          return status(400, { message: "choice 3 requires file_3_1" });
+      } else {
+        if (effectiveChoice === "1" && !dto.file_1_1 && !existingAnswer.fileUrl1_1)
+          return status(400, { message: "choice 1 requires at least file_1_1" });
+        if (
+          effectiveChoice === "2" &&
+          ((!dto.file_1_1 && !existingAnswer.fileUrl1_1) ||
+            (!dto.file_2_1 && !existingAnswer.fileUrl2_1))
+        )
+          return status(400, { message: "choice 2 requires at least file_1_1 and file_2_1" });
+        if (
+          effectiveChoice === "3" &&
+          ((!dto.file_1_1 && !existingAnswer.fileUrl1_1) ||
+            (!dto.file_2_1 && !existingAnswer.fileUrl2_1) ||
+            (!dto.file_3_1 && !existingAnswer.fileUrl3_1))
+        )
+          return status(400, {
+            message: "choice 3 requires at least file_1_1, file_2_1, and file_3_1",
+          });
+      }
+
+      const processAnswerFile = async (
+        newFile: File | undefined,
+        oldUrl: string | null | undefined,
+      ) => {
+        if (newFile) {
+          if (oldUrl) await utilities().deleteFile(oldUrl);
+          return await utilities().uploadFile(newFile);
+        }
+        return oldUrl ?? null;
+      };
+
+      const clearFile = async (oldUrl: string | null | undefined) => {
+        if (oldUrl) await utilities().deleteFile(oldUrl);
+        return null;
+      };
+
+      let fileUrl1_1: string | null,
+        fileUrl1_2: string | null,
+        fileUrl1_3: string | null,
+        fileUrl2_1: string | null,
+        fileUrl2_2: string | null,
+        fileUrl2_3: string | null,
+        fileUrl3_1: string | null,
+        fileUrl3_2: string | null,
+        fileUrl3_3: string | null;
+
+      if (question.special === 3) {
+        const g1 = effectiveChoice === "1";
+        const g2 = effectiveChoice === "2";
+        const g3 = effectiveChoice === "3";
+
+        [
+          fileUrl1_1,
+          fileUrl1_2,
+          fileUrl1_3,
+          fileUrl2_1,
+          fileUrl2_2,
+          fileUrl2_3,
+          fileUrl3_1,
+          fileUrl3_2,
+          fileUrl3_3,
+        ] = await Promise.all([
+          g1
+            ? processAnswerFile(dto.file_1_1, existingAnswer.fileUrl1_1)
+            : clearFile(existingAnswer.fileUrl1_1),
+          g1
+            ? processAnswerFile(dto.file_1_2, existingAnswer.fileUrl1_2)
+            : clearFile(existingAnswer.fileUrl1_2),
+          g1
+            ? processAnswerFile(dto.file_1_3, existingAnswer.fileUrl1_3)
+            : clearFile(existingAnswer.fileUrl1_3),
+          g2
+            ? processAnswerFile(dto.file_2_1, existingAnswer.fileUrl2_1)
+            : clearFile(existingAnswer.fileUrl2_1),
+          g2
+            ? processAnswerFile(dto.file_2_2, existingAnswer.fileUrl2_2)
+            : clearFile(existingAnswer.fileUrl2_2),
+          g2
+            ? processAnswerFile(dto.file_2_3, existingAnswer.fileUrl2_3)
+            : clearFile(existingAnswer.fileUrl2_3),
+          g3
+            ? processAnswerFile(dto.file_3_1, existingAnswer.fileUrl3_1)
+            : clearFile(existingAnswer.fileUrl3_1),
+          g3
+            ? processAnswerFile(dto.file_3_2, existingAnswer.fileUrl3_2)
+            : clearFile(existingAnswer.fileUrl3_2),
+          g3
+            ? processAnswerFile(dto.file_3_3, existingAnswer.fileUrl3_3)
+            : clearFile(existingAnswer.fileUrl3_3),
+        ]);
+      } else {
+        [
+          fileUrl1_1,
+          fileUrl1_2,
+          fileUrl1_3,
+          fileUrl2_1,
+          fileUrl2_2,
+          fileUrl2_3,
+          fileUrl3_1,
+          fileUrl3_2,
+          fileUrl3_3,
+        ] = await Promise.all([
+          processAnswerFile(dto.file_1_1, existingAnswer.fileUrl1_1),
+          processAnswerFile(dto.file_1_2, existingAnswer.fileUrl1_2),
+          processAnswerFile(dto.file_1_3, existingAnswer.fileUrl1_3),
+          processAnswerFile(dto.file_2_1, existingAnswer.fileUrl2_1),
+          processAnswerFile(dto.file_2_2, existingAnswer.fileUrl2_2),
+          processAnswerFile(dto.file_2_3, existingAnswer.fileUrl2_3),
+          processAnswerFile(dto.file_3_1, existingAnswer.fileUrl3_1),
+          processAnswerFile(dto.file_3_2, existingAnswer.fileUrl3_2),
+          processAnswerFile(dto.file_3_3, existingAnswer.fileUrl3_3),
+        ]);
+      }
+
+      await database.transaction(async (tx) => {
+        await tx
+          .update(answers)
+          .set({
+            selectedChoice: effectiveChoice,
+            fileUrl1_1,
+            fileUrl1_2,
+            fileUrl1_3,
+            fileUrl2_1,
+            fileUrl2_2,
+            fileUrl2_3,
+            fileUrl3_1,
+            fileUrl3_2,
+            fileUrl3_3,
+          })
+          .where(eq(answers.id, existingAnswer.id));
+
+        await tx.insert(answerLogs).values({ answerId: existingAnswer.id, status: "in_review" });
+      });
+
+      return status(200, { message: "answer redone" });
     },
   };
 };

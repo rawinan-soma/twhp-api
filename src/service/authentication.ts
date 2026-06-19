@@ -441,6 +441,10 @@ export const createAuthenticationUsecase = (database: typeof db) => {
     maskEmail: (email: string): string => maskEmailHelper(email),
 
     createChallenge: async (accountId: number, email: string) => {
+      if (!email) {
+        return status(400, { message: "account has no email address configured" });
+      }
+
       const failKey = `2fa:fail:${accountId}`;
       const activeKey = `2fa:active:${accountId}`;
 
