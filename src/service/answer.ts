@@ -364,7 +364,33 @@ export const createAnswerService = (database: typeof db) => {
       if (result.length === 0) {
         return status(404, { message: "answers not found" });
       }
-      return result;
+
+      // Enrich each answer with its latest verdict so the factory can see which
+      // questions the evaluator/ODPC acted on, the proposed score, and the reason.
+      // status="rejected" => needs action (covers both reject and change_score);
+      // verdictChoice null on a rejected answer => hard reject (redo), set => score change.
+      const answerIds = result.map((a) => a.id);
+      const latestLogs = await database
+        .selectDistinctOn([answerLogs.answerId], {
+          answerId: answerLogs.answerId,
+          status: answerLogs.status,
+          verdictChoice: answerLogs.verdictChoice,
+          description: answerLogs.description,
+        })
+        .from(answerLogs)
+        .where(inArray(answerLogs.answerId, answerIds))
+        .orderBy(answerLogs.answerId, desc(answerLogs.id));
+      const logByAnswer = new Map(latestLogs.map((l) => [l.answerId, l]));
+
+      return result.map((a) => {
+        const log = logByAnswer.get(a.id);
+        return {
+          ...a,
+          status: log?.status ?? "in_review",
+          verdictChoice: log?.verdictChoice ?? null,
+          description: log?.description ?? null,
+        };
+      });
     },
 
     update: async (factoryId: number, dto: UpdateAnswerWithFilesDto) => {

@@ -92,6 +92,12 @@ export default (app: App) =>
                     t.Literal("3"),
                     t.Literal("n/a"),
                   ]),
+                  // Latest verdict for this answer (from answerLogs).
+                  // status="rejected" => needs action; verdictChoice null on a
+                  // rejected answer => hard reject (redo), set => proposed score change.
+                  status: t.String(),
+                  verdictChoice: t.Nullable(t.String()),
+                  description: t.Nullable(t.String()),
                 }),
               ]),
             ),
