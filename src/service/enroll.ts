@@ -1,7 +1,9 @@
-import { and, desc, eq, getTableColumns, gte, lt, type SQL } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, gte, inArray, lt, type SQL } from "drizzle-orm";
 import { status } from "elysia";
 import { db } from "../drizzle";
 import {
+  coverLogs,
+  covers,
   districts,
   enrolls,
   evaluators,
@@ -12,7 +14,65 @@ import {
 import type { CreateEnrollWithFilesDto, UpdateEnrollWithFilesDto } from "../schema/enroll";
 import { utilities } from "../utils";
 
+/** Cover-status filter value. `none` = enroll has no cover yet. */
+export type CoverStatusFilter = "finished" | "in_progress" | "in_review" | "none";
+
 export const createEnrollService = (database: typeof db) => {
+  /**
+   * Enrich enroll rows with their cover projection (coverId + coverStatus) via
+   * latest-log-wins, then optionally filter by cover status. ≤2 bounded queries,
+   * no N+1 (mirrors score.ts buildScoreReports). Order is preserved.
+   */
+  const enrichAndFilterCovers = async <T extends { id: number }>(
+    rows: T[],
+    coverStatus?: CoverStatusFilter,
+  ): Promise<
+    (T & {
+      coverId: number | null;
+      coverStatus: "finished" | "in_progress" | "in_review" | null;
+    })[]
+  > => {
+    if (rows.length === 0) return [];
+
+    const enrollIds = rows.map((r) => r.id);
+
+    // Query A: covers for these enrolls (≤1 cover per enroll) → enrollId → coverId
+    const coverRows = await database
+      .select({ id: covers.id, enrollId: covers.enrollId })
+      .from(covers)
+      .where(inArray(covers.enrollId, enrollIds));
+    const coverByEnroll = new Map(coverRows.map((c) => [c.enrollId, c.id]));
+
+    // Query B: latest coverLog per cover (latest-log-wins) → coverId → status
+    const coverIds = coverRows.map((c) => c.id);
+    const statusByCover =
+      coverIds.length === 0
+        ? new Map<number, "finished" | "in_progress" | "in_review">()
+        : new Map(
+            (
+              await database
+                .selectDistinctOn([coverLogs.coverId], {
+                  coverId: coverLogs.coverId,
+                  status: coverLogs.status,
+                })
+                .from(coverLogs)
+                .where(inArray(coverLogs.coverId, coverIds))
+                .orderBy(coverLogs.coverId, desc(coverLogs.id))
+            ).map((l) => [l.coverId, l.status] as const),
+          );
+
+    const enriched = rows.map((r) => {
+      const coverId = coverByEnroll.get(r.id) ?? null;
+      const coverStatusVal = coverId === null ? null : (statusByCover.get(coverId) ?? null);
+      return { ...r, coverId, coverStatus: coverStatusVal };
+    });
+
+    // AND-combined with the scope already applied by the caller's WHERE clause.
+    if (coverStatus === "none") return enriched.filter((r) => r.coverId === null);
+    if (coverStatus) return enriched.filter((r) => r.coverStatus === coverStatus);
+    return enriched;
+  };
+
   return {
     getAllEnrollsByRegion: async (region: number) => {
       const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
@@ -37,7 +97,7 @@ export const createEnrollService = (database: typeof db) => {
 
       return results;
     },
-    getAllEnrollsByProvince: async (provinceId: number) => {
+    getAllEnrollsByProvince: async (provinceId: number, coverStatus?: CoverStatusFilter) => {
       const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
       const results = await database
         .select({
@@ -58,9 +118,13 @@ export const createEnrollService = (database: typeof db) => {
         )
         .orderBy(desc(enrolls.enrollDate));
 
-      return results;
+      return enrichAndFilterCovers(results, coverStatus);
     },
-    getAllEnrolls: async (region?: number, provinceId?: number) => {
+    getAllEnrolls: async (
+      region?: number,
+      provinceId?: number,
+      coverStatus?: CoverStatusFilter,
+    ) => {
       const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
       const filters: (SQL | undefined)[] = [
         gte(enrolls.enrollDate, fiscalYearStart.toISOString()),
@@ -87,7 +151,7 @@ export const createEnrollService = (database: typeof db) => {
         .where(and(...filters))
         .orderBy(desc(enrolls.enrollDate));
 
-      return results;
+      return enrichAndFilterCovers(results, coverStatus);
     },
 
     getEnrollById: async (enrollId: number) => {

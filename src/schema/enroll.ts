@@ -1,6 +1,6 @@
 import { type Static, t } from "elysia";
 import type { FileOptions } from "elysia/type-system/types";
-import { BaseEnrollInsert, BaseEnrollUpdate } from ".";
+import { BaseEnrollInsert, BaseEnrollSelect, BaseEnrollUpdate } from ".";
 
 export const fileOption: FileOptions = {
   type: "application/pdf",
@@ -133,3 +133,32 @@ export type UpdateEnrollDto = Static<typeof UpdateEnrollSchema>;
 export type UpdateEnrollWithFilesDto = Static<typeof UpdateEnrollWithFilesSchema>;
 
 export type CreateEnrollDto = Static<typeof CreateEnrollSchema>;
+
+// Optional cover-status filter for the staff enroll-list endpoints.
+// `none` matches enrolls with no cover yet; the 3 real values match the latest coverLog status.
+export const CoverStatusQuery = t.Optional(
+  t.Union([
+    t.Literal("finished"),
+    t.Literal("in_progress"),
+    t.Literal("in_review"),
+    t.Literal("none"),
+  ]),
+);
+export type CoverStatusQueryDto = Static<typeof CoverStatusQuery>;
+
+// Shared enroll-list response item for admins/evaluators/provincialOfficers.
+// Extends the base enroll columns with the joined factory/province fields plus
+// the derived cover projection (null when the enroll has no cover).
+export const EnrollWithCoverSelect = t.Composite([
+  BaseEnrollSelect,
+  t.Object({
+    factory_name_th: t.String(),
+    region: t.Number(),
+    provinceId: t.Number(),
+    coverId: t.Nullable(t.Number()),
+    coverStatus: t.Nullable(
+      t.Union([t.Literal("finished"), t.Literal("in_progress"), t.Literal("in_review")]),
+    ),
+  }),
+]);
+export const EnrollWithCoverListSchema = t.Array(EnrollWithCoverSelect);
