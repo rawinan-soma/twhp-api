@@ -2,10 +2,10 @@
 
 ## Overview
 
-- **Total stories**: 31
+- **Total stories**: 37
 - **Completed**: 11
-- **Planned**: 20
-- **Last updated**: 2026-06-19
+- **Planned**: 26
+- **Last updated**: 2026-07-02
 
 ---
 
@@ -62,11 +62,28 @@ Unit: `001-admin-as-evaluator` — depends on `003-evaluator-review` (do not con
 - [x] **002-admin-answers-endpoint** ✅ COMPLETE — `GET /admin/covers/:coverId/answers`, national ODPC, all categories — Must — bolt `011-admin-as-evaluator`
 - [x] **003-admin-verdict-endpoint** ✅ COMPLETE — `POST /admin/covers/:coverId/verdict` → ODPC finalize + admin audit + Grade/email parity — Must — bolt `012-admin-as-evaluator`
 
+### 005-network-and-audit-logging
+
+Unit: `001-network-logging`
+
+- [ ] **001-network-logs-table** ⏳ PLANNED — `network_logs` Drizzle table (no-FK `account_id`) — Must — bolt `013-network-logging`
+- [ ] **002-network-capture-pipeline** ⏳ PLANNED — Non-blocking per-request capture beside `elysia-logger`; all statuses, health excluded, secret-safe — Must — bolt `013-network-logging`
+
+Unit: `002-accountability-logging`
+
+- [ ] **001-audit-logs-table-and-service** ⏳ PLANNED — Append-only `audit_logs` table + `auditService.record()` + actor attribution — Must — bolt `014-accountability-logging`
+- [ ] **002-domain-action-audit** ⏳ PLANNED — Instrument all state-changing domain mutations (covers/answers/verdicts/enroll/score) — Must — bolt `015-accountability-logging`
+- [ ] **003-auth-event-audit** ⏳ PLANNED — Instrument auth/authz events (login±fail, logout, refresh, 2FA, role-change) — Must — bolt `015-accountability-logging`
+
+Unit: `003-log-retention`
+
+- [ ] **001-retention-purge-job** ⏳ PLANNED — Daily BullMQ 180-day purge of BOTH tables + env config — Must — bolt `016-log-retention`
+
 ---
 
 ## Stories by Status
 
-- **Planned**: 20
+- **Planned**: 26
 - **Generated**: 0
 - **In Progress**: 0
 - **Completed**: 11
