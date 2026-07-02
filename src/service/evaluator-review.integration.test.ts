@@ -275,7 +275,7 @@ describe("Story 002 — admin answers endpoint (service path)", () => {
 
 // ─── Story 002 / FR-8 — guard isolation ──────────────────────────────────────
 // FLAGGED (not asserted here): the 403-for-non-DOED / 401-for-anonymous behaviour of
-// `/admin/covers/*` is enforced by the SHARED `adminGuard` (= requireRoles(Role.DOED)),
+// `/admins/covers/*` is enforced by the SHARED `adminGuard` (= requireRoles(Role.DOED)),
 // the same middleware already protecting other admin routes (e.g. the admin score
 // endpoint). Its HTTP short-circuit depends on the elysia-autoload scope-composition
 // pipeline and could not be reproduced in an isolated unit mount (the route 404s without

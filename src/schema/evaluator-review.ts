@@ -8,6 +8,17 @@ export const AnswerViewItemSchema = t.Object({
   selectedChoice: t.String(),
   latestVerdictChoice: t.Nullable(t.String()),
   latestDescription: t.Nullable(t.String()),
+  // Evidence filenames (not presigned URLs); resolve each via the file endpoint.
+  // Files accumulate by level: choice N has files at rows 1..N (up to 3 per row).
+  fileUrl1_1: t.Nullable(t.String()),
+  fileUrl1_2: t.Nullable(t.String()),
+  fileUrl1_3: t.Nullable(t.String()),
+  fileUrl2_1: t.Nullable(t.String()),
+  fileUrl2_2: t.Nullable(t.String()),
+  fileUrl2_3: t.Nullable(t.String()),
+  fileUrl3_1: t.Nullable(t.String()),
+  fileUrl3_2: t.Nullable(t.String()),
+  fileUrl3_3: t.Nullable(t.String()),
 });
 
 export const AnswerViewSchema = t.Array(AnswerViewItemSchema);

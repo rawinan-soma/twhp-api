@@ -123,7 +123,7 @@
 </head>
 <body>
   <h1>TWHP — กระบวนการประเมิน (Evaluation Flow)</h1>
-  <p class="sub">ลำดับชั้น ODPC-gated · หนึ่ง Cover ต่อหนึ่งโรงงานต่อปีงบประมาณ</p>
+  <p class="sub">ลำดับชั้น ODPC-gated · หนึ่ง Cover ต่อหนึ่งโรงงานต่อปีงบประมาณ · ผู้ดูแลระบบ (DOED) = ODPC ระดับประเทศ · บันทึกคำตัดสินทีละคำตอบ (per-Answer save) + ODPC finalize แยกขั้น (ADR-0005)</p>
 
   <div class="flow">
 
@@ -151,26 +151,43 @@
     <!-- Tier-1 -->
     <div class="box review">
       <div class="title">TIER-1 <span class="badge review">Mental</span><span class="badge factory">DOH</span></div>
-      <div class="meta">ตรวจเฉพาะหมวดของตน · <strong>ไม่จบกระบวนการ</strong></div>
+      <div class="meta">SAVE ต่อคำตอบ · ตรวจเฉพาะหมวดของตน · <strong>ไม่จบกระบวนการ</strong></div>
       <ul>
-        <li><code>POST /twhp/api/evaluators/covers/{coverId}/verdict</code></li>
+        <li><code>POST /twhp/api/evaluators/covers/{coverId}/answers/{answerId}/verdict</code></li>
         <li>approve → คำตอบ <span class="status">recommended</span></li>
         <li>change_score / reject → คำตอบ <span class="status">rejected</span></li>
-        <li>Cover ยังคง <span class="status">in_review</span></li>
+        <li>บันทึกได้ทันที (durable/resumable) · แก้ไขของตนเองได้ขณะ Cover <span class="status">in_review</span></li>
+        <li>ไม่ลบไฟล์ · ไม่เปลี่ยนสถานะ Cover · ไม่ส่งอีเมล</li>
       </ul>
     </div>
 
     <div class="arrow" style="height:32px;"></div>
 
-    <!-- ODPC -->
+    <!-- ODPC review (per-Answer save) -->
     <div class="box odpc">
-      <div class="title">ODPC <span class="badge odpc">ผู้ตัดสินสุดท้าย</span></div>
+      <div class="title">ODPC REVIEW <span class="badge odpc">ผู้ตัดสินสุดท้าย</span><span class="badge" style="background:var(--ink)">+ ADMIN</span></div>
+      <div class="meta">SAVE ต่อคำตอบ เช่นเดียวกับ Tier-1 · ยังไม่ปิดงาน</div>
       <ul>
-        <li><code>POST /twhp/api/evaluators/covers/{coverId}/verdict</code></li>
-        <li>ตรวจทุกหมวด (Collaborate, Outcome + override หมวดอื่น)</li>
-        <li>แปลง <span class="status">recommended</span> → <span class="status">finished</span> อัตโนมัติ (backstop)</li>
-        <li>ปิดงานได้เมื่อไม่มีคำตอบ <span class="status">in_review</span> เหลือ</li>
+        <li><code>POST /twhp/api/evaluators/covers/{coverId}/answers/{answerId}/verdict</code></li>
+        <li>ตรวจทุกหมวด (Collaborate, Outcome + override หมวดอื่นที่ยังไม่ <span class="status">finished</span>)</li>
+        <li><strong>approve → <span class="status">recommended</span></strong> (ยังไม่ใช่ finished — แก้ไขได้จนกว่าจะ finalize)</li>
+        <li>ต้องบันทึกคำตัดสินให้ครบทุกคำตอบที่ยัง <span class="status">in_review</span> (backstop)</li>
+        <li><strong>DOED</strong> ระดับประเทศ: <code>POST /admins/covers/{coverId}/answers/{answerId}/verdict</code></li>
+      </ul>
+    </div>
+
+    <div class="arrow" style="height:32px;"><span class="lbl">เมื่อพร้อมปิดงาน</span></div>
+
+    <!-- ODPC finalize (separate atomic action) -->
+    <div class="box odpc">
+      <div class="title">ODPC FINALIZE <span class="badge odpc">แยกขั้น · atomic</span></div>
+      <div class="meta">การกระทำเดียวที่เขียน <span class="status">finished</span> และเปลี่ยนสถานะ Cover</div>
+      <ul>
+        <li><code>POST /twhp/api/evaluators/covers/{coverId}/finalize</code> (body ว่าง · เฉพาะ ODPC/ADMIN)</li>
+        <li>บล็อก (invalid) ถ้ายังมีคำตอบ <span class="status">in_review</span> เหลือ (hard-gate)</li>
+        <li>แปลง <span class="status">recommended</span> → <span class="status">finished</span> (backstop)</li>
         <li>ลบไฟล์ใน MinIO สำหรับคำตอบที่ <em>reject</em> (verdict_choice = null)</li>
+        <li>คำนวณเกรด + ส่งอีเมลโรงงาน · <strong>DOED</strong>: <code>POST /admins/covers/{coverId}/finalize</code></li>
       </ul>
     </div>
 
@@ -250,14 +267,21 @@
   <div class="note factory-note">
     <b>Re-submit gate:</b> โรงงานส่ง Cover ได้ก็ต่อเมื่อ<strong>ไม่มีคำตอบใดเป็น <code>rejected</code></strong> — ต้อง accept หรือ redo ทุกรายการก่อน ถ้า Cover เป็น <code>finished</code> ส่งใหม่ไม่ได้
   </div>
+  <div class="note" style="border-color:var(--odpc);">
+    <b>Save + Finalize สองขั้น (ADR-0005):</b> การตรวจเป็นการ <strong>บันทึกทีละคำตอบ</strong> (append <code>answerLogs</code> หนึ่งแถวต่อการบันทึก · durable/resumable) โดยทั้ง Tier-1 และ ODPC · <strong>มีเพียงขั้น <code>finalize</code> เท่านั้นที่เขียน <code>finished</code></strong> และเปลี่ยนสถานะ Cover — approve ทุกครั้ง (รวม ODPC) ได้สถานะ <code>recommended</code> ที่ยังแก้ไขได้จนกว่าจะ finalize
+  </div>
   <div class="note" style="border-color:var(--review);">
-    <b>Race-free design:</b> Tier-1 ไม่เขียน <code>coverLogs</code> เลย มีเพียง ODPC เท่านั้นที่เปลี่ยนสถานะ Cover — จึงไม่มี race ระหว่างผู้ประเมินหลายคนหรือระหว่างโรงงานกับผู้ประเมิน
+    <b>Race-free design:</b> Tier-1 ไม่เขียน <code>coverLogs</code> เลย มีเพียงขั้น <code>finalize</code> (ODPC/ADMIN) เท่านั้นที่เปลี่ยนสถานะ Cover — จึงไม่มี race ระหว่างผู้ประเมินหลายคนหรือระหว่างโรงงานกับผู้ประเมิน
+  </div>
+  <div class="note" style="border-color:var(--odpc);">
+    <b>Admin = ODPC ระดับประเทศ (ADR-3):</b> ผู้ดูแลระบบ (role <code>DOED</code>) เข้าร่วมขั้น ODPC ได้ผ่าน <code>GET /admins/covers/{coverId}/answers</code> · <code>POST /admins/covers/{coverId}/answers/{answerId}/verdict</code> · <code>POST /admins/covers/{coverId}/finalize</code> (<code>adminGuard</code>) — ระบบสร้าง context <code>{ level: "ODPC", region: null }</code> ให้อัตโนมัติ จึงมีอำนาจเท่า ODPC ทุกประการแต่<strong>ไม่จำกัด region</strong> (เห็น/ปิดงาน Cover ได้ทุกเขต) · audit ด้วย accountId ของแอดมินในคอลัมน์เดิม (ไม่เปลี่ยน schema)
   </div>
 
   <div class="legend">
     <span><span class="dot" style="background:var(--factory)"></span>Factory</span>
     <span><span class="dot" style="background:var(--review)"></span>Tier-1 (Mental/DOH)</span>
     <span><span class="dot" style="background:var(--odpc)"></span>ODPC (finalizer)</span>
+    <span><span class="dot" style="background:var(--ink)"></span>Admin (ODPC ระดับประเทศ)</span>
     <span><span class="dot" style="background:var(--good)"></span>Finished</span>
     <span><span class="dot" style="background:var(--bad)"></span>ส่งกลับโรงงาน</span>
     <span><span class="dot" style="background:var(--warn)"></span>Negotiate loop</span>

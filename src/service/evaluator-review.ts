@@ -103,6 +103,15 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           questionId: answers.questionId,
           category: questions.category,
           selectedChoice: answers.selectedChoice,
+          fileUrl1_1: answers.fileUrl1_1,
+          fileUrl1_2: answers.fileUrl1_2,
+          fileUrl1_3: answers.fileUrl1_3,
+          fileUrl2_1: answers.fileUrl2_1,
+          fileUrl2_2: answers.fileUrl2_2,
+          fileUrl2_3: answers.fileUrl2_3,
+          fileUrl3_1: answers.fileUrl3_1,
+          fileUrl3_2: answers.fileUrl3_2,
+          fileUrl3_3: answers.fileUrl3_3,
         })
         .from(answers)
         .innerJoin(questions, eq(questions.id, answers.questionId))
@@ -140,6 +149,15 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           selectedChoice: a.selectedChoice,
           latestVerdictChoice: log?.verdictChoice ?? null,
           latestDescription: log?.description ?? null,
+          fileUrl1_1: a.fileUrl1_1,
+          fileUrl1_2: a.fileUrl1_2,
+          fileUrl1_3: a.fileUrl1_3,
+          fileUrl2_1: a.fileUrl2_1,
+          fileUrl2_2: a.fileUrl2_2,
+          fileUrl2_3: a.fileUrl2_3,
+          fileUrl3_1: a.fileUrl3_1,
+          fileUrl3_2: a.fileUrl3_2,
+          fileUrl3_3: a.fileUrl3_3,
         };
       });
     },
@@ -244,7 +262,11 @@ export const createEvaluatorReviewService = (database: typeof db) => {
       }
 
       const answerRows = await database
-        .select({ answerId: answers.id, category: questions.category })
+        .select({
+          answerId: answers.id,
+          category: questions.category,
+          selectedChoice: answers.selectedChoice,
+        })
         .from(answers)
         .innerJoin(questions, eq(questions.id, answers.questionId))
         .where(and(eq(answers.coverId, coverId), inArray(answers.id, answerIds)));
@@ -254,6 +276,7 @@ export const createEvaluatorReviewService = (database: typeof db) => {
       }
 
       const categoryMap = new Map(answerRows.map((r) => [r.answerId, r.category as string]));
+      const choiceMap = new Map(answerRows.map((r) => [r.answerId, r.selectedChoice]));
       const categories = categoriesFor(level);
       const outOfScope = answerIds.some((id) => !categories.includes(categoryMap.get(id) ?? ""));
       if (outOfScope) {
@@ -279,6 +302,16 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         if (currentStatus === "recommended" && level !== "ODPC") {
           return status(403, {
             message: `answer ${entry.answerId} is recommended; only ODPC can override`,
+          });
+        }
+        // A change_score to the factory's current choice is a no-op that would still
+        // bounce the cover back to in_progress — reject it; use "approve" instead.
+        if (
+          entry.decision === "change_score" &&
+          entry.verdictChoice === choiceMap.get(entry.answerId)
+        ) {
+          return status(400, {
+            message: `answer ${entry.answerId}: change_score must differ from the current choice`,
           });
         }
       }

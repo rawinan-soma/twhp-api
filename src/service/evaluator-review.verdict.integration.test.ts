@@ -238,6 +238,48 @@ describe("Story 003 — admin verdict drives the ODPC finalize path", () => {
     expect(emailAdd.mock.calls[0][0]).toBe("verdict-result-in-progress");
   });
 
+  it("AC: change_score to the factory's current choice (no-op) → 400, no transition", async () => {
+    const { coverId, answerByCat } = await seedCover();
+    // every seeded answer is selectedChoice "2"; a change_score to "2" changes nothing
+    const batch = [
+      {
+        answerId: answerByCat.Mental,
+        decision: "change_score" as const,
+        verdictChoice: "2" as const,
+        description: "คะแนนเท่าเดิม",
+      },
+    ] as VerdictBatch;
+
+    const res = await reviewService.verdict(coverId, adminReviewerContext(ADMIN_ID), batch);
+    expect((res as { code: number }).code).toBe(400);
+    expect((res as { response: { message: string } }).response.message).toContain(
+      "must differ from the current choice",
+    );
+    // guard runs before any write — no cover transition, no email
+    const cl = await latestCoverLog(coverId);
+    expect(cl).toBeUndefined();
+    expect(emailAdd).not.toHaveBeenCalled();
+  });
+
+  it("AC: change_score to a different choice is still accepted (guard does not over-block)", async () => {
+    const { coverId, answerByCat } = await seedCover();
+    const batch = ALL_CATEGORIES.map((c, i) =>
+      i === 0
+        ? {
+            answerId: answerByCat[c],
+            decision: "change_score" as const,
+            verdictChoice: "1" as const,
+            description: "ปรับลดคะแนน",
+          }
+        : { answerId: answerByCat[c], decision: "approve" as const },
+    ) as VerdictBatch;
+
+    const res = await reviewService.verdict(coverId, adminReviewerContext(ADMIN_ID), batch);
+    expect((res as { code: number }).code).toBe(200);
+    const cl = await latestCoverLog(coverId);
+    expect(cl).toMatchObject({ status: "in_progress", evaluatorId: ADMIN_ID });
+  });
+
   it("AC: finalize gate — leaving an answer in_review → 400, no transition", async () => {
     const { coverId, answerByCat } = await seedCover();
     // approve only 4 of 5; one stays in_review

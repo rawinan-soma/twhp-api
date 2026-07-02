@@ -8,7 +8,7 @@ import {
 } from "../../../../../service/evaluator-review";
 
 export default (app: App) =>
-  app.group("", { detail: { tags: ["admin"] } }, (group) =>
+  app.group("", { detail: { tags: ["admins"] } }, (group) =>
     group.use(adminGuard).get(
       "",
       async ({ params: { coverId }, jwtPayload }) => {

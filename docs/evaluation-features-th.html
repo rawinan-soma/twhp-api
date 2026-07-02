@@ -104,6 +104,7 @@
   }
   .ep-guard.factory { background: #ddf4ff; color: #0550ae; }
   .ep-guard.eval    { background: #fbefff; color: #6639ba; }
+  .ep-guard.admin   { background: #eaeef2; color: #1f2328; }
   .ep-body { padding: .85rem 1rem; }
   .ep-section { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: .8rem 0 .2rem; }
   .ep-section:first-child { margin-top: 0; }
@@ -145,7 +146,7 @@
 <div class="wrap">
 
   <h1>ระบบการประเมิน Cover — API Reference (ภาษาไทย)</h1>
-  <p class="sub">การตรวจประเมินแบบลำดับชั้น โดยมี ODPC เป็นผู้ตัดสินสุดท้าย · อ้างอิง <code>CONTEXT.md</code>, ADR-0003, ADR-0004 · อัปเดต bolt-006 ถึง bolt-010</p>
+  <p class="sub">การตรวจประเมินแบบลำดับชั้น โดยมี ODPC เป็นผู้ตัดสินสุดท้าย · อ้างอิง <code>CONTEXT.md</code>, ADR-0003, ADR-0004, ADR-3 (admin) · อัปเดต bolt-006 ถึง bolt-012</p>
 
   <!-- ─── 1. ROLES ─── -->
   <h2><span class="n">1</span>ผู้ประเมินและการแบ่งหมวด</h2>
@@ -166,9 +167,20 @@
       <p>หมวดหลัก: <strong>Collaborate</strong>, <strong>Outcome</strong></p>
       <p><strong>อำนาจเหนือทุกหมวด</strong> — แก้ผลที่ยังไม่ <code>finished</code> ได้ · เป็น<strong>ผู้เดียวที่ปิดงาน</strong> (เขียน coverLogs + คำนวณเกรด + ส่งอีเมล)</p>
     </div>
+    <div class="card" style="border-top:4px solid var(--ink);">
+      <h3><span class="tag" style="background:var(--ink);">Admin</span> DOED</h3>
+      <p>ทำหน้าที่เป็น <strong>ODPC ระดับประเทศ</strong></p>
+      <p>อำนาจเท่า ODPC ทุกประการ แต่<strong>ไม่จำกัด <code>region</code></strong> — เข้าถึงและปิดงาน Cover ได้ทุกเขต ผ่าน <code>/admins/covers/*</code></p>
+    </div>
   </div>
   <div class="callout">
     <strong>กฎ override:</strong> Tier-1 แก้ได้เฉพาะผลของตนขณะ <code>in_review</code> · ODPC แก้ได้ทุกรายการที่ยังไม่ <code>finished</code> · <strong>คำตอบที่ <code>finished</code> แล้วล็อกถาวร — แม้แต่ ODPC ก็แก้ไม่ได้</strong>
+  </div>
+  <div class="callout" style="border-color:var(--ink); background:var(--panel);">
+    <strong>Admin-as-Evaluator:</strong> ผู้ดูแลระบบ (role <code>DOED</code>) เข้าร่วม flow เดียวกับ ODPC ได้ผ่าน <code>/twhp/api/admins/covers/{coverId}/{answers,verdict}</code> (guard: <code>adminGuard</code>) โดยระบบสร้าง context <code>{ level: "ODPC", region: null }</code> ให้อัตโนมัติ — ใช้ ODPC commit path เดิมทั้งหมด (override · backstop · finalize · grade · email) · audit ด้วย accountId ของแอดมินในคอลัมน์ <code>evaluation_id</code>/<code>evaluator_id</code> เดิม (ไม่เปลี่ยน schema)
+  </div>
+  <div class="callout warn">
+    <strong>Two-finalizer (ADR-3):</strong> เมื่อมีทั้ง ODPC ประจำเขตและแอดมินระดับประเทศ Cover หนึ่งใบอาจมีผู้ปิดงานได้ 2 ทาง — v1 <strong>ไม่ล็อก</strong> เพราะคำตอบ <code>finished</code> ล็อกถาวรอยู่แล้ว และ finalize gate กันการ commit ซ้ำ (last-commit-wins)
   </div>
 
   <!-- ─── 2. VERDICT OUTCOMES ─── -->
@@ -639,6 +651,58 @@
     </div>
   </div>
 
+  <!-- ── ADMIN SECTION ── -->
+  <h3>Admin Endpoints <span class="tag" style="background:var(--ink); font-size:.75rem;">adminGuard</span></h3>
+  <p>ผู้ดูแลระบบ (role <code>DOED</code>) ทำหน้าที่เป็น <strong>ODPC ระดับประเทศ</strong> — endpoint สะท้อนของ Evaluator แต่<strong>ไม่กรองตาม region</strong> และเป็น level <code>ODPC</code> เสมอ (เห็นทุกหมวด · ปิดงานได้) · ใช้ service เดิม (<code>evaluatorReviewService</code>) โดยไม่มี logic finalize ซ้ำ</p>
+
+  <!-- GET admin answers -->
+  <div class="ep">
+    <div class="ep-head">
+      <span class="method get">GET</span>
+      <span class="ep-path">/admins/covers/:coverId/answers</span>
+      <span class="ep-desc">ดูคำตอบทุกหมวดของ Cover ใดก็ได้ (ทุก region)</span>
+      <span class="ep-guard admin">Admin</span>
+    </div>
+    <div class="ep-body">
+      <div class="ep-section">พฤติกรรม</div>
+      <ul class="clean">
+        <li>เห็น<strong>ทุกหมวด</strong> (ODPC ownership) · <strong>ไม่กรอง region</strong> — เข้าถึง Cover ได้ทุกเขต</li>
+        <li>response รูปแบบเดียวกับ <code>GET /evaluators/covers/:coverId/answers</code> (<code>AnswerViewSchema</code>)</li>
+      </ul>
+      <div class="ep-section">Errors</div>
+      <code>403</code> — ไม่ใช่ role <code>DOED</code> (adminGuard)<br>
+      <code>404</code> — cover not found (Cover ไม่มีอยู่จริง)
+    </div>
+  </div>
+
+  <!-- POST admin verdict -->
+  <div class="ep">
+    <div class="ep-head">
+      <span class="method post">POST</span>
+      <span class="ep-path">/admins/covers/:coverId/verdict</span>
+      <span class="ep-desc">ส่งชุดผลการตัดสินแบบ ODPC (finalize) ระดับประเทศ — 1 transaction</span>
+      <span class="ep-guard admin">Admin</span>
+    </div>
+    <div class="ep-body">
+      <div class="ep-section">Request Body (JSON Array)</div>
+      <p>เหมือน <code>POST /evaluators/covers/:coverId/verdict</code> ทุกประการ (<code>VerdictBatchSchema</code>)</p>
+      <div class="ep-section">พฤติกรรม (เท่า ODPC ทุกประการ — ไม่มีอำนาจพิเศษเพิ่ม)</div>
+      <ul class="clean">
+        <li>approve → <code>finished</code> · change_score/reject → <code>rejected</code> · backstop · finalize gate</li>
+        <li>เปลี่ยนสถานะ Cover (<code>finished</code>/<code>in_progress</code>) + คำนวณเกรด + ส่งอีเมล verdict-result เดิม</li>
+        <li>ลบไฟล์ที่ <em>reject</em> (นอก transaction) เหมือนเดิม</li>
+        <li>คำตอบที่ <code>finished</code> แล้วล็อกถาวร — <strong>แอดมินก็แก้ไม่ได้</strong> (<code>400</code>)</li>
+        <li>audit: <code>evaluation_id</code>/<code>evaluator_id</code> = accountId ของแอดมิน (ไม่เปลี่ยน schema)</li>
+      </ul>
+      <div class="ep-section">Response 200</div>
+      <code>{ message: "verdict submitted", grade: Grade|null }</code>
+      <div class="ep-section">Errors</div>
+      <code>400</code> — finalization blocked / already finalized / duplicate answerId<br>
+      <code>403</code> — ไม่ใช่ role <code>DOED</code> (adminGuard)<br>
+      <code>404</code> — cover not found
+    </div>
+  </div>
+
   <!-- ─── 8. SCHEMA REFERENCE ─── -->
   <h2><span class="n">8</span>Schema อ้างอิง</h2>
 
@@ -687,7 +751,7 @@
     <strong>ข้อสังเกต:</strong> อีเมลส่งเฉพาะจาก ODPC commit เท่านั้น — <strong>ไม่ส่ง</strong>สำหรับผลจาก Tier-1 (Mental/DOH) หรือการ re-submit ของโรงงาน · ถ้า email เป็น null จะข้ามโดยไม่มี error
   </div>
 
-  <footer>TWHP API · Evaluation Feature Reference · อัปเดต 2026-06-17 (bolt-006 → bolt-010)</footer>
+  <footer>TWHP API · Evaluation Feature Reference · อัปเดต 2026-06-19 (bolt-006 → bolt-012 · + admin-as-evaluator)</footer>
 
 </div>
 </body>
