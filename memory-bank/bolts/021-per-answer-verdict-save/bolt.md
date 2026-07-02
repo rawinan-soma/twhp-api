@@ -3,12 +3,30 @@ id: 021-per-answer-verdict-save
 unit: 001-per-answer-verdict-save
 intent: 008-per-answer-verdict-save
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 005-save-and-finalize-routes
   - 006-admin-surface-parity
   - 007-answers-list-and-docs-regression
-created: 2026-07-02T00:00:00Z
+created: 2026-07-02T00:00:00.000Z
+started: 2026-07-02T08:52:00.000Z
+current_stage: null
+stages_completed:
+  - name: domain-model
+    completed: 2026-07-02T08:55:00.000Z
+    artifact: ddd-01-domain-model.md
+  - name: technical-design
+    completed: 2026-07-02T08:58:00.000Z
+    artifact: ddd-02-technical-design.md
+  - name: adr-analysis
+    completed: 2026-07-02T08:58:00.000Z
+    artifact: none (skipped — covered by ADR-0005)
+  - name: implement
+    completed: 2026-07-02T09:05:00.000Z
+    artifact: routes (evaluators/admins save+finalize), batch removal, docs regen
+  - name: test
+    completed: 2026-07-02T09:20:11.000Z
+    artifact: ddd-03-test-report.md (verdict/finalize suite renamed; 44/44 evaluator-review tests)
 requires_bolts:
   - 020-per-answer-verdict-save
 enables_bolts: []
@@ -19,6 +37,7 @@ complexity:
   avg_uncertainty: 2
   max_dependencies: 3
   testing_scope: 3
+completed: "2026-07-02T09:20:11Z"
 ---
 
 # Bolt: 021-per-answer-verdict-save

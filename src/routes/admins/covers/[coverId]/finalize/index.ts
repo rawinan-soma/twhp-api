@@ -1,7 +1,7 @@
 import { t } from "elysia";
 import type { App } from "../../../../..";
 import { adminGuard } from "../../../../../middleware/guards";
-import { VerdictBatchSchema } from "../../../../../schema/evaluator-review";
+import { FinalizeSchema } from "../../../../../schema/evaluator-review";
 import { GradeSchema } from "../../../../../schema/score";
 import {
   adminReviewerContext,
@@ -12,25 +12,27 @@ export default (app: App) =>
   app.group("", { detail: { tags: ["admins"] } }, (group) =>
     group.use(adminGuard).post(
       "",
-      async ({ params: { coverId }, body, jwtPayload }) => {
+      async ({ params: { coverId }, jwtPayload }) => {
         const reviewer = adminReviewerContext(Number(jwtPayload.sub));
-        return await evaluatorReviewService.verdict(coverId, reviewer, body);
+        return await evaluatorReviewService.finalize(coverId, reviewer);
       },
       {
         detail: {
           description:
-            "บันทึกคำตัดสินแบบ batch (ผู้ดูแลระบบทำหน้าที่ ODPC ระดับประเทศ, finalize ในหนึ่ง transaction)",
+            "สรุปผลทั้งฝาประเมิน (ผู้ดูแลระบบทำหน้าที่ ODPC ระดับประเทศ; อ่าน answerLogs ล่าสุด, gate in_review, แปลง recommended→finished, บันทึก transition, คำนวณเกรด, ส่งอีเมล)",
         },
         params: t.Object({ coverId: t.Number() }),
-        body: VerdictBatchSchema,
+        body: FinalizeSchema,
         response: {
           200: t.Object({
-            message: t.String({ default: "verdict submitted" }),
-            grade: t.Optional(t.Nullable(GradeSchema)),
+            message: t.String({ default: "cover finalized" }),
+            coverStatus: t.String(),
+            grade: t.Nullable(GradeSchema),
           }),
           400: t.Object({ message: t.String() }),
           403: t.Object({ message: t.String() }),
           404: t.Object({ message: t.String({ default: "cover not found" }) }),
+          500: t.Object({ message: t.String() }),
         },
       },
     ),

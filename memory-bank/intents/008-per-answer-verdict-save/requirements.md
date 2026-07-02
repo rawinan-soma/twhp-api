@@ -1,9 +1,9 @@
 ---
 intent: 008-per-answer-verdict-save
 phase: inception
-status: inception-complete
-created: 2026-07-02T00:00:00Z
-updated: 2026-07-02T00:00:00Z
+status: complete
+created: 2026-07-02T00:00:00.000Z
+updated: 2026-07-02T00:00:00.000Z
 ---
 
 # Requirements: Per-Answer Verdict Save + Separate ODPC Finalize

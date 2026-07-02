@@ -2,9 +2,9 @@
 unit: 001-per-answer-verdict-save
 intent: 008-per-answer-verdict-save
 phase: inception
-status: draft
-created: 2026-07-02T00:00:00Z
-updated: 2026-07-02T00:00:00Z
+status: complete
+created: 2026-07-02T00:00:00.000Z
+updated: 2026-07-02T00:00:00.000Z
 ---
 
 # Unit Brief: Per-Answer Verdict Save + Separate ODPC Finalize

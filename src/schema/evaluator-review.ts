@@ -23,37 +23,10 @@ export const AnswerViewItemSchema = t.Object({
 
 export const AnswerViewSchema = t.Array(AnswerViewItemSchema);
 
-const ApproveEntrySchema = t.Object({
-  answerId: t.Number(),
-  decision: t.Literal("approve"),
-});
-
-const ChangeScoreEntrySchema = t.Object({
-  answerId: t.Number(),
-  decision: t.Literal("change_score"),
-  verdictChoice: t.Union([t.Literal("0"), t.Literal("1"), t.Literal("2"), t.Literal("3")]),
-  description: t.String({ minLength: 1 }),
-});
-
-const RejectEntrySchema = t.Object({
-  answerId: t.Number(),
-  decision: t.Literal("reject"),
-  description: t.String({ minLength: 1 }),
-});
-
-export const VerdictEntrySchema = t.Union([
-  ApproveEntrySchema,
-  ChangeScoreEntrySchema,
-  RejectEntrySchema,
-]);
-export const VerdictBatchSchema = t.Array(VerdictEntrySchema, { minItems: 1 });
-
-export type VerdictEntry = Static<typeof VerdictEntrySchema>;
-export type VerdictBatch = Static<typeof VerdictBatchSchema>;
-
 // --- Per-Answer verdict save (ADR-0005) ---
 // The single-Answer save body carries NO answerId — it is a path parameter.
-// (The batch schemas above are retained until bolt 021 removes the batch route.)
+// The former batch schema (VerdictBatchSchema/VerdictEntry) was removed with the batch
+// route in bolt 021; the save + separate finalize are the only write paths now.
 const ApproveSaveSchema = t.Object({ decision: t.Literal("approve") });
 const ChangeScoreSaveSchema = t.Object({
   decision: t.Literal("change_score"),

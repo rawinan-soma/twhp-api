@@ -1,8 +1,8 @@
 # Elysia Documentation
 
-> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-06-24
+> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-07-02
 
-49 operations across 8 groups.
+51 operations across 8 groups.
 
 ## Contents
 
@@ -16,8 +16,9 @@
   - [`GET /twhp/api/admins/factories/{id}`](#get-twhp-api-admins-factories-id)
   - [`PATCH /twhp/api/admins/factories/{id}`](#patch-twhp-api-admins-factories-id)
   - [`DELETE /twhp/api/admins/factories/{id}`](#delete-twhp-api-admins-factories-id)
-  - [`POST /twhp/api/admins/covers/{coverId}/verdict`](#post-twhp-api-admins-covers-coverid-verdict)
+  - [`POST /twhp/api/admins/covers/{coverId}/finalize`](#post-twhp-api-admins-covers-coverid-finalize)
   - [`GET /twhp/api/admins/covers/{coverId}/answers`](#get-twhp-api-admins-covers-coverid-answers)
+  - [`POST /twhp/api/admins/covers/{coverId}/answers/{answerId}/verdict`](#post-twhp-api-admins-covers-coverid-answers-answerid-verdict)
 - [authentication](#authentication)
   - [`POST /twhp/api/authentication/login`](#post-twhp-api-authentication-login)
   - [`POST /twhp/api/authentication/login/verify-otp`](#post-twhp-api-authentication-login-verify-otp)
@@ -35,8 +36,9 @@
   - [`GET /twhp/api/evaluators/score`](#get-twhp-api-evaluators-score)
   - [`GET /twhp/api/evaluators/enrolls/{id}`](#get-twhp-api-evaluators-enrolls-id)
   - [`GET /twhp/api/evaluators/factories/{id}`](#get-twhp-api-evaluators-factories-id)
-  - [`POST /twhp/api/evaluators/covers/{coverId}/verdict`](#post-twhp-api-evaluators-covers-coverid-verdict)
+  - [`POST /twhp/api/evaluators/covers/{coverId}/finalize`](#post-twhp-api-evaluators-covers-coverid-finalize)
   - [`GET /twhp/api/evaluators/covers/{coverId}/answers`](#get-twhp-api-evaluators-covers-coverid-answers)
+  - [`POST /twhp/api/evaluators/covers/{coverId}/answers/{answerId}/verdict`](#post-twhp-api-evaluators-covers-coverid-answers-answerid-verdict)
 - [factories](#factories)
   - [`POST /twhp/api/factories/register`](#post-twhp-api-factories-register)
   - [`PATCH /twhp/api/factories`](#patch-twhp-api-factories)
@@ -397,10 +399,10 @@ update ข้อมูลของ สปก. ตาม id ของสปก.
 
 ---
 
-### `POST /twhp/api/admins/covers/{coverId}/verdict`
+### `POST /twhp/api/admins/covers/{coverId}/finalize`
 
 
-บันทึกคำตัดสินแบบ batch (ผู้ดูแลระบบทำหน้าที่ ODPC ระดับประเทศ, finalize ในหนึ่ง transaction)
+สรุปผลทั้งฝาประเมิน (ผู้ดูแลระบบทำหน้าที่ ODPC ระดับประเทศ; อ่าน answerLogs ล่าสุด, gate in_review, แปลง recommended→finished, บันทึก transition, คำนวณเกรด, ส่งอีเมล)
 
 **Parameters**
 
@@ -410,95 +412,8 @@ update ข้อมูลของ สปก. ตาม id ของสปก.
 
 **Request body** (`application/json`)
 
-```json
-{
-  "minItems": 1,
-  "type": "array",
-  "items": {
-    "anyOf": [
-      {
-        "type": "object",
-        "required": [
-          "answerId",
-          "decision"
-        ],
-        "properties": {
-          "answerId": {
-            "type": "number"
-          },
-          "decision": {
-            "const": "approve",
-            "type": "string"
-          }
-        }
-      },
-      {
-        "type": "object",
-        "required": [
-          "answerId",
-          "decision",
-          "verdictChoice",
-          "description"
-        ],
-        "properties": {
-          "answerId": {
-            "type": "number"
-          },
-          "decision": {
-            "const": "change_score",
-            "type": "string"
-          },
-          "verdictChoice": {
-            "anyOf": [
-              {
-                "const": "0",
-                "type": "string"
-              },
-              {
-                "const": "1",
-                "type": "string"
-              },
-              {
-                "const": "2",
-                "type": "string"
-              },
-              {
-                "const": "3",
-                "type": "string"
-              }
-            ]
-          },
-          "description": {
-            "minLength": 1,
-            "type": "string"
-          }
-        }
-      },
-      {
-        "type": "object",
-        "required": [
-          "answerId",
-          "decision",
-          "description"
-        ],
-        "properties": {
-          "answerId": {
-            "type": "number"
-          },
-          "decision": {
-            "const": "reject",
-            "type": "string"
-          },
-          "description": {
-            "minLength": 1,
-            "type": "string"
-          }
-        }
-      }
-    ]
-  }
-}
-```
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
 
 **Responses**
 
@@ -507,7 +422,8 @@ update ข้อมูลของ สปก. ตาม id ของสปก.
   | Field | Type | Required | Description |
   | --- | --- | --- | --- |
   | `message` | `string` | yes |  |
-  | `grade` | `string \| string \| string \| string \| null` | — |  |
+  | `coverStatus` | `string` | yes |  |
+  | `grade` | `string \| string \| string \| string \| null` | yes |  |
 
 - `400` — Response for status 400
 
@@ -522,6 +438,12 @@ update ข้อมูลของ สปก. ตาม id ของสปก.
   | `message` | `string` | yes |  |
 
 - `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `500` — Response for status 500
 
   | Field | Type | Required | Description |
   | --- | --- | --- | --- |
@@ -544,6 +466,125 @@ update ข้อมูลของ สปก. ตาม id ของสปก.
 **Responses**
 
 - `200` — Response for status 200
+- `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+
+---
+
+### `POST /twhp/api/admins/covers/{coverId}/answers/{answerId}/verdict`
+
+
+บันทึกคำตัดสินรายข้อ (ผู้ดูแลระบบทำหน้าที่ ODPC ระดับประเทศ; ต่อท้าย answerLogs หนึ่งแถว)
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `coverId` | path | yes | `number` |  |
+| `answerId` | path | yes | `number` |  |
+
+**Request body** (`application/json`)
+
+```json
+{
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "decision"
+      ],
+      "properties": {
+        "decision": {
+          "const": "approve",
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "decision",
+        "verdictChoice",
+        "description"
+      ],
+      "properties": {
+        "decision": {
+          "const": "change_score",
+          "type": "string"
+        },
+        "verdictChoice": {
+          "anyOf": [
+            {
+              "const": "0",
+              "type": "string"
+            },
+            {
+              "const": "1",
+              "type": "string"
+            },
+            {
+              "const": "2",
+              "type": "string"
+            },
+            {
+              "const": "3",
+              "type": "string"
+            }
+          ]
+        },
+        "description": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "decision",
+        "description"
+      ],
+      "properties": {
+        "decision": {
+          "const": "reject",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    }
+  ]
+}
+```
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+  | `answerId` | `number` | yes |  |
+  | `status` | `string` | yes |  |
+
+- `400` — Response for status 400
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `403` — Response for status 403
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
 - `404` — Response for status 404
 
   | Field | Type | Required | Description |
@@ -1012,10 +1053,10 @@ logout
 
 ---
 
-### `POST /twhp/api/evaluators/covers/{coverId}/verdict`
+### `POST /twhp/api/evaluators/covers/{coverId}/finalize`
 
 
-บันทึกคำตัดสินแบบ batch (หนึ่ง transaction)
+สรุปผลทั้งฝาประเมิน (ODPC เท่านั้น; อ่าน answerLogs ล่าสุด, gate in_review, แปลง recommended→finished, ลบไฟล์ที่ถูก reject, บันทึก transition, คำนวณเกรด, ส่งอีเมล)
 
 **Parameters**
 
@@ -1025,95 +1066,8 @@ logout
 
 **Request body** (`application/json`)
 
-```json
-{
-  "minItems": 1,
-  "type": "array",
-  "items": {
-    "anyOf": [
-      {
-        "type": "object",
-        "required": [
-          "answerId",
-          "decision"
-        ],
-        "properties": {
-          "answerId": {
-            "type": "number"
-          },
-          "decision": {
-            "const": "approve",
-            "type": "string"
-          }
-        }
-      },
-      {
-        "type": "object",
-        "required": [
-          "answerId",
-          "decision",
-          "verdictChoice",
-          "description"
-        ],
-        "properties": {
-          "answerId": {
-            "type": "number"
-          },
-          "decision": {
-            "const": "change_score",
-            "type": "string"
-          },
-          "verdictChoice": {
-            "anyOf": [
-              {
-                "const": "0",
-                "type": "string"
-              },
-              {
-                "const": "1",
-                "type": "string"
-              },
-              {
-                "const": "2",
-                "type": "string"
-              },
-              {
-                "const": "3",
-                "type": "string"
-              }
-            ]
-          },
-          "description": {
-            "minLength": 1,
-            "type": "string"
-          }
-        }
-      },
-      {
-        "type": "object",
-        "required": [
-          "answerId",
-          "decision",
-          "description"
-        ],
-        "properties": {
-          "answerId": {
-            "type": "number"
-          },
-          "decision": {
-            "const": "reject",
-            "type": "string"
-          },
-          "description": {
-            "minLength": 1,
-            "type": "string"
-          }
-        }
-      }
-    ]
-  }
-}
-```
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
 
 **Responses**
 
@@ -1122,7 +1076,8 @@ logout
   | Field | Type | Required | Description |
   | --- | --- | --- | --- |
   | `message` | `string` | yes |  |
-  | `grade` | `string \| string \| string \| string \| null` | — |  |
+  | `coverStatus` | `string` | yes |  |
+  | `grade` | `string \| string \| string \| string \| null` | yes |  |
 
 - `400` — Response for status 400
 
@@ -1137,6 +1092,12 @@ logout
   | `message` | `string` | yes |  |
 
 - `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `500` — Response for status 500
 
   | Field | Type | Required | Description |
   | --- | --- | --- | --- |
@@ -1159,6 +1120,125 @@ logout
 **Responses**
 
 - `200` — Response for status 200
+- `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+
+---
+
+### `POST /twhp/api/evaluators/covers/{coverId}/answers/{answerId}/verdict`
+
+
+บันทึกคำตัดสินรายข้อ (per-Answer save; ต่อท้าย answerLogs หนึ่งแถว, ไม่มี side effect)
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `coverId` | path | yes | `number` |  |
+| `answerId` | path | yes | `number` |  |
+
+**Request body** (`application/json`)
+
+```json
+{
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "decision"
+      ],
+      "properties": {
+        "decision": {
+          "const": "approve",
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "decision",
+        "verdictChoice",
+        "description"
+      ],
+      "properties": {
+        "decision": {
+          "const": "change_score",
+          "type": "string"
+        },
+        "verdictChoice": {
+          "anyOf": [
+            {
+              "const": "0",
+              "type": "string"
+            },
+            {
+              "const": "1",
+              "type": "string"
+            },
+            {
+              "const": "2",
+              "type": "string"
+            },
+            {
+              "const": "3",
+              "type": "string"
+            }
+          ]
+        },
+        "description": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "decision",
+        "description"
+      ],
+      "properties": {
+        "decision": {
+          "const": "reject",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    }
+  ]
+}
+```
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+  | `answerId` | `number` | yes |  |
+  | `status` | `string` | yes |  |
+
+- `400` — Response for status 400
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `403` — Response for status 403
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
 - `404` — Response for status 404
 
   | Field | Type | Required | Description |
