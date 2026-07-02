@@ -1,14 +1,11 @@
 # Elysia Documentation
 
-> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-06-19
+> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-06-24
 
-49 operations across 9 groups.
+49 operations across 8 groups.
 
 ## Contents
 
-- [admin](#admin)
-  - [`POST /twhp/api/admin/covers/{coverId}/verdict`](#post-twhp-api-admin-covers-coverid-verdict)
-  - [`GET /twhp/api/admin/covers/{coverId}/answers`](#get-twhp-api-admin-covers-coverid-answers)
 - [admins](#admins)
   - [`PATCH /twhp/api/admins`](#patch-twhp-api-admins)
   - [`GET /twhp/api/admins/enrolls`](#get-twhp-api-admins-enrolls)
@@ -19,6 +16,8 @@
   - [`GET /twhp/api/admins/factories/{id}`](#get-twhp-api-admins-factories-id)
   - [`PATCH /twhp/api/admins/factories/{id}`](#patch-twhp-api-admins-factories-id)
   - [`DELETE /twhp/api/admins/factories/{id}`](#delete-twhp-api-admins-factories-id)
+  - [`POST /twhp/api/admins/covers/{coverId}/verdict`](#post-twhp-api-admins-covers-coverid-verdict)
+  - [`GET /twhp/api/admins/covers/{coverId}/answers`](#get-twhp-api-admins-covers-coverid-answers)
 - [authentication](#authentication)
   - [`POST /twhp/api/authentication/login`](#post-twhp-api-authentication-login)
   - [`POST /twhp/api/authentication/login/verify-otp`](#post-twhp-api-authentication-login-verify-otp)
@@ -65,164 +64,6 @@
   - [`GET /twhp/api/provincialOfficers/factories`](#get-twhp-api-provincialofficers-factories)
   - [`GET /twhp/api/provincialOfficers/score`](#get-twhp-api-provincialofficers-score)
 
-## admin
-
-### `POST /twhp/api/admin/covers/{coverId}/verdict`
-
-
-บันทึกคำตัดสินแบบ batch (ผู้ดูแลระบบทำหน้าที่ ODPC ระดับประเทศ, finalize ในหนึ่ง transaction)
-
-**Parameters**
-
-| Name | In | Required | Type | Description |
-| --- | --- | --- | --- | --- |
-| `coverId` | path | yes | `number` |  |
-
-**Request body** (`application/json`)
-
-```json
-{
-  "minItems": 1,
-  "type": "array",
-  "items": {
-    "anyOf": [
-      {
-        "type": "object",
-        "required": [
-          "answerId",
-          "decision"
-        ],
-        "properties": {
-          "answerId": {
-            "type": "number"
-          },
-          "decision": {
-            "const": "approve",
-            "type": "string"
-          }
-        }
-      },
-      {
-        "type": "object",
-        "required": [
-          "answerId",
-          "decision",
-          "verdictChoice",
-          "description"
-        ],
-        "properties": {
-          "answerId": {
-            "type": "number"
-          },
-          "decision": {
-            "const": "change_score",
-            "type": "string"
-          },
-          "verdictChoice": {
-            "anyOf": [
-              {
-                "const": "0",
-                "type": "string"
-              },
-              {
-                "const": "1",
-                "type": "string"
-              },
-              {
-                "const": "2",
-                "type": "string"
-              },
-              {
-                "const": "3",
-                "type": "string"
-              }
-            ]
-          },
-          "description": {
-            "minLength": 1,
-            "type": "string"
-          }
-        }
-      },
-      {
-        "type": "object",
-        "required": [
-          "answerId",
-          "decision",
-          "description"
-        ],
-        "properties": {
-          "answerId": {
-            "type": "number"
-          },
-          "decision": {
-            "const": "reject",
-            "type": "string"
-          },
-          "description": {
-            "minLength": 1,
-            "type": "string"
-          }
-        }
-      }
-    ]
-  }
-}
-```
-
-**Responses**
-
-- `200` — Response for status 200
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-  | `grade` | `string \| string \| string \| string \| null` | — |  |
-
-- `400` — Response for status 400
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-- `403` — Response for status 403
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-- `404` — Response for status 404
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-
----
-
-### `GET /twhp/api/admin/covers/{coverId}/answers`
-
-
-ดูคำตอบในฝาประเมิน (ผู้ดูแลระบบทำหน้าที่ ODPC ระดับประเทศ ไม่กรองตามภูมิภาค)
-
-**Parameters**
-
-| Name | In | Required | Type | Description |
-| --- | --- | --- | --- | --- |
-| `coverId` | path | yes | `number` |  |
-
-**Responses**
-
-- `200` — Response for status 200
-- `404` — Response for status 404
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-
----
-
 ## admins
 
 ### `PATCH /twhp/api/admins`
@@ -261,7 +102,13 @@
 ### `GET /twhp/api/admins/enrolls`
 
 
-ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมด
+ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมด (กรองตามสถานะ cover ได้ด้วย ?coverStatus=)
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `coverStatus` | query | — | `"finished" \| "in_progress" \| "in_review" \| "none"` |  |
 
 **Responses**
 
@@ -550,6 +397,162 @@ update ข้อมูลของ สปก. ตาม id ของสปก.
 
 ---
 
+### `POST /twhp/api/admins/covers/{coverId}/verdict`
+
+
+บันทึกคำตัดสินแบบ batch (ผู้ดูแลระบบทำหน้าที่ ODPC ระดับประเทศ, finalize ในหนึ่ง transaction)
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `coverId` | path | yes | `number` |  |
+
+**Request body** (`application/json`)
+
+```json
+{
+  "minItems": 1,
+  "type": "array",
+  "items": {
+    "anyOf": [
+      {
+        "type": "object",
+        "required": [
+          "answerId",
+          "decision"
+        ],
+        "properties": {
+          "answerId": {
+            "type": "number"
+          },
+          "decision": {
+            "const": "approve",
+            "type": "string"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "answerId",
+          "decision",
+          "verdictChoice",
+          "description"
+        ],
+        "properties": {
+          "answerId": {
+            "type": "number"
+          },
+          "decision": {
+            "const": "change_score",
+            "type": "string"
+          },
+          "verdictChoice": {
+            "anyOf": [
+              {
+                "const": "0",
+                "type": "string"
+              },
+              {
+                "const": "1",
+                "type": "string"
+              },
+              {
+                "const": "2",
+                "type": "string"
+              },
+              {
+                "const": "3",
+                "type": "string"
+              }
+            ]
+          },
+          "description": {
+            "minLength": 1,
+            "type": "string"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "answerId",
+          "decision",
+          "description"
+        ],
+        "properties": {
+          "answerId": {
+            "type": "number"
+          },
+          "decision": {
+            "const": "reject",
+            "type": "string"
+          },
+          "description": {
+            "minLength": 1,
+            "type": "string"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+  | `grade` | `string \| string \| string \| string \| null` | — |  |
+
+- `400` — Response for status 400
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `403` — Response for status 403
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+
+---
+
+### `GET /twhp/api/admins/covers/{coverId}/answers`
+
+
+ดูคำตอบในฝาประเมิน (ผู้ดูแลระบบทำหน้าที่ ODPC ระดับประเทศ ไม่กรองตามภูมิภาค)
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `coverId` | path | yes | `number` |  |
+
+**Responses**
+
+- `200` — Response for status 200
+- `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+
+---
+
 ## authentication
 
 ### `POST /twhp/api/authentication/login`
@@ -561,6 +564,7 @@ Staff/Factory login (step 1)
 
 | Name | In | Required | Type | Description |
 | --- | --- | --- | --- | --- |
+| `x-dev-bypass` | header | — | `string` |  |
 | `Authentication` | cookie | — | `string` |  |
 | `Refresh` | cookie | — | `string` |  |
 
@@ -816,7 +820,13 @@ logout
 ### `GET /twhp/api/evaluators/enrolls`
 
 
-ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดตามเขตสุขภาพ
+ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดตามเขตสุขภาพ (กรองตามสถานะ cover ได้ด้วย ?coverStatus=)
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `coverStatus` | query | — | `"finished" \| "in_progress" \| "in_review" \| "none"` |  |
 
 **Responses**
 
@@ -1767,7 +1777,13 @@ Get a 5-minute presigned URL for a stored file
 ### `GET /twhp/api/provincialOfficers/enrolls`
 
 
-ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดของจังหวัด
+ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดของจังหวัด (กรองตามสถานะ cover ได้ด้วย ?coverStatus=)
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `coverStatus` | query | — | `"finished" \| "in_progress" \| "in_review" \| "none"` |  |
 
 **Responses**
 
