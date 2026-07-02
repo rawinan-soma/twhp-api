@@ -2,9 +2,9 @@
 
 ## Overview
 
-- **Total stories**: 34
-- **Completed**: 14
-- **Planned**: 20
+- **Total stories**: 44
+- **Completed**: 20
+- **Planned**: 24
 - **Last updated**: 2026-07-02
 
 ---
@@ -70,11 +70,31 @@ Unit: `001-dev-otp-bypass`
 - [x] **002-bypass-decision-helper** ✅ COMPLETE — `isDevOtpBypass(headerValue)` fail-closed gate + constant-time compare + prod hard-block — Must — bolt `017-dev-otp-bypass`
 - [x] **003-login-route-wiring** ✅ COMPLETE — Read `X-Dev-Bypass`, OR into `/login` non-OTP branch, log usage, doc header — Must — bolt `017-dev-otp-bypass`
 
+### 007-cover-status-filter
+
+Unit: `001-enroll-cover-filter`
+
+- [x] **001-cover-status-derivation-and-filter** ✅ COMPLETE — Service enrichment (latest-log-wins coverId/coverStatus) + `coverStatus` filter incl. `none`, AND-combined with scope — Must — bolt `018-enroll-cover-filter`
+- [x] **002-enroll-cover-response-schema** ✅ COMPLETE — Shared enroll response schema adding `coverId`/`coverStatus` nullable — Must — bolt `018-enroll-cover-filter`
+- [x] **003-enroll-routes-coverstatus-param** ✅ COMPLETE — `coverStatus` query param on admins/evaluators/provincialOfficers enroll routes; 400 on invalid; behaviour-preserving — Must — bolt `018-enroll-cover-filter`
+
+### 008-per-answer-verdict-save
+
+Unit: `001-per-answer-verdict-save`
+
+- [x] **001-verdict-schema-refactor** ✅ COMPLETE — `VerdictSaveBodySchema` (no answerId) + `FinalizeSchema`; batch schema retained (removal deferred to bolt 021) — Must — bolt `019-per-answer-verdict-save`
+- [x] **002-save-answer-verdict-service** ✅ COMPLETE — `saveAnswerVerdict`: one `answerLogs` row, approve→`recommended` for all levels, no MinIO/coverLogs/email — Must — bolt `019-per-answer-verdict-save`
+- [x] **003-authorship-edit-guard** ✅ COMPLETE — `eval_id`-keyed guard: `finished`→none, `recommended`→author/ODPC, `rejected`/`in_review`→scoped — Must — bolt `019-per-answer-verdict-save`
+- [ ] **004-odpc-finalize-action** ⏳ PLANNED — `finalize` (ODPC only): hard-gate on `in_review`, `recommended`→`finished`, deferred hard-reject delete, transition, grade, email — Must — bolt `020-per-answer-verdict-save`
+- [ ] **005-save-and-finalize-routes** ⏳ PLANNED — New `answers/:answerId/verdict` + `finalize` routes (evaluators); remove batch `verdict` route — Must — bolt `021-per-answer-verdict-save`
+- [ ] **006-admin-surface-parity** ⏳ PLANNED — Mirror save + finalize under `admins/covers/*` via `adminReviewerContext` (admin-as-national-ODPC) — Must — bolt `021-per-answer-verdict-save`
+- [ ] **007-answers-list-and-docs-regression** ⏳ PLANNED — `GET …/answers` unchanged; regen `docs/api/*`; restructure integration tests to save + finalize — Must — bolt `021-per-answer-verdict-save`
+
 ---
 
 ## Stories by Status
 
-- **Planned**: 20
+- **Planned**: 24
 - **Generated**: 0
 - **In Progress**: 0
-- **Completed**: 14
+- **Completed**: 20
