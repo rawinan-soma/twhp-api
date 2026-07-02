@@ -138,8 +138,8 @@ The cycle when ODPC finalizes with ≥1 `rejected` Answer:
    - **hard reject** (`verdict_choice` null) → **redo** the Answer (re-upload evidence; → `in_review`).
    **`recommended` and `finished` Answers are locked** — the Factory cannot touch them.
 3. Factory re-submits → Cover returns to `in_review`. Allowed when **no Answer is still `rejected`** (every send-back accepted→`recommended` or objected/redone→`in_review`).
-4. The owning tier-1 level re-judges its re-submitted Answers (or ODPC backstops); **`recommended` Answers carry over** and are not re-reviewed by tier-1 (ODPC converts them to `finished` at commit unless it overrides). ODPC finalizes again.
-5. Iterate until ODPC commits with every Answer `finished` → Cover `finished`. The loop is **unbounded** — it ends only by agreement, never by force.
+4. The owning tier-1 level re-judges its re-submitted Answers (or ODPC backstops via per-Answer saves); **`recommended` Answers carry over** and are not re-reviewed by tier-1 (finalize converts them to `finished` unless ODPC overrides). ODPC finalizes again.
+5. Iterate until ODPC finalizes with every Answer `finished` → Cover `finished`. The loop is **unbounded** — it ends only by agreement, never by force.
 
 ## Evaluation Flow (diagram)
 
@@ -159,24 +159,31 @@ The cycle when ODPC finalizes with ≥1 `rejected` Answer:
               │                       │
               │                       ▼
               │         ┌───────────────────────────┐
-              │         │   TIER-1 REVIEW           │   non-finalizing
-              │         │   Mental / DOH (OWN cats) │   (Cover stays
-              │         │   per Answer: approve     │    in_review;
-              │         │   (→recommended) /         │    no files
-              │         │   change-score / reject   │    deleted yet)
-              │         └─────────────┬─────────────┘
+              │         │  SAVE PHASE (per-Answer)  │   non-finalizing;
+              │         │  POST …/answers/:id/verdict│   each save = 1
+              │         │                           │   answerLogs row.
+              │         │  TIER-1 (Mental/DOH, own  │   Cover stays
+              │         │   cats): approve→recommend │   in_review.
+              │         │   / change-score / reject  │   NO files deleted,
+              │         │  ODPC (all 5 cats): same   │   NO cover move,
+              │         │   saves + overrides any    │   NO email.
+              │         │   non-finished + backstops │   Durable +
+              │         │   in_review. approve also  │   resumable;
+              │         │   →recommended (NOT final).│   edits allowed
+              │         └─────────────┬─────────────┘   per guard.
               │                       │
               │                       ▼
               │         ┌───────────────────────────┐
-              │         │   ODPC REVIEW  (FINALIZER)│   sole finalizer
-              │         │   • Collaborate, Outcome  │
-              │         │   • overrides any tier-1  │
-              │         │     (non-finished only)   │
-              │         │   • backstops in_review   │
-              │         │   • deletes hard-reject   │
-              │         │     files; computes Grade │
+              │         │  ODPC FINALIZE  (atomic)  │   sole finalizer;
+              │         │  POST …/covers/:id/finalize│   ONLY writer of
+              │         │   (empty body; ODPC only)  │   `finished` and
+              │         │  • hard-gate: reject if    │   the ONLY cover
+              │         │    any Answer in_review    │   transition.
+              │         │  • recommended → finished  │
+              │         │  • delete hard-reject files│
+              │         │  • compute Grade; email    │
               │         └─────────────┬─────────────┘
-              │                       │ finalize valid only when
+              │                       │ valid only when
               │                       │ NO Answer remains in_review
               │                       ▼
               │                ╱─────────────────╲
