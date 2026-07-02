@@ -3,10 +3,28 @@ id: 020-per-answer-verdict-save
 unit: 001-per-answer-verdict-save
 intent: 008-per-answer-verdict-save
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 004-odpc-finalize-action
-created: 2026-07-02T00:00:00Z
+created: 2026-07-02T00:00:00.000Z
+started: 2026-07-02T08:17:17.000Z
+current_stage: null
+stages_completed:
+  - name: domain-model
+    completed: 2026-07-02T08:23:00.000Z
+    artifact: ddd-01-domain-model.md
+  - name: technical-design
+    completed: 2026-07-02T08:27:00.000Z
+    artifact: ddd-02-technical-design.md
+  - name: adr-analysis
+    completed: 2026-07-02T08:27:00.000Z
+    artifact: none (skipped — covered by ADR-0005)
+  - name: implement
+    completed: 2026-07-02T08:34:00.000Z
+    artifact: src/service/evaluator-review.ts (finalize method)
+  - name: test
+    completed: 2026-07-02T08:48:48.000Z
+    artifact: ddd-03-test-report.md (+ evaluator-review.finalize.integration.test.ts)
 requires_bolts:
   - 019-per-answer-verdict-save
 enables_bolts:
@@ -18,6 +36,7 @@ complexity:
   avg_uncertainty: 3
   max_dependencies: 2
   testing_scope: 3
+completed: "2026-07-02T08:48:48Z"
 ---
 
 # Bolt: 020-per-answer-verdict-save

@@ -250,6 +250,201 @@ export const createEvaluatorReviewService = (database: typeof db) => {
       return status(200, { message: "verdict saved", answerId, status: outcomeStatus });
     },
 
+    /**
+     * ODPC/admin whole-Cover finalize (ADR-0005). Reads the *persisted* latest answerLogs
+     * (no in-flight batch / effectiveState merge — that is the split from `verdict()`),
+     * hard-gates on any `in_review`, converts un-overridden `recommended` → `finished`,
+     * deletes hard-reject files (outside + before the txn), writes the single `coverLogs`
+     * transition, computes the Grade on-demand, and emails the factory. This is the ONLY
+     * writer of `finished` and of a `coverLogs` transition.
+     */
+    finalize: async (coverId: number, reviewer: ReviewerContext) => {
+      const { accountId, level, region } = reviewer;
+
+      // ODPC-only gate (native ODPC or DOED-admin-as-national). No DB read before the gate.
+      if (level !== "ODPC") {
+        return status(403, { message: "finalize is restricted to ODPC" });
+      }
+
+      const coverCheck = await helper.assertCoverAccess(coverId, region);
+      if (coverCheck instanceof ElysiaCustomStatusResponse) return coverCheck;
+
+      // Factory contact for the verdict email (before txn so it's always available)
+      const enrollData = await database
+        .select({
+          email: enrolls.safetyOfficerEmail,
+          factoryNameTh: factories.nameTh,
+        })
+        .from(covers)
+        .innerJoin(enrolls, eq(enrolls.id, covers.enrollId))
+        .innerJoin(factories, eq(factories.accountId, enrolls.factoryId))
+        .where(eq(covers.id, coverId))
+        .limit(1)
+        .then((r) => r[0]);
+
+      // Every answer in the cover + grading inputs + files
+      const allCoverAnswers = await database
+        .select({
+          answerId: answers.id,
+          selectedChoice: answers.selectedChoice,
+          category: questions.category,
+          special: questions.special,
+          fileUrl1_1: answers.fileUrl1_1,
+          fileUrl1_2: answers.fileUrl1_2,
+          fileUrl1_3: answers.fileUrl1_3,
+          fileUrl2_1: answers.fileUrl2_1,
+          fileUrl2_2: answers.fileUrl2_2,
+          fileUrl2_3: answers.fileUrl2_3,
+          fileUrl3_1: answers.fileUrl3_1,
+          fileUrl3_2: answers.fileUrl3_2,
+          fileUrl3_3: answers.fileUrl3_3,
+        })
+        .from(answers)
+        .innerJoin(questions, eq(questions.id, answers.questionId))
+        .where(eq(answers.coverId, coverId));
+
+      const allCoverAnswerIds = allCoverAnswers.map((a) => a.answerId);
+
+      // The persisted latest log per answer is the SOLE input — no batch merge.
+      const latestLogs = await database
+        .selectDistinctOn([answerLogs.answerId], {
+          answerId: answerLogs.answerId,
+          status: answerLogs.status,
+          verdictChoice: answerLogs.verdictChoice,
+        })
+        .from(answerLogs)
+        .where(inArray(answerLogs.answerId, allCoverAnswerIds))
+        .orderBy(answerLogs.answerId, desc(answerLogs.id));
+
+      const logMap = new Map(latestLogs.map((l) => [l.answerId, l]));
+
+      // Resolve each answer's final status from persisted logs (no log yet ⇒ in_review).
+      const resolved = allCoverAnswers.map((a) => {
+        const log = logMap.get(a.answerId);
+        return {
+          answerId: a.answerId,
+          status: log?.status ?? "in_review",
+          verdictChoice: log?.verdictChoice ?? null,
+        };
+      });
+
+      // Hard-gate: finalize invents no verdict — any leftover in_review blocks it.
+      if (resolved.some((r) => r.status === "in_review")) {
+        return status(400, {
+          message: "finalization blocked: unresolved in_review answers remain",
+        });
+      }
+
+      // Promotions: un-overridden recommended → finished (the ONLY write of `finished`).
+      const promotionRows = resolved
+        .filter((r) => r.status === "recommended")
+        .map((r) => ({
+          answerId: r.answerId,
+          status: "finished" as const,
+          verdictChoice: null,
+          description: null,
+          eval_id: accountId,
+        }));
+
+      // Hard-reject set: rejected + verdictChoice null → files deleted + nulled.
+      // (change_score/overridden files carry a verdictChoice and are preserved.)
+      const hardRejectIds = new Set(
+        resolved
+          .filter((r) => r.status === "rejected" && r.verdictChoice === null)
+          .map((r) => r.answerId),
+      );
+
+      const fileUrlsToDelete: string[] = [];
+      for (const a of allCoverAnswers) {
+        if (!hardRejectIds.has(a.answerId)) continue;
+        for (const url of [
+          a.fileUrl1_1,
+          a.fileUrl1_2,
+          a.fileUrl1_3,
+          a.fileUrl2_1,
+          a.fileUrl2_2,
+          a.fileUrl2_3,
+          a.fileUrl3_1,
+          a.fileUrl3_2,
+          a.fileUrl3_3,
+        ]) {
+          if (url) fileUrlsToDelete.push(url);
+        }
+      }
+
+      // File I/O outside (and before) the transaction — project pattern. Uses the STRICT
+      // delete so a MinIO failure surfaces here and aborts finalize *before* any DB write
+      // → no partial cover transition (story 004 edge case). The 500 is logged by the
+      // global onAfterResponse handler.
+      try {
+        await Promise.all(fileUrlsToDelete.map((url) => utilities().deleteFileStrict(url)));
+      } catch {
+        return status(500, {
+          message: "failed to delete rejected answer files; finalize aborted",
+        });
+      }
+
+      const hasRejected = resolved.some((r) => r.status === "rejected");
+      const newCoverStatus = hasRejected ? ("in_progress" as const) : ("finished" as const);
+
+      await database.transaction(async (tx) => {
+        for (const row of promotionRows) {
+          await tx.insert(answerLogs).values(row);
+        }
+        if (hardRejectIds.size > 0) {
+          await tx
+            .update(answers)
+            .set({
+              fileUrl1_1: null,
+              fileUrl1_2: null,
+              fileUrl1_3: null,
+              fileUrl2_1: null,
+              fileUrl2_2: null,
+              fileUrl2_3: null,
+              fileUrl3_1: null,
+              fileUrl3_2: null,
+              fileUrl3_3: null,
+            })
+            .where(inArray(answers.id, [...hardRejectIds]));
+        }
+        await tx
+          .insert(coverLogs)
+          .values({ coverId, status: newCoverStatus, evaluatorId: accountId });
+      });
+
+      // Grade (on-demand, not persisted — ADR-0001). Computed from the factory's choices;
+      // on the finished outcome no answer is rejected, so selectedChoice is the settled value.
+      const gradeAnswers = allCoverAnswers.map((a) => ({
+        selectedChoice: a.selectedChoice,
+        category: a.category as CategoryKey,
+        special: a.special,
+      }));
+      const scoring = calculateBreakdown(gradeAnswers);
+      const grade = newCoverStatus === "finished" ? computeGrade(scoring, gradeAnswers) : null;
+
+      // Enqueue exactly one factory email after the committed txn; swallow queue failures.
+      if (enrollData?.email) {
+        try {
+          if (newCoverStatus === "finished") {
+            await emailQueue.add("verdict-result-finished", {
+              email: enrollData.email,
+              grade,
+              factoryNameTh: enrollData.factoryNameTh,
+            });
+          } else {
+            await emailQueue.add("verdict-result-in-progress", {
+              email: enrollData.email,
+              factoryNameTh: enrollData.factoryNameTh,
+            });
+          }
+        } catch (err) {
+          console.error("Failed to enqueue verdict email", err);
+        }
+      }
+
+      return status(200, { message: "cover finalized", coverStatus: newCoverStatus, grade });
+    },
+
     verdict: async (coverId: number, reviewer: ReviewerContext, batch: VerdictBatch) => {
       const { accountId, level, region } = reviewer;
 

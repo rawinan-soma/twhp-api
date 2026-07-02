@@ -28,8 +28,8 @@ last_updated: 2026-07-02T07:22:43Z
 
 | Bolt ID  | Stories   | Status         | Changed |
 | -------- | --------- | -------------- | ------- |
-| 019-per-answer-verdict-save | 001, 002, 003 | ⏳ in-progress | - |
-| 020-per-answer-verdict-save | 004 | [ ] planned | - |
+| 019-per-answer-verdict-save | 001, 002, 003 | ✅ complete | - |
+| 020-per-answer-verdict-save | 004 | ✅ complete | - |
 | 021-per-answer-verdict-save | 005, 006, 007 | [ ] planned | - |
 
 ## Execution History
@@ -39,6 +39,12 @@ last_updated: 2026-07-02T07:22:43Z
 | 2026-07-02T07:22:43Z | 019-per-answer-verdict-save | started | Stage 1: domain-model |
 | 2026-07-02T07:24:41Z | 019-per-answer-verdict-save | stage-complete | domain-model → technical-design |
 | 2026-07-02T07:26:53Z | 019-per-answer-verdict-save | stage-complete | technical-design → adr-analysis |
+| 2026-07-02T07:41:13Z | 019-per-answer-verdict-save | completed | All stages done |
+| 2026-07-02T08:17:17Z | 020-per-answer-verdict-save | started | Stage 1: domain-model |
+| 2026-07-02T08:23:00Z | 020-per-answer-verdict-save | stage-complete | domain-model → technical-design |
+| 2026-07-02T08:27:00Z | 020-per-answer-verdict-save | stage-complete | technical-design → implement (adr-analysis skipped — covered by ADR-0005) |
+| 2026-07-02T08:34:00Z | 020-per-answer-verdict-save | stage-complete | implement → test |
+| 2026-07-02T08:48:48Z | 020-per-answer-verdict-save | completed | All 5 stages done (adr-analysis skipped) — finalize + strict-delete abort |
 
 ## Execution Summary
 
@@ -46,9 +52,9 @@ last_updated: 2026-07-02T07:22:43Z
 | ---------------------- | ----- |
 | Original bolts planned | 3     |
 | Current bolt count     | 3     |
-| Bolts completed        | 0     |
-| Bolts in progress      | 1     |
-| Bolts remaining        | 2     |
+| Bolts completed        | 2     |
+| Bolts in progress      | 0     |
+| Bolts remaining        | 1     |
 | Replanning events      | 0     |
 
 ## Notes

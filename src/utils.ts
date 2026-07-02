@@ -40,6 +40,16 @@ const deleteFile = async (fileName: string | null) => {
   }
 };
 
+/**
+ * Strict delete: propagates MinIO failures instead of swallowing them, so a caller can
+ * abort before committing dependent DB work. Used by evaluator finalize, where a failed
+ * hard-reject delete must surface *before* the cover transition (no partial finalize).
+ */
+const deleteFileStrict = async (fileName: string | null) => {
+  if (!fileName) return;
+  await minioClient.removeObject(env.MINIO_BUCKET_NAME, fileName);
+};
+
 export const utilities = () => ({
   getFiscalYear: () => {
     const currentYear = new Date().getFullYear();
@@ -63,6 +73,7 @@ export const utilities = () => ({
   },
   uploadFile,
   deleteFile,
+  deleteFileStrict,
   getPresignedUrl: async (fileName: string) => {
     const internalUrl = await minioClient.presignedGetObject(env.MINIO_BUCKET_NAME, fileName, 5, {
       "response-content-disposition": "inline",
