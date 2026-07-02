@@ -14,7 +14,7 @@ import {
 } from "../drizzle/schema";
 
 import { emailQueue } from "../queue/email";
-import type { VerdictBatch } from "../schema/evaluator-review";
+import type { VerdictBatch, VerdictSaveBody } from "../schema/evaluator-review";
 import { utilities } from "../utils";
 import { categoriesFor, type EvaluatorLevel, evaluatorService } from "./evaluator";
 import { type CategoryKey, calculateBreakdown, computeGrade } from "./scoreHelpers";
@@ -142,6 +142,94 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           latestDescription: log?.description ?? null,
         };
       });
+    },
+
+    /**
+     * Per-Answer verdict save (ADR-0005). Appends exactly one answerLogs row for a single
+     * Answer with no side effects — no MinIO I/O, no coverLogs transition, no email.
+     * `approve` writes `recommended` for EVERY level (tier-1 and ODPC); only finalize
+     * writes `finished`. Editing is re-saving, gated by the authorship-keyed guard.
+     */
+    saveAnswerVerdict: async (
+      coverId: number,
+      answerId: number,
+      reviewer: ReviewerContext,
+      entry: VerdictSaveBody,
+    ) => {
+      const { accountId, level, region } = reviewer;
+
+      const coverCheck = await helper.assertCoverAccess(coverId, region);
+      if (coverCheck instanceof ElysiaCustomStatusResponse) return coverCheck;
+
+      // Answer must exist within this Cover
+      const answerRow = await database
+        .select({
+          answerId: answers.id,
+          category: questions.category,
+          selectedChoice: answers.selectedChoice,
+        })
+        .from(answers)
+        .innerJoin(questions, eq(questions.id, answers.questionId))
+        .where(and(eq(answers.coverId, coverId), eq(answers.id, answerId)))
+        .limit(1)
+        .then((r) => r[0]);
+
+      if (!answerRow) {
+        return status(400, { message: "answer not found in this cover" });
+      }
+
+      // Category scope — hard server-side guard
+      const categories = categoriesFor(level);
+      if (!categories.includes(answerRow.category as string)) {
+        return status(403, { message: "answer is outside your category scope" });
+      }
+
+      // Current state = latest log (status + author) for the authorship-keyed edit guard
+      const latest = await database
+        .selectDistinctOn([answerLogs.answerId], {
+          answerId: answerLogs.answerId,
+          status: answerLogs.status,
+          evalId: answerLogs.eval_id,
+        })
+        .from(answerLogs)
+        .where(eq(answerLogs.answerId, answerId))
+        .orderBy(answerLogs.answerId, desc(answerLogs.id))
+        .then((r) => r[0]);
+
+      const currentStatus = latest?.status ?? "in_review";
+      const currentAuthor = latest?.evalId ?? null;
+
+      // Edit guard (ADR-0005): finished → nobody; recommended → author or ODPC;
+      // rejected / in_review → any category-scoped reviewer (already checked above).
+      if (currentStatus === "finished") {
+        return status(400, { message: `answer ${answerId} is already finalized` });
+      }
+      if (currentStatus === "recommended" && level !== "ODPC" && currentAuthor !== accountId) {
+        return status(403, {
+          message: `answer ${answerId} is recommended; only its author or ODPC can override`,
+        });
+      }
+
+      // A change_score to the factory's current choice is a no-op — reject it; use "approve".
+      if (entry.decision === "change_score" && entry.verdictChoice === answerRow.selectedChoice) {
+        return status(400, {
+          message: `answer ${answerId}: change_score must differ from the current choice`,
+        });
+      }
+
+      // approve → recommended for EVERY level (only finalize writes `finished`).
+      const outcomeStatus =
+        entry.decision === "approve" ? ("recommended" as const) : ("rejected" as const);
+
+      await database.insert(answerLogs).values({
+        answerId,
+        status: outcomeStatus,
+        verdictChoice: entry.decision === "change_score" ? entry.verdictChoice : null,
+        description: entry.decision !== "approve" ? entry.description : null,
+        eval_id: accountId,
+      });
+
+      return status(200, { message: "verdict saved", answerId, status: outcomeStatus });
     },
 
     verdict: async (coverId: number, reviewer: ReviewerContext, batch: VerdictBatch) => {
