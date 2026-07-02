@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, mock } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import Elysia, { status } from "elysia";
 
 // ── Mock definitions (must precede dynamic import) ────────────────────────
@@ -8,7 +8,8 @@ const mockRequiresOtp = mock((..._: unknown[]) => false as boolean);
 const mockCreateChallenge = mock(async (..._: unknown[]) => ({ challengeId: "chal-001" }));
 const mockMaskEmail = mock((..._: unknown[]) => "r****@gmail.com");
 const mockVerifyChallenge = mock(async (..._: unknown[]) => null as any);
-const mockResendOtp = mock(async (..._: unknown[]) => ({ ok: true } as const));
+const mockResendOtp = mock(async (..._: unknown[]) => ({ ok: true }) as const);
+const mockIsDevOtpBypass = mock((..._: unknown[]) => false as boolean);
 const mockIssueToken = mock(async (..._: unknown[]) => "mock-token" as string);
 const mockSetRefreshToken = mock(async (..._: unknown[]) => undefined);
 const mockGetCookieOption = mock((..._: unknown[]) => ({
@@ -23,6 +24,7 @@ mock.module("../../service/authentication", () => ({
   authenticationService: {
     getAutheticatedAccount: mockGetAutheticatedAccount,
     requiresOtp: mockRequiresOtp,
+    isDevOtpBypass: mockIsDevOtpBypass,
     createChallenge: mockCreateChallenge,
     maskEmail: mockMaskEmail,
     verifyChallenge: mockVerifyChallenge,
@@ -90,13 +92,45 @@ const VERIFIED_ACCOUNT = {
   full_name: "Staff User",
 };
 
+// OTP-required accounts across all three staff roles (003-AC-5)
+const STAFF_ROLES_OTP = [
+  {
+    id: 2,
+    username: "doed01",
+    role: "DOED",
+    email: "doed@example.com",
+    isChangePassword: true,
+    full_name: "Doed User",
+  },
+  {
+    id: 4,
+    username: "eval02",
+    role: "Evaluator",
+    email: "eval2@example.com",
+    isChangePassword: true,
+    full_name: "Eval Two",
+  },
+  {
+    id: 5,
+    username: "prov01",
+    role: "Provincial",
+    email: "prov@example.com",
+    isChangePassword: true,
+    full_name: "Prov User",
+  },
+];
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 
-async function POST(path: string, body: Record<string, unknown>) {
+async function POST(
+  path: string,
+  body: Record<string, unknown>,
+  extraHeaders: Record<string, string> = {},
+) {
   return app.handle(
     new Request(`http://localhost${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...extraHeaders },
       body: JSON.stringify(body),
     }),
   );
@@ -111,11 +145,13 @@ beforeEach(() => {
   mockMaskEmail.mockReset();
   mockVerifyChallenge.mockReset();
   mockResendOtp.mockReset();
+  mockIsDevOtpBypass.mockReset();
   mockIssueToken.mockReset();
   mockSetRefreshToken.mockReset();
   mockGetCookieOption.mockReset();
 
   mockRequiresOtp.mockImplementation((..._: unknown[]) => false);
+  mockIsDevOtpBypass.mockImplementation((..._: unknown[]) => false);
   mockMaskEmail.mockImplementation((..._: unknown[]) => "r****@gmail.com");
   mockIssueToken.mockImplementation(async (...args: unknown[]) =>
     args[3] === "Authentication" ? "mock-access-token" : "mock-refresh-token",
@@ -156,7 +192,9 @@ describe("POST /login — 006 two-step login", () => {
   it("006-AC-3 OTP-required staff → 200 { twoFactorRequired, challengeId, email }, no tokens", async () => {
     mockGetAutheticatedAccount.mockImplementation(async (..._: unknown[]) => STAFF_OTP_ACCOUNT);
     mockRequiresOtp.mockImplementation((..._: unknown[]) => true);
-    mockCreateChallenge.mockImplementation(async (..._: unknown[]) => ({ challengeId: "chal-001" }));
+    mockCreateChallenge.mockImplementation(async (..._: unknown[]) => ({
+      challengeId: "chal-001",
+    }));
 
     const res = await POST("/login", { username: "staff01", password: "pass" });
     const body = await res.json();
@@ -191,6 +229,101 @@ describe("POST /login — 006 two-step login", () => {
 
     expect(res.status).toBe(429);
     expect(mockCreateChallenge.mock.calls.length).toBe(0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 003 — dev OTP bypass on POST /login (intent 006)
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe("POST /login — 003 dev OTP bypass", () => {
+  it("003-AC-1 bypass active + correct staff password → 200 {message,user}, tokens issued, no challenge/email", async () => {
+    mockGetAutheticatedAccount.mockImplementation(async (..._: unknown[]) => STAFF_OTP_ACCOUNT);
+    mockRequiresOtp.mockImplementation((..._: unknown[]) => true);
+    mockIsDevOtpBypass.mockImplementation((..._: unknown[]) => true);
+
+    const res = await POST(
+      "/login",
+      { username: "staff01", password: "pass" },
+      { "X-Dev-Bypass": "secret" },
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toMatchObject({ message: "login successful", user: { id: 2, role: "DOED" } });
+    expect(mockIssueToken.mock.calls.length).toBe(2);
+    expect(mockSetRefreshToken.mock.calls.length).toBe(1);
+    expect(mockCreateChallenge.mock.calls.length).toBe(0); // no challenge ⇒ no 2fa-otp email
+  });
+
+  it("003-wiring header value reaches isDevOtpBypass", async () => {
+    mockGetAutheticatedAccount.mockImplementation(async (..._: unknown[]) => STAFF_OTP_ACCOUNT);
+    mockRequiresOtp.mockImplementation((..._: unknown[]) => true);
+    mockIsDevOtpBypass.mockImplementation((..._: unknown[]) => true);
+
+    await POST(
+      "/login",
+      { username: "staff01", password: "pass" },
+      { "X-Dev-Bypass": "my-secret" },
+    );
+
+    expect(mockIsDevOtpBypass.mock.calls.length).toBe(1);
+    expect(mockIsDevOtpBypass.mock.calls[0][0]).toBe("my-secret");
+  });
+
+  it("003-AC-3 wrong password + valid header → 401, no tokens, bypass not consulted (creds first)", async () => {
+    mockGetAutheticatedAccount.mockImplementation(async (..._: unknown[]) =>
+      status(401, { message: "invalid username or password" }),
+    );
+    mockIsDevOtpBypass.mockImplementation((..._: unknown[]) => true);
+
+    const res = await POST(
+      "/login",
+      { username: "staff01", password: "wrong" },
+      { "X-Dev-Bypass": "secret" },
+    );
+
+    expect(res.status).toBe(401);
+    expect(mockIssueToken.mock.calls.length).toBe(0);
+    expect(mockIsDevOtpBypass.mock.calls.length).toBe(0); // returns before bypass check
+  });
+
+  it("003-AC-4 no header + OTP-required staff → unchanged twoFactorRequired path", async () => {
+    mockGetAutheticatedAccount.mockImplementation(async (..._: unknown[]) => STAFF_OTP_ACCOUNT);
+    mockRequiresOtp.mockImplementation((..._: unknown[]) => true);
+    mockIsDevOtpBypass.mockImplementation((..._: unknown[]) => false);
+    mockCreateChallenge.mockImplementation(async (..._: unknown[]) => ({
+      challengeId: "chal-009",
+    }));
+
+    const res = await POST("/login", { username: "staff01", password: "pass" });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toMatchObject({ twoFactorRequired: true, challengeId: "chal-009" });
+    expect(mockIssueToken.mock.calls.length).toBe(0);
+  });
+
+  it("003-AC-5 bypass yields identical {message,user} shape for DOED/Evaluator/Provincial", async () => {
+    mockRequiresOtp.mockImplementation((..._: unknown[]) => true);
+    mockIsDevOtpBypass.mockImplementation((..._: unknown[]) => true);
+
+    for (const acct of STAFF_ROLES_OTP) {
+      mockGetAutheticatedAccount.mockImplementation(async (..._: unknown[]) => acct);
+      const res = await POST(
+        "/login",
+        { username: acct.username, password: "pass" },
+        { "X-Dev-Bypass": "secret" },
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body).toMatchObject({
+        message: "login successful",
+        user: { id: acct.id, role: acct.role, username: acct.username },
+      });
+      expect(body.twoFactorRequired).toBeUndefined();
+    }
   });
 });
 
@@ -266,7 +399,7 @@ describe("POST /login/verify-otp — 007", () => {
 
 describe("POST /login/resend-otp — 008", () => {
   it("008-AC-1 Valid challenge, throttle clear → 200 { message: 'OTP re-sent' }", async () => {
-    mockResendOtp.mockImplementation(async (..._: unknown[]) => ({ ok: true } as const));
+    mockResendOtp.mockImplementation(async (..._: unknown[]) => ({ ok: true }) as const);
 
     const res = await POST("/login/resend-otp", { challengeId: "chal-001" });
     const body = await res.json();

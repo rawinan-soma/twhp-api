@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dev OTP Bypass — How-To · TWHP API</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #171a23;
+    --panel-2: #1d2130;
+    --ink: #e7e9ee;
+    --muted: #9aa3b2;
+    --line: #2a2f3d;
+    --accent: #5b9dff;
+    --accent-soft: #1b2a45;
+    --green: #4ade80;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --code: #c8d3e6;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: radial-gradient(1200px 600px at 80% -10%, #1a2030 0%, var(--bg) 55%) fixed;
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.65;
+    font-size: 16px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 56px 24px 96px; }
+  header.hero {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    padding: 32px 32px 28px;
+    margin-bottom: 32px;
+  }
+  .tag {
+    display: inline-block; font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--accent); background: var(--accent-soft); border: 1px solid #29407a;
+    padding: 4px 10px; border-radius: 999px; font-weight: 600;
+  }
+  h1 { font-size: 2rem; margin: 14px 0 8px; letter-spacing: -.02em; }
+  h2 {
+    font-size: 1.3rem; margin: 44px 0 12px; padding-top: 10px; letter-spacing: -.01em;
+    border-top: 1px solid var(--line);
+  }
+  h2:first-of-type { border-top: none; }
+  h3 { font-size: 1.05rem; margin: 26px 0 8px; color: #d8deea; }
+  p { color: #d2d7e1; }
+  .lede { color: var(--muted); font-size: 1.05rem; margin: 6px 0 0; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: var(--mono); font-size: .9em; background: #11141d; border: 1px solid var(--line);
+    padding: 1.5px 6px; border-radius: 6px; color: var(--code); }
+  pre {
+    background: #0b0d13; border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px; overflow-x: auto; margin: 14px 0; position: relative;
+  }
+  pre code { background: none; border: none; padding: 0; color: var(--code); font-size: .86rem; line-height: 1.6; }
+  .cm { color: #6b7689; }    /* comment */
+  .kw { color: #7aa2ff; }    /* keyword/flag */
+  .st { color: #9ae6b4; }    /* string */
+  .nb { color: #f6b8b8; }    /* note/red */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: .92rem; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
+  tbody tr:hover { background: #141823; }
+  .callout {
+    border: 1px solid var(--line); border-left-width: 4px; border-radius: 10px;
+    padding: 14px 16px; margin: 18px 0; background: var(--panel);
+  }
+  .callout .h { font-weight: 700; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .callout p { margin: 4px 0 0; color: #cdd3df; }
+  .danger { border-left-color: var(--red); }
+  .danger .h { color: var(--red); }
+  .warn { border-left-color: var(--amber); }
+  .warn .h { color: var(--amber); }
+  .tip { border-left-color: var(--green); }
+  .tip .h { color: var(--green); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--panel); }
+  .card .k { font-family: var(--mono); color: var(--accent); font-size: .85rem; }
+  .toc { border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; background: var(--panel); margin: 0 0 8px; }
+  .toc ol { margin: 6px 0 0; padding-left: 20px; columns: 2; }
+  .toc li { margin: 3px 0; }
+  .pill { font-family: var(--mono); font-size: .8rem; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--line); }
+  .ok { color: var(--green); } .no { color: var(--red); }
+  footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: .85rem; }
+  .flow { font-family: var(--mono); font-size: .8rem; color: var(--muted); white-space: pre; overflow-x: auto;
+    background: #0b0d13; border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 14px 0; }
+  .flow b { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="tag">Internal · Development Only</span>
+    <h1>Dev OTP Bypass — How-To</h1>
+    <p class="lede">Log in as any staff role locally without the email-OTP second factor — gated by a secret header, master-switched by an env flag, and <strong>structurally impossible in production</strong>.</p>
+  </header>
+
+  <nav class="toc">
+    <strong>Contents</strong>
+    <ol>
+      <li><a href="#what">What it is</a></li>
+      <li><a href="#quickstart">Quick start</a></li>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#config">Configuration</a></li>
+      <li><a href="#usage">Usage &amp; examples</a></li>
+      <li><a href="#security">Security guarantees</a></li>
+      <li><a href="#impl">Implementation map</a></li>
+      <li><a href="#trouble">Troubleshooting</a></li>
+    </ol>
+  </nav>
+
+  <h2 id="what">What it is</h2>
+  <p>
+    Staff roles (<code>DOED</code>, <code>Evaluator</code>, <code>Provincial</code>) must pass an
+    emailed one-time passcode after their password (see the staff 2FA flow). That makes the
+    <strong>email worker a login-critical dependency</strong> — inconvenient for local development and QA.
+  </p>
+  <p>
+    This bypass lets a developer skip <em>only</em> the OTP step by sending a secret header on
+    <code>POST /twhp/api/authentication/login</code>. The password is still verified. It only activates in a
+    non-production environment, and only when explicitly configured.
+  </p>
+
+  <div class="callout danger">
+    <p class="h">⛔ Never enable this in production</p>
+    <p>The bypass is force-disabled whenever <code>COOKIE_SECURE=true</code>. Even with the flag on and
+    the correct secret, production staff logins always require OTP. A startup warning is logged if the
+    flag is set in a production environment.</p>
+  </div>
+
+  <h2 id="quickstart">Quick start</h2>
+  <p>In your local <code>docker.env</code> / <code>.env</code> (where <code>COOKIE_SECURE=false</code>):</p>
+  <pre><code><span class="cm"># enable the bypass and choose a secret (local dev only)</span>
+<span class="kw">DEV_SKIP_OTP</span>=<span class="st">true</span>
+<span class="kw">DEV_BYPASS_SECRET</span>=<span class="st">my-local-dev-secret</span></code></pre>
+  <p>Then log in, sending the secret as the <code>X-Dev-Bypass</code> header:</p>
+  <pre><code><span class="kw">curl</span> -i -X POST http://localhost:3000/twhp/api/authentication/login \
+  -H <span class="st">'Content-Type: application/json'</span> \
+  -H <span class="st">'X-Dev-Bypass: my-local-dev-secret'</span> \
+  -d <span class="st">'{"username":"eval01","password":"correct-password"}'</span></code></pre>
+  <p>You get cookies (<code>Authentication</code> + <code>Refresh</code>) and
+  <code>{ "message": "login successful", "user": {…} }</code> in one step — no OTP email, no challenge.</p>
+
+  <h2 id="how">How it works</h2>
+  <p>The bypass fires <strong>only if every one of these is true</strong> (fail-closed — any miss falls back to the normal flow):</p>
+  <table>
+    <thead><tr><th>#</th><th>Condition</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><code>DEV_SKIP_OTP === true</code></td><td>env (master switch)</td></tr>
+      <tr><td>2</td><td><code>COOKIE_SECURE === false</code> (not production)</td><td>env (production signal)</td></tr>
+      <tr><td>3</td><td><code>DEV_BYPASS_SECRET</code> is set and non-empty</td><td>env (the secret)</td></tr>
+      <tr><td>4</td><td><code>X-Dev-Bypass</code> header equals <code>DEV_BYPASS_SECRET</code> (constant-time compare)</td><td>request</td></tr>
+      <tr><td>5</td><td>username / password already verified</td><td><code>getAutheticatedAccount()</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="flow">request <b>POST /authentication/login</b>  { username, password, header X-Dev-Bypass }
+   │
+   ├─ verify credentials ───────────► wrong password → <b>401</b>  (header ignored)
+   │
+   ├─ isDevOtpBypass(header) ?
+   │      flag on &amp;&amp; !production &amp;&amp; secret set &amp;&amp; timingSafeEqual(header, secret)
+   │
+   ├─ requiresOtp(role) === false  OR  bypass === true
+   │        └─► issue cookies, { message, user }      <b>← bypass lands here</b>
+   │
+   └─ otherwise → mint Redis challenge + send 2fa-otp email
+            └─► { twoFactorRequired, challengeId, email }</div>
+
+  <h2 id="config">Configuration</h2>
+  <table>
+    <thead><tr><th>Variable</th><th>Type</th><th>Default</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>DEV_SKIP_OTP</code></td><td>boolean</td><td><code>false</code></td><td>Master switch. Must be <code>true</code> for the bypass to be possible.</td></tr>
+      <tr><td><code>DEV_BYPASS_SECRET</code></td><td>string</td><td><code>""</code></td><td>The shared secret. The <code>X-Dev-Bypass</code> header must equal this. Empty ⇒ bypass impossible.</td></tr>
+      <tr><td><code>COOKIE_SECURE</code></td><td>boolean</td><td><em>(required)</em></td><td>Existing var. <code>true</code> = production ⇒ bypass hard-disabled. <code>false</code> = dev.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout tip">
+    <p class="h">✅ Safe defaults</p>
+    <p>With nothing set, <code>DEV_SKIP_OTP</code> defaults to <code>false</code> and the secret to empty — the
+    feature is inert. Both must be deliberately configured for it to work. A malformed
+    <code>DEV_SKIP_OTP</code> (anything other than <code>true</code>/<code>false</code>) makes the app refuse to boot.</p>
+  </div>
+
+  <h2 id="usage">Usage &amp; examples</h2>
+
+  <h3>Enable (local)</h3>
+  <pre><code><span class="cm"># docker.env — local development only</span>
+<span class="kw">COOKIE_SECURE</span>=<span class="st">false</span>
+<span class="kw">DEV_SKIP_OTP</span>=<span class="st">true</span>
+<span class="kw">DEV_BYPASS_SECRET</span>=<span class="st">my-local-dev-secret</span></code></pre>
+
+  <h3>Log in without OTP</h3>
+  <pre><code><span class="kw">curl</span> -i -X POST http://localhost:3000/twhp/api/authentication/login \
+  -H <span class="st">'Content-Type: application/json'</span> \
+  -H <span class="st">'X-Dev-Bypass: my-local-dev-secret'</span> \
+  -d <span class="st">'{"username":"doed01","password":"correct-password"}'</span>
+
+<span class="cm"># → 200  Set-Cookie: Authentication=… ; Set-Cookie: Refresh=…</span>
+<span class="cm"># → { "message": "login successful", "user": { "id": 2, "role": "DOED", … } }</span></code></pre>
+
+  <h3>Disable</h3>
+  <pre><code><span class="cm"># either remove the secret…</span>
+<span class="kw">DEV_BYPASS_SECRET</span>=
+<span class="cm"># …or flip the master switch off</span>
+<span class="kw">DEV_SKIP_OTP</span>=<span class="st">false</span></code></pre>
+
+  <div class="callout warn">
+    <p class="h">⚠️ The header is not an auth bypass</p>
+    <p>It skips <strong>only</strong> the OTP factor. A wrong password still returns <code>401</code>, with no cookies,
+    regardless of the header. The header alone grants nothing.</p>
+  </div>
+
+  <h2 id="security">Security guarantees</h2>
+  <div class="grid">
+    <div class="card"><div class="k">Production hard-block</div><p>When <code>COOKIE_SECURE=true</code>, the bypass returns <span class="no">false</span> unconditionally — flag and header are ignored.</p></div>
+    <div class="card"><div class="k">Fail-closed</div><p>Unset flag, empty secret, or missing/mismatched header ⇒ normal flow. The default posture is deny.</p></div>
+    <div class="card"><div class="k">Constant-time compare</div><p>The secret is matched with <code>crypto.timingSafeEqual</code> (length-guarded) — no timing/length oracle.</p></div>
+    <div class="card"><div class="k">Credentials first</div><p><code>getAutheticatedAccount</code> runs before the bypass is even evaluated; a bad password short-circuits to <code>401</code>.</p></div>
+    <div class="card"><div class="k">No secret leakage</div><p><code>DEV_BYPASS_SECRET</code> is never logged, never returned, never written to Redis.</p></div>
+    <div class="card"><div class="k">Observability</div><p>Every fired bypass logs a <code>warn</code> with <code>{ accountId, username, role }</code> — visible if it ever activates by accident.</p></div>
+  </div>
+
+  <h2 id="impl">Implementation map</h2>
+  <p>If you need to read or change the feature, the whole thing is four small touch-points:</p>
+  <table>
+    <thead><tr><th>File</th><th>What lives there</th></tr></thead>
+    <tbody>
+      <tr><td><code>src/config.ts</code></td><td><code>DEV_SKIP_OTP</code> + <code>DEV_BYPASS_SECRET</code> with <code>optionalEnvBoolean</code> / <code>optionalEnv</code> validation.</td></tr>
+      <tr><td><code>src/index.ts</code></td><td>One-time startup <code>warn</code> when the flag is set with <code>COOKIE_SECURE=true</code>.</td></tr>
+      <tr><td><code>src/service/authentication.ts</code></td><td><code>isDevOtpBypass(presentedSecret)</code> — the pure, fail-closed decision (guards → constant-time compare).</td></tr>
+      <tr><td><code>src/routes/authentication/index.ts</code></td><td>Reads <code>x-dev-bypass</code>, ORs the bypass into the existing non-OTP <code>/login</code> branch, logs <code>OtpBypassed</code>.</td></tr>
+    </tbody>
+  </table>
+  <p>The decision helper, in full:</p>
+  <pre><code><span class="kw">isDevOtpBypass</span>: (presentedSecret: string | undefined): boolean =&gt; {
+  <span class="kw">if</span> (!env.DEV_SKIP_OTP) <span class="kw">return</span> <span class="st">false</span>;       <span class="cm">// master switch off</span>
+  <span class="kw">if</span> (env.COOKIE_SECURE) <span class="kw">return</span> <span class="st">false</span>;       <span class="cm">// production hard-block</span>
+  <span class="kw">const</span> secret = env.DEV_BYPASS_SECRET;
+  <span class="kw">if</span> (!secret) <span class="kw">return</span> <span class="st">false</span>;                 <span class="cm">// no secret → impossible</span>
+  <span class="kw">if</span> (!presentedSecret) <span class="kw">return</span> <span class="st">false</span>;
+  <span class="kw">const</span> presented = Buffer.from(presentedSecret);
+  <span class="kw">const</span> expected = Buffer.from(secret);
+  <span class="kw">if</span> (presented.length !== expected.length) <span class="kw">return</span> <span class="st">false</span>; <span class="cm">// guard length throw</span>
+  <span class="kw">return</span> timingSafeEqual(presented, expected);
+}</code></pre>
+  <p class="lede" style="font-size:.92rem">Rationale for using <code>COOKIE_SECURE</code> as the production signal is recorded in
+  <code>memory-bank/bolts/017-dev-otp-bypass/adr-4-cookie-secure-as-production-signal.md</code>.</p>
+
+  <h2 id="trouble">Troubleshooting</h2>
+  <table>
+    <thead><tr><th>Symptom</th><th>Likely cause</th></tr></thead>
+    <tbody>
+      <tr><td>Still getting <code>{ twoFactorRequired: true }</code></td><td><code>DEV_SKIP_OTP</code> not <code>true</code>, secret empty, header missing/mismatched, or <code>COOKIE_SECURE=true</code>.</td></tr>
+      <tr><td><code>401</code> with the header set</td><td>Wrong username/password — credentials are checked first, by design.</td></tr>
+      <tr><td>App won't boot</td><td><code>DEV_SKIP_OTP</code> is not exactly <code>true</code> or <code>false</code>.</td></tr>
+      <tr><td>Startup logs <em>"DEV_SKIP_OTP … ignored … production"</em></td><td>The flag is on while <code>COOKIE_SECURE=true</code>. The bypass stays disabled — remove the flag from prod config.</td></tr>
+      <tr><td>Factory login unaffected</td><td>Expected — Factory accounts never require OTP, so the header is a no-op for them.</td></tr>
+    </tbody>
+  </table>
+
+  <footer>
+    TWHP API · Developer OTP Bypass (intent <code>006-dev-otp-bypass</code>, bolt <code>017</code>).
+    For local development and QA only — never enable in production.
+  </footer>
+
+</div>
+</body>
+</html>

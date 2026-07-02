@@ -30,6 +30,18 @@ function optionalEnvNumber(key: string, defaultValue: number): number {
   return num;
 }
 
+function optionalEnvBoolean(key: string, defaultValue: boolean): boolean {
+  const val = Bun.env[key];
+  if (val === undefined || val === "") return defaultValue;
+  if (val !== "true" && val !== "false")
+    throw new Error(`Environment variable ${key} must be "true" or "false", got: "${val}"`);
+  return val === "true";
+}
+
+function optionalEnv(key: string, defaultValue: string): string {
+  return Bun.env[key] ?? defaultValue;
+}
+
 export const env = {
   // Database
   DATABASE_URL: requireEnv("DATABASE_URL"),
@@ -65,6 +77,10 @@ export const env = {
   OTP_FAIL_WINDOW: optionalEnvNumber("OTP_FAIL_WINDOW", 900),
   OTP_FAIL_THRESHOLD: optionalEnvNumber("OTP_FAIL_THRESHOLD", 10),
   OTP_RESEND_THROTTLE: optionalEnvNumber("OTP_RESEND_THROTTLE", 60),
+
+  // Dev OTP bypass (development only — hard-blocked when COOKIE_SECURE=true; see ADR-4)
+  DEV_SKIP_OTP: optionalEnvBoolean("DEV_SKIP_OTP", false),
+  DEV_BYPASS_SECRET: optionalEnv("DEV_BYPASS_SECRET", ""),
 
   // MinIO
   MINIO_ENDPOINT: requireEnv("MINIO_ENDPOINT"),

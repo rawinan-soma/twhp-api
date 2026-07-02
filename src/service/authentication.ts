@@ -1,4 +1,4 @@
-import { randomBytes, randomInt } from "node:crypto";
+import { randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import * as bcrypt from "bcrypt";
 import { eq, sql } from "drizzle-orm";
 import { ElysiaCustomStatusResponse, status } from "elysia";
@@ -436,6 +436,19 @@ export const createAuthenticationUsecase = (database: typeof db) => {
       if (role === Role.Factory) return false;
       if (!isChangePassword) return false;
       return true;
+    },
+
+    // Dev-only: decide whether this request may skip the OTP step. Fail-closed (see ADR-4).
+    isDevOtpBypass: (presentedSecret: string | undefined): boolean => {
+      if (!env.DEV_SKIP_OTP) return false; // master switch off
+      if (env.COOKIE_SECURE) return false; // production hard-block
+      const secret = env.DEV_BYPASS_SECRET;
+      if (!secret) return false; // no secret configured → bypass impossible
+      if (!presentedSecret) return false;
+      const presented = Buffer.from(presentedSecret);
+      const expected = Buffer.from(secret);
+      if (presented.length !== expected.length) return false; // avoid timingSafeEqual length throw
+      return timingSafeEqual(presented, expected);
     },
 
     maskEmail: (email: string): string => maskEmailHelper(email),

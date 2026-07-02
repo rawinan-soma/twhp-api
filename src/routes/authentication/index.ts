@@ -1,18 +1,18 @@
 import Elysia, { ElysiaCustomStatusResponse, t } from "elysia";
 import type { App } from "../..";
 import { jwtPlugin } from "../../middleware/jwt";
-import { authenticationService, type Role } from "../../service/authentication";
 import {
   LoginResponseDto,
   LoginSuccessResponse,
   ResendOtpBody,
   VerifyOtpBody,
 } from "../../schema/authentication";
+import { authenticationService, type Role } from "../../service/authentication";
 
 const publicAuthenticationController = new Elysia()
   .post(
     "/login",
-    async ({ body, cookie: { Authentication, Refresh }, set }) => {
+    async ({ body, cookie: { Authentication, Refresh }, set, headers, log }) => {
       const { username, password } = body;
       const account = await authenticationService.getAutheticatedAccount(username, password);
 
@@ -20,7 +20,9 @@ const publicAuthenticationController = new Elysia()
         return account;
       }
 
-      if (!authenticationService.requiresOtp(account.role, account.isChangePassword)) {
+      const devBypass = authenticationService.isDevOtpBypass(headers["x-dev-bypass"]);
+
+      if (!authenticationService.requiresOtp(account.role, account.isChangePassword) || devBypass) {
         const accessToken = await authenticationService.helper.issueToken(
           account.id,
           account.username,
@@ -49,6 +51,13 @@ const publicAuthenticationController = new Elysia()
           ...authenticationService.helper.getCookieOption("Refresh"),
         });
 
+        if (devBypass) {
+          log?.warn(
+            { accountId: account.id, username: account.username, role: account.role },
+            "OTP bypassed via dev header",
+          );
+        }
+
         set.status = 200;
         return {
           message: "login successful",
@@ -76,6 +85,14 @@ const publicAuthenticationController = new Elysia()
     {
       detail: { description: "Staff/Factory login (step 1)" },
       body: t.Object({ username: t.String(), password: t.String() }),
+      headers: t.Object({
+        "x-dev-bypass": t.Optional(
+          t.String({
+            description:
+              "Dev-only: when DEV_SKIP_OTP=true and not production (COOKIE_SECURE=false), a value matching DEV_BYPASS_SECRET skips the staff OTP step. Ignored in production.",
+          }),
+        ),
+      }),
       cookie: t.Cookie({
         Authentication: t.Optional(t.String()),
         Refresh: t.Optional(t.String()),

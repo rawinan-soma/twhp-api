@@ -2,10 +2,10 @@
 
 ## Overview
 
-- **Total stories**: 31
-- **Completed**: 11
+- **Total stories**: 34
+- **Completed**: 14
 - **Planned**: 20
-- **Last updated**: 2026-06-19
+- **Last updated**: 2026-07-02
 
 ---
 
@@ -62,6 +62,14 @@ Unit: `001-admin-as-evaluator` — depends on `003-evaluator-review` (do not con
 - [x] **002-admin-answers-endpoint** ✅ COMPLETE — `GET /admin/covers/:coverId/answers`, national ODPC, all categories — Must — bolt `011-admin-as-evaluator`
 - [x] **003-admin-verdict-endpoint** ✅ COMPLETE — `POST /admin/covers/:coverId/verdict` → ODPC finalize + admin audit + Grade/email parity — Must — bolt `012-admin-as-evaluator`
 
+### 006-dev-otp-bypass
+
+Unit: `001-dev-otp-bypass`
+
+- [x] **001-bypass-config** ✅ COMPLETE — `DEV_SKIP_OTP` + `DEV_BYPASS_SECRET` env vars + startup production warning — Must — bolt `017-dev-otp-bypass`
+- [x] **002-bypass-decision-helper** ✅ COMPLETE — `isDevOtpBypass(headerValue)` fail-closed gate + constant-time compare + prod hard-block — Must — bolt `017-dev-otp-bypass`
+- [x] **003-login-route-wiring** ✅ COMPLETE — Read `X-Dev-Bypass`, OR into `/login` non-OTP branch, log usage, doc header — Must — bolt `017-dev-otp-bypass`
+
 ---
 
 ## Stories by Status
@@ -69,4 +77,4 @@ Unit: `001-admin-as-evaluator` — depends on `003-evaluator-review` (do not con
 - **Planned**: 20
 - **Generated**: 0
 - **In Progress**: 0
-- **Completed**: 11
+- **Completed**: 14

@@ -12,6 +12,13 @@ const globalLogger = createPinoLogger({
   timestamp: bangkokTimestamp,
 });
 
+// Dev OTP bypass is hard-blocked in production (see ADR-4). Warn once if it is configured there.
+if (env.DEV_SKIP_OTP && env.COOKIE_SECURE) {
+  globalLogger.warn(
+    "DEV_SKIP_OTP is enabled but ignored because COOKIE_SECURE=true (production). Staff OTP remains enforced.",
+  );
+}
+
 const EXPECTED_CODES = new Set(["VALIDATION", "INVALID_FILE_TYPE", "PARSE"]);
 
 const app = new Elysia({ prefix: "/twhp/api" })

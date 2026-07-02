@@ -1,6 +1,6 @@
 ---
-last_updated: 2026-06-19T01:40:07Z
-total_decisions: 3
+last_updated: 2026-06-23T04:27:07Z
+total_decisions: 4
 ---
 
 # Decision Index
@@ -17,6 +17,14 @@ Use this to find relevant prior decisions when working on related features.
 ---
 
 ## Decisions
+
+### ADR-4: Reuse `COOKIE_SECURE` as the Production Signal for the Dev OTP Bypass
+- **Status**: accepted
+- **Date**: 2026-06-23
+- **Bolt**: 017-dev-otp-bypass (dev-otp-bypass)
+- **Path**: `bolts/017-dev-otp-bypass/adr-4-cookie-secure-as-production-signal.md`
+- **Summary**: The developer OTP bypass must be impossible in production, but the codebase has no `NODE_ENV`/`APP_ENV`. We reuse the already-required `COOKIE_SECURE === true` boolean as the production signal that hard-disables the bypass, avoiding a second drift-prone "is-prod" source. Trade-off: the guard is semantically coupled to a cookie-transport flag; migrate to an explicit `APP_ENV` if a non-HTTPS production tier ever appears.
+- **Read when**: Working on the dev OTP bypass, authentication/login gating, environment/production detection, or any feature that needs to behave differently in production; reconsidering whether to introduce an explicit `APP_ENV`/`NODE_ENV` discriminator
 
 ### ADR-3: National Admin (DOED) as a Second ODPC-Level Finalizer — Unlocked
 - **Status**: accepted
