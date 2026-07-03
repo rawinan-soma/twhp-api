@@ -2,10 +2,10 @@
 
 ## Overview
 
-- **Total stories**: 44
-- **Completed**: 20
+- **Total stories**: 48
+- **Completed**: 24
 - **Planned**: 24
-- **Last updated**: 2026-07-02
+- **Last updated**: 2026-07-03
 
 ---
 
@@ -90,6 +90,15 @@ Unit: `001-per-answer-verdict-save`
 - [ ] **006-admin-surface-parity** ⏳ PLANNED — Mirror save + finalize under `admins/covers/*` via `adminReviewerContext` (admin-as-national-ODPC) — Must — bolt `021-per-answer-verdict-save`
 - [ ] **007-answers-list-and-docs-regression** ⏳ PLANNED — `GET …/answers` unchanged; regen `docs/api/*`; restructure integration tests to save + finalize — Must — bolt `021-per-answer-verdict-save`
 
+### 009-review-standard-files
+
+Unit: `001-review-standard-files` — depends on `008-per-answer-verdict-save` (enriches the cover-review `/answers` read)
+
+- [x] **001-standard-file-dto** ✅ COMPLETE — `StandardFileItem` schema + `{ answers, standards }` response shape — Must — bolt `022-review-standard-files`
+- [x] **002-standards-service-enrichment** ✅ COMPLETE — `getAnswers` returns claimed+uploaded standards from the enroll (`STANDARD_ENROLL_COLUMNS`) — Must — bolt `022-review-standard-files`
+- [x] **003-both-surface-response** ✅ COMPLETE — evaluator + admin `/answers` responses use the new shape — Must — bolt `022-review-standard-files`
+- [x] **004-docs-and-test-regression** ✅ COMPLETE — regen `docs/api/*`; cover-review tests + `getAnswers` regression updated (seeded standard files) — Must — bolt `022-review-standard-files`
+
 ---
 
 ## Stories by Status
@@ -97,4 +106,4 @@ Unit: `001-per-answer-verdict-save`
 - **Planned**: 24
 - **Generated**: 0
 - **In Progress**: 0
-- **Completed**: 20
+- **Completed**: 24

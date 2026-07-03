@@ -23,6 +23,11 @@ const pool = new Pool({ connectionString: Bun.env.DATABASE_URL! });
 const db = drizzle(pool);
 const reviewService = createEvaluatorReviewService(db);
 
+// getAnswers now returns status(200, { answers, standards }) on success.
+const code = (r: unknown) => (r as { code: number }).code;
+const body = (r: unknown) =>
+  (r as { response: { answers: unknown[]; standards: unknown[] } }).response;
+
 // ─── Fixture constants ───────────────────────────────────────────────────────
 
 const TEST_FACTORY_ACCOUNT_ID = 99951;
@@ -206,7 +211,9 @@ describe("Story 001 — reviewer-context seam", () => {
       level: "ODPC",
       region: COVER_REGION,
     });
-    expect(Array.isArray(result)).toBe(true);
+    expect(code(result)).toBe(200);
+    expect(Array.isArray(body(result).answers)).toBe(true);
+    expect(Array.isArray(body(result).standards)).toBe(true);
   });
 
   it("AC: region non-null + WRONG region → 404 cover not found (still gated)", async () => {
@@ -234,10 +241,12 @@ describe("Story 001 — reviewer-context seam", () => {
       level: "Mental",
       region: COVER_REGION,
     });
-    expect(Array.isArray(result)).toBe(true);
-    const rows = result as Array<{ category: string }>;
+    expect(code(result)).toBe(200);
+    const rows = body(result).answers as Array<{ category: string }>;
     expect(rows).toHaveLength(1);
     expect(rows.every((r) => r.category === "Mental")).toBe(true);
+    // This fixture's enroll claims no standards → standards is empty (not-claimed excluded).
+    expect(body(result).standards).toEqual([]);
   });
 });
 
@@ -249,8 +258,8 @@ describe("Story 002 — admin answers endpoint (service path)", () => {
       coverId,
       adminReviewerContext(NON_EVALUATOR_ACCOUNT_ID),
     );
-    expect(Array.isArray(result)).toBe(true);
-    const rows = result as Array<{ category: string }>;
+    expect(code(result)).toBe(200);
+    const rows = body(result).answers as Array<{ category: string }>;
     expect(rows).toHaveLength(ALL_CATEGORIES.length);
     expect(new Set(rows.map((r) => r.category))).toEqual(new Set(ALL_CATEGORIES));
   });
@@ -260,7 +269,7 @@ describe("Story 002 — admin answers endpoint (service path)", () => {
       coverId,
       adminReviewerContext(NON_EVALUATOR_ACCOUNT_ID),
     );
-    expect(Value.Check(AnswerViewSchema, result)).toBe(true);
+    expect(Value.Check(AnswerViewSchema, body(result))).toBe(true);
   });
 
   it("AC: admin + non-existent cover → 404", async () => {

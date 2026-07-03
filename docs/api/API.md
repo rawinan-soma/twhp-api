@@ -1,6 +1,6 @@
 # Elysia Documentation
 
-> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-07-02
+> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-07-03
 
 51 operations across 8 groups.
 
@@ -466,6 +466,12 @@ update ข้อมูลของ สปก. ตาม id ของสปก.
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `answers` | `object[]` | yes |  |
+  | `standards` | `object[]` | yes |  |
+
 - `404` — Response for status 404
 
   | Field | Type | Required | Description |
@@ -1120,6 +1126,12 @@ logout
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `answers` | `object[]` | yes |  |
+  | `standards` | `object[]` | yes |  |
+
 - `404` — Response for status 404
 
   | Field | Type | Required | Description |

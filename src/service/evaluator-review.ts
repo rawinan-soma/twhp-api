@@ -14,12 +14,42 @@ import {
 } from "../drizzle/schema";
 
 import { emailQueue } from "../queue/email";
-import type { VerdictSaveBody } from "../schema/evaluator-review";
+import type { StandardFileItem, VerdictSaveBody } from "../schema/evaluator-review";
 import { utilities } from "../utils";
 import { categoriesFor, type EvaluatorLevel, evaluatorService } from "./evaluator";
 import { type CategoryKey, calculateBreakdown, computeGrade } from "./scoreHelpers";
 
 type QuestionCategory = (typeof questionCategories.enumValues)[number];
+
+/**
+ * Authoritative pairing of each `standardTypes` key to its enroll (bool, url) columns.
+ * Single source of truth for the standards projection (intent 009). The enum key ≠ column
+ * name (`standardHC` → `standardHc`/`fileStandardHcUrl`), so the pairing is explicit.
+ */
+const STANDARD_ENROLL_COLUMNS = [
+  { standard: "standardHC", bool: "standardHc", url: "fileStandardHcUrl" },
+  { standard: "standardSAN", bool: "standardSan", url: "fileStandardSanUrl" },
+  { standard: "standardSANPlus", bool: "standardSanPlus", url: "fileStandardSanPlusUrl" },
+  { standard: "standardWellness", bool: "standardWellness", url: "fileStandardWellnessUrl" },
+  { standard: "standardSafety", bool: "standardSafety", url: "fileStandardSafetyUrl" },
+  { standard: "standardTIS18001", bool: "standardTis18001", url: "fileStandardTis18001Url" },
+  { standard: "standardISO45001", bool: "standardIso45001", url: "fileStandardIso45001Url" },
+  { standard: "standardISO14001", bool: "standardIso14001", url: "fileStandardIso14001Url" },
+  { standard: "standardZero", bool: "standardZero", url: "fileStandardZeroUrl" },
+  { standard: "standard5S", bool: "standard5S", url: "fileStandard5SUrl" },
+  { standard: "standardHAS", bool: "standardHas", url: "fileStandardHasUrl" },
+] as const;
+
+/** Claimed + uploaded standard certificates for an enroll row → view items (intent 009). */
+const standardFilesFromEnroll = (
+  row: Record<string, boolean | string | null>,
+): StandardFileItem[] =>
+  STANDARD_ENROLL_COLUMNS.flatMap(({ standard, bool, url }) => {
+    const fileName = row[url];
+    return row[bool] === true && typeof fileName === "string" && fileName.length > 0
+      ? [{ standard, fileName }]
+      : [];
+  });
 
 /**
  * The resolved actor performing a review, decoupled from how it authenticated.
@@ -95,6 +125,41 @@ export const createEvaluatorReviewService = (database: typeof db) => {
       const coverCheck = await helper.assertCoverAccess(coverId, reviewer.region);
       if (coverCheck instanceof ElysiaCustomStatusResponse) return coverCheck;
 
+      // Factory's claimed + uploaded standard certificates for this cover (intent 009).
+      // Factory-level (not category-scoped) — every reviewer with cover access sees all.
+      const enrollRow = await database
+        .select({
+          standardHc: enrolls.standardHc,
+          fileStandardHcUrl: enrolls.fileStandardHcUrl,
+          standardSan: enrolls.standardSan,
+          fileStandardSanUrl: enrolls.fileStandardSanUrl,
+          standardSanPlus: enrolls.standardSanPlus,
+          fileStandardSanPlusUrl: enrolls.fileStandardSanPlusUrl,
+          standardWellness: enrolls.standardWellness,
+          fileStandardWellnessUrl: enrolls.fileStandardWellnessUrl,
+          standardSafety: enrolls.standardSafety,
+          fileStandardSafetyUrl: enrolls.fileStandardSafetyUrl,
+          standardTis18001: enrolls.standardTis18001,
+          fileStandardTis18001Url: enrolls.fileStandardTis18001Url,
+          standardIso45001: enrolls.standardIso45001,
+          fileStandardIso45001Url: enrolls.fileStandardIso45001Url,
+          standardIso14001: enrolls.standardIso14001,
+          fileStandardIso14001Url: enrolls.fileStandardIso14001Url,
+          standardZero: enrolls.standardZero,
+          fileStandardZeroUrl: enrolls.fileStandardZeroUrl,
+          standard5S: enrolls.standard5S,
+          fileStandard5SUrl: enrolls.fileStandard5SUrl,
+          standardHas: enrolls.standardHas,
+          fileStandardHasUrl: enrolls.fileStandardHasUrl,
+        })
+        .from(enrolls)
+        .innerJoin(covers, eq(covers.enrollId, enrolls.id))
+        .where(eq(covers.id, coverId))
+        .limit(1)
+        .then((r) => r[0]);
+
+      const standards = enrollRow ? standardFilesFromEnroll(enrollRow) : [];
+
       const categories = categoriesFor(reviewer.level);
 
       const filteredAnswers = await database
@@ -122,24 +187,25 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           ),
         );
 
-      if (filteredAnswers.length === 0) return [];
-
       const answerIds = filteredAnswers.map((a) => a.answerId);
 
-      const latestLogs = await database
-        .selectDistinctOn([answerLogs.answerId], {
-          answerId: answerLogs.answerId,
-          status: answerLogs.status,
-          verdictChoice: answerLogs.verdictChoice,
-          description: answerLogs.description,
-        })
-        .from(answerLogs)
-        .where(inArray(answerLogs.answerId, answerIds))
-        .orderBy(answerLogs.answerId, desc(answerLogs.id));
+      // Guard the empty inArray; standards are returned regardless of the answers count.
+      const latestLogs = answerIds.length
+        ? await database
+            .selectDistinctOn([answerLogs.answerId], {
+              answerId: answerLogs.answerId,
+              status: answerLogs.status,
+              verdictChoice: answerLogs.verdictChoice,
+              description: answerLogs.description,
+            })
+            .from(answerLogs)
+            .where(inArray(answerLogs.answerId, answerIds))
+            .orderBy(answerLogs.answerId, desc(answerLogs.id))
+        : [];
 
       const logMap = new Map(latestLogs.map((l) => [l.answerId, l]));
 
-      return filteredAnswers.map((a) => {
+      const answerItems = filteredAnswers.map((a) => {
         const log = logMap.get(a.answerId);
         return {
           answerId: a.answerId,
@@ -160,6 +226,8 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           fileUrl3_3: a.fileUrl3_3,
         };
       });
+
+      return status(200, { answers: answerItems, standards });
     },
 
     /**
