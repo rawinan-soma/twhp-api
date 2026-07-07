@@ -1,6 +1,6 @@
 ---
-last_updated: 2026-06-23T04:27:07Z
-total_decisions: 4
+last_updated: 2026-07-07T00:00:00Z
+total_decisions: 5
 ---
 
 # Decision Index
@@ -17,6 +17,14 @@ Use this to find relevant prior decisions when working on related features.
 ---
 
 ## Decisions
+
+### ADR-5: Delete Evidence Files on `change_score`, Not Just Hard Reject
+- **Status**: accepted
+- **Date**: 2026-07-07
+- **Bolt**: 023-change-score-file-deletion (change-score-file-deletion)
+- **Path**: `docs/adr/0006-delete-files-on-change-score.md` (this project's authoritative ADR log; kept in `docs/adr/` per existing convention rather than the bolt folder)
+- **Summary**: `finalize`'s evidence-file deletion widens from "hard reject only" (`verdictChoice` null) to any Answer whose final status is `rejected`, including `change_score`. Supersedes the file-preservation clause of ADR-0005 / intent `008` FR-6; deletion stays deferred to finalize, outside-then-before the transaction, with zero MinIO I/O at save time.
+- **Read when**: Working on the cover-review/finalize flow, evidence-file lifecycle, or the answer-edit/redo validator in `src/service/answer.ts`; reconsidering ADR-0005's file-deletion rules
 
 ### ADR-4: Reuse `COOKIE_SECURE` as the Production Signal for the Dev OTP Bypass
 - **Status**: accepted

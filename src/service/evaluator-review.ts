@@ -414,17 +414,17 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           eval_id: accountId,
         }));
 
-      // Hard-reject set: rejected + verdictChoice null → files deleted + nulled.
-      // (change_score/overridden files carry a verdictChoice and are preserved.)
-      const hardRejectIds = new Set(
-        resolved
-          .filter((r) => r.status === "rejected" && r.verdictChoice === null)
-          .map((r) => r.answerId),
+      // Rejected-at-finalize set: any Answer whose final status is `rejected` — hard reject
+      // or change_score alike — has its files deleted + nulled (ADR-0006). An Answer
+      // re-saved to approve/recommended before finalize is excluded, since `resolved`
+      // reflects only the latest persisted answerLogs row per Answer.
+      const rejectedAnswerIds = new Set(
+        resolved.filter((r) => r.status === "rejected").map((r) => r.answerId),
       );
 
       const fileUrlsToDelete: string[] = [];
       for (const a of allCoverAnswers) {
-        if (!hardRejectIds.has(a.answerId)) continue;
+        if (!rejectedAnswerIds.has(a.answerId)) continue;
         for (const url of [
           a.fileUrl1_1,
           a.fileUrl1_2,
@@ -459,7 +459,7 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         for (const row of promotionRows) {
           await tx.insert(answerLogs).values(row);
         }
-        if (hardRejectIds.size > 0) {
+        if (rejectedAnswerIds.size > 0) {
           await tx
             .update(answers)
             .set({
@@ -473,7 +473,7 @@ export const createEvaluatorReviewService = (database: typeof db) => {
               fileUrl3_2: null,
               fileUrl3_3: null,
             })
-            .where(inArray(answers.id, [...hardRejectIds]));
+            .where(inArray(answers.id, [...rejectedAnswerIds]));
         }
         await tx
           .insert(coverLogs)

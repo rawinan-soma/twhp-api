@@ -2,10 +2,10 @@
 
 ## Overview
 
-- **Total stories**: 48
+- **Total stories**: 50
 - **Completed**: 24
-- **Planned**: 24
-- **Last updated**: 2026-07-03
+- **Planned**: 26
+- **Last updated**: 2026-07-07
 
 ---
 
@@ -98,6 +98,13 @@ Unit: `001-review-standard-files` — depends on `008-per-answer-verdict-save` (
 - [x] **002-standards-service-enrichment** ✅ COMPLETE — `getAnswers` returns claimed+uploaded standards from the enroll (`STANDARD_ENROLL_COLUMNS`) — Must — bolt `022-review-standard-files`
 - [x] **003-both-surface-response** ✅ COMPLETE — evaluator + admin `/answers` responses use the new shape — Must — bolt `022-review-standard-files`
 - [x] **004-docs-and-test-regression** ✅ COMPLETE — regen `docs/api/*`; cover-review tests + `getAnswers` regression updated (seeded standard files) — Must — bolt `022-review-standard-files`
+
+### 010-change-score-file-deletion
+
+Unit: `001-change-score-file-deletion` — depends on `008-per-answer-verdict-save` (modifies its `finalize()`); supersedes ADR-0005's file-preservation clause per ADR-0006
+
+- [ ] **001-widen-finalize-file-deletion** ⏳ PLANNED — Drop the `verdictChoice === null` condition so `change_score` deletes files like hard-reject — Must — bolt `023-change-score-file-deletion`
+- [ ] **002-regression-coverstatus-and-surface-parity** ⏳ PLANNED — Verify coverStatus/grade/email + evaluator/admin surface parity unaffected — Must — bolt `023-change-score-file-deletion`
 
 ---
 

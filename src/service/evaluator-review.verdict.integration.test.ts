@@ -424,10 +424,10 @@ describe("Story 004 — in_progress outcome (AC: ≥1 rejected → coverLog in_p
   });
 });
 
-// ─── AC5 — deferred file deletion (hard-reject only) ─────────────────────────
+// ─── AC5 — deferred file deletion (hard-reject and change-score, ADR-0006) ────
 
-describe("Story 004 — deferred file deletion (AC: hard-reject files deleted at finalize)", () => {
-  it("AC: only final hard-reject (verdict_choice null) files are deleted; change-score & recommended files preserved", async () => {
+describe("Story 004 — deferred file deletion (AC: rejected-at-finalize files deleted, hard-reject or change-score)", () => {
+  it("AC: hard-reject and change-score files are both deleted at finalize; recommended files preserved", async () => {
     const { coverId, answerIds } = await seedCover([
       {
         cat: "Collaborate",
@@ -455,13 +455,44 @@ describe("Story 004 — deferred file deletion (AC: hard-reject files deleted at
 
     expect(code(res)).toBe(200);
 
-    // Strict delete invoked for exactly the hard-reject file, and nothing else.
-    expect(deleted).toEqual(["hard-reject.pdf"]);
+    // Strict delete invoked for both rejected-at-finalize files (hard-reject + change-score).
+    expect(deleted.slice().sort()).toEqual(["change-score.pdf", "hard-reject.pdf"]);
 
     // …and the delete is recorded transactionally by nulling the file columns.
     expect(await fileOf(answerIds[0])).toBeNull(); // hard reject → deleted
-    expect(await fileOf(answerIds[1])).toBe("change-score.pdf"); // score change → preserved
-    expect(await fileOf(answerIds[2])).toBe("recommended.pdf"); // recommended → preserved
+    expect(await fileOf(answerIds[1])).toBeNull(); // change-score → now deleted too (ADR-0006)
+    expect(await fileOf(answerIds[2])).toBe("recommended.pdf"); // recommended → still preserved
+  });
+
+  it("AC: an Answer change-score'd then re-saved to approve before finalize keeps its file", async () => {
+    const { coverId, answerIds } = await seedCover([
+      {
+        cat: "Collaborate",
+        status: "rejected",
+        verdictChoice: "1",
+        evalId: ODPC_A,
+        file: "will-be-approved.pdf",
+      },
+    ]);
+
+    // ODPC changes its mind before finalize: re-saves the same Answer as approve.
+    const saved = await reviewService.saveAnswerVerdict(coverId, answerIds[0], odpcCtx(ODPC_A), {
+      decision: "approve",
+    });
+    expect(code(saved)).toBe(200);
+
+    const deleted: (string | null)[] = [];
+    const utilSpy = mockDeleteStrict(async (fileName) => {
+      deleted.push(fileName);
+    });
+    const res = await reviewService.finalize(coverId, odpcCtx(ODPC_A));
+    utilSpy.mockRestore();
+
+    expect(code(res)).toBe(200);
+    // finalize reads only the latest log — recommended→finished, not rejected — so nothing deletes.
+    expect(deleted).toEqual([]);
+    expect(await fileOf(answerIds[0])).toBe("will-be-approved.pdf");
+    expect((await latestOf(answerIds[0])).status).toBe("finished");
   });
 
   it("AC (edge case): a MinIO delete failure aborts finalize before the txn — no partial transition", async () => {
