@@ -18,9 +18,9 @@ Show at start of this skill (varies by environment):
 
 ## Checkpoints in This Skill
 
-| Checkpoint   | Purpose                    | Wait For                             |
-| ------------ | -------------------------- | ------------------------------------ |
-| Checkpoint 2 | Staging deploy approval    | User confirmation                    |
+| Checkpoint | Purpose | Wait For |
+|------------|---------|----------|
+| Checkpoint 2 | Staging deploy approval | User confirmation |
 | Checkpoint 3 | Production deploy approval | User confirmation (⚠️ affects users) |
 
 ---
@@ -56,10 +56,10 @@ Deploy built artifacts to a target environment with progressive validation and r
 ## Deployment Progression
 
 Dev ──────► Staging ──────► Production
-│ │ │
-▼ ▼ ▼
-Fast Validation Real users
-iteration required approval required
+ │            │               │
+ ▼            ▼               ▼
+Fast         Validation      Real users
+iteration    required        approval required
 ```
 
 ### 3. Pre-Deployment Checks
@@ -92,12 +92,12 @@ Monitor deployment until healthy:
 
 Append to `deployment/history.md`:
 
-````markdown
+```markdown
 ---
-version: { version }
-environment: { env }
-deployed: { timestamp }
-deployed_by: { user }
+version: {version}
+environment: {env}
+deployed: {timestamp}
+deployed_by: {user}
 status: success
 ---
 
@@ -112,15 +112,12 @@ status: success
 - **Previous Version**: `{prev-version}`
 
 ### Changes
-
 {diff summary from previous version}
 
 ### Rollback Command
-
 ```text
 deploy --unit="{unit}" --env="{env}" --version="{prev-version}"
 ```
-````
 
 ---
 
@@ -137,7 +134,6 @@ deploy --unit="{unit}" --env="{env}" --version="{prev-version}"
 - **Health**: ✅ Healthy
 
 ### Deployment Details
-
 - Started: {start-time}
 - Completed: {end-time}
 - Duration: {duration}
@@ -149,7 +145,6 @@ deploy --unit="{unit}" --env="{env}" --version="{prev-version}"
 - ⏳ **Production**: `{prev-version}` - Awaiting
 
 ### Documentation Updated
-
 - `{unit-path}/deployment/history.md`
 
 ### Actions
@@ -159,7 +154,6 @@ deploy --unit="{unit}" --env="{env}" --version="{prev-version}"
 3 - **menu**: Return to operations menu
 
 ### Suggested Next Step
-
 → **verify** - Verify deployment in {env}
 
 **Type a number or press Enter for suggested action.**
@@ -177,7 +171,6 @@ deploy --unit="{unit}" --env="{env}" --version="{prev-version}"
 This deployment will affect real users.
 
 ### Pre-Deployment Checklist
-
 - [x] Staging deployment successful
 - [x] Staging verification passed
 - [x] All tests passing
@@ -190,15 +183,13 @@ This deployment will affect real users.
 - **Changes**: {summary}
 
 ### Rollback Plan
-
 If issues detected:
-
 ```text
 deploy --unit="{unit}" --env="prod" --version="{current-version}"
 ```
 
 ### Proceed?
-
+>
 > "⚠️ This will deploy to PRODUCTION. All staging checks passed. Approve deployment? (yes/no)"
 ````
 

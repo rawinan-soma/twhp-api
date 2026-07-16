@@ -72,22 +72,21 @@ This bolt type is for research and proof-of-concept work when there are unknowns
 
 **Artifact**: `spike-exploration.md`
 **Location**: Path defined by `schema.units` in `.specsmd/aidlc/memory-bank.yaml`
-_(Default: `{intents-path}/{intent}/units/{unit}/spike-exploration.md`)_
+*(Default: `{intents-path}/{intent}/units/{unit}/spike-exploration.md`)*
 
 **Template Structure**:
 
 ```markdown
 ---
 stage: explore
-bolt: { bolt-id }
-created: { YYYY-MM-DDTHH:MM:SSZ }
-time_box: { hours }
+bolt: {bolt-id}
+created: {YYYY-MM-DDTHH:MM:SSZ}
+time_box: {hours}
 ---
 
 ## Spike Exploration: {topic}
 
 ### Research Questions
-
 1. {question 1}
 2. {question 2}
 
@@ -96,7 +95,6 @@ time_box: { hours }
 - **{Option}**: {Description} - Pros: {list} - Cons: {list}
 
 ### Prototype Notes
-
 {What was built, what was learned}
 
 ### Assumptions Tested
@@ -136,30 +134,27 @@ time_box: { hours }
 
 **Artifact**: `spike-report.md`
 **Location**: Path defined by `schema.units` in `.specsmd/aidlc/memory-bank.yaml`
-_(Default: `{intents-path}/{intent}/units/{unit}/spike-report.md`)_
+*(Default: `{intents-path}/{intent}/units/{unit}/spike-report.md`)*
 
 **Template Structure**:
 
 ```markdown
 ---
 stage: document
-bolt: { bolt-id }
-created: { YYYY-MM-DDTHH:MM:SSZ }
+bolt: {bolt-id}
+created: {YYYY-MM-DDTHH:MM:SSZ}
 ---
 
 ## Spike Report: {topic}
 
 ### Summary
-
 {High-level summary of what was learned}
 
 ### Key Findings
-
 1. {finding 1}
 2. {finding 2}
 
 ### Recommendation
-
 **Recommended Approach**: {option}
 
 **Rationale**: {why this option}
@@ -173,13 +168,11 @@ created: { YYYY-MM-DDTHH:MM:SSZ }
 - **{Risk}**: Mitigation: {strategy}
 
 ### Suggested Next Steps
-
 1. {Create bolt for...}
 2. {Update requirements with...}
 3. {Add story for...}
 
 ### Artifacts to Archive
-
 - [ ] Prototype code (if reusable): {location}
 - [ ] Research notes: {location}
 ```

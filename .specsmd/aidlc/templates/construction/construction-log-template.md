@@ -27,42 +27,42 @@ last_updated: {YYYY-MM-DDTHH:MM:SSZ}
 **From Inception**: {number} bolts planned
 **Planned Date**: {inception-date}
 
-| Bolt ID  | Stories   | Type   |
-| -------- | --------- | ------ |
+| Bolt ID | Stories | Type |
+|---------|---------|------|
 | {bolt-1} | {stories} | {type} |
 | {bolt-2} | {stories} | {type} |
 
 ## Replanning History
 
 | Date | Action | Change | Reason | Approved |
-| ---- | ------ | ------ | ------ | -------- |
+|------|--------|--------|--------|----------|
 
 ## Current Bolt Structure
 
-| Bolt ID  | Stories   | Status         | Changed           |
-| -------- | --------- | -------------- | ----------------- |
-| {bolt-1} | {stories} | ✅ completed   | -                 |
-| {bolt-2} | {stories} | ⏳ in-progress | -                 |
-| {bolt-3} | {stories} | [ ] planned    | Split from bolt-2 |
+| Bolt ID | Stories | Status | Changed |
+|---------|---------|--------|---------|
+| {bolt-1} | {stories} | ✅ completed | - |
+| {bolt-2} | {stories} | ⏳ in-progress | - |
+| {bolt-3} | {stories} | [ ] planned | Split from bolt-2 |
 
 ## Execution History
 
-| Date   | Bolt      | Event          | Details                |
-| ------ | --------- | -------------- | ---------------------- |
-| {date} | {bolt-id} | started        | Stage 1: {stage-name}  |
+| Date | Bolt | Event | Details |
+|------|------|-------|---------|
+| {date} | {bolt-id} | started | Stage 1: {stage-name} |
 | {date} | {bolt-id} | stage-complete | {stage} → {next-stage} |
-| {date} | {bolt-id} | completed      | All {n} stages done    |
+| {date} | {bolt-id} | completed | All {n} stages done |
 
 ## Execution Summary
 
-| Metric                 | Value |
-| ---------------------- | ----- |
-| Original bolts planned | {n}   |
-| Current bolt count     | {n}   |
-| Bolts completed        | {n}   |
-| Bolts in progress      | {n}   |
-| Bolts remaining        | {n}   |
-| Replanning events      | {n}   |
+| Metric | Value |
+|--------|-------|
+| Original bolts planned | {n} |
+| Current bolt count | {n} |
+| Bolts completed | {n} |
+| Bolts in progress | {n} |
+| Bolts remaining | {n} |
+| Replanning events | {n} |
 
 ## Notes
 
@@ -94,12 +94,12 @@ Update this file when:
 
 ## Replanning History Actions
 
-| Action         | Description                       |
-| -------------- | --------------------------------- |
-| `append`       | New bolt(s) added to plan         |
-| `split`        | Existing bolt split into multiple |
-| `reorder`      | Execution order changed           |
-| `scope-change` | Stories added/removed from bolt   |
+| Action | Description |
+|--------|-------------|
+| `append` | New bolt(s) added to plan |
+| `split` | Existing bolt split into multiple |
+| `reorder` | Execution order changed |
+| `scope-change` | Stories added/removed from bolt |
 
 ---
 
@@ -108,22 +108,22 @@ Update this file when:
 ### Replanning History Example
 
 ```markdown
-| Date       | Action  | Change                  | Reason                          | Approved |
-| ---------- | ------- | ----------------------- | ------------------------------- | -------- |
-| 2025-12-07 | split   | bolt-2 → bolt-2, bolt-3 | Scope too large for single bolt | Yes      |
-| 2025-12-08 | append  | Added bolt-4            | New stories from feedback       | Yes      |
-| 2025-12-09 | reorder | bolt-4 before bolt-3    | Dependency discovered           | Yes      |
+| Date | Action | Change | Reason | Approved |
+|------|--------|--------|--------|----------|
+| 2025-12-07 | split | bolt-2 → bolt-2, bolt-3 | Scope too large for single bolt | Yes |
+| 2025-12-08 | append | Added bolt-4 | New stories from feedback | Yes |
+| 2025-12-09 | reorder | bolt-4 before bolt-3 | Dependency discovered | Yes |
 ```
 
 ### Execution History Example
 
 ```markdown
-| Date       | Bolt        | Event          | Details            |
-| ---------- | ----------- | -------------- | ------------------ |
-| 2025-12-07 | bolt-auth-1 | started        | Stage 1: Model     |
-| 2025-12-07 | bolt-auth-1 | stage-complete | Model → Design     |
+| Date | Bolt | Event | Details |
+|------|------|-------|---------|
+| 2025-12-07 | bolt-auth-1 | started | Stage 1: Model |
+| 2025-12-07 | bolt-auth-1 | stage-complete | Model → Design |
 | 2025-12-07 | bolt-auth-1 | stage-complete | Design → Implement |
-| 2025-12-08 | bolt-auth-1 | stage-complete | Implement → Test   |
-| 2025-12-08 | bolt-auth-1 | completed      | All 4 stages done  |
-| 2025-12-08 | bolt-auth-2 | started        | Stage 1: Model     |
+| 2025-12-08 | bolt-auth-1 | stage-complete | Implement → Test |
+| 2025-12-08 | bolt-auth-1 | completed | All 4 stages done |
+| 2025-12-08 | bolt-auth-2 | started | Stage 1: Model |
 ```

@@ -69,11 +69,9 @@ Load current construction state:
 4 - **Plan Bolts**: Plan new bolts → Inception (`bolt-plan --unit="{unit}"`)
 
 ### Current State
-
 {Show in-progress bolts and overall progress}
 
 ### Suggested Next Step
-
 → {Recommended action based on state}
 
 **Type a number (1-4) or specify a bolt ID to work on.**
@@ -105,13 +103,11 @@ When user selects an option:
 ## Construction Agent
 
 ### Active Bolt: `{bolt-id}`
-
 **Unit**: `{unit-name}`
 **Type**: {bolt-type}
 **Stage**: {current_stage} ({n}/{total})
 
 ### Progress
-
 [████████████░░░░░░░░] 60% (3/5 stages)
 
 ### Quick Actions
@@ -122,7 +118,6 @@ When user selects an option:
 4 - **Switch Bolt**: Select a different bolt
 
 ### Suggested Next Step
-
 → Continue working on `{bolt-id}` - currently at {stage} stage
 
 **Press Enter to continue or type a number.**
@@ -150,7 +145,6 @@ When user selects an option:
 3 - **View bolt status**: Check specific bolt
 
 ### Suggested Next Step
-
 → Start construction with `001-auth-service`
 
 **Type a number or enter a bolt ID.**
@@ -171,13 +165,11 @@ All {n} bolts have been completed:
 - ✅ `005-{unit-name}` - Completed 2024-12-06 (4h)
 
 ### Summary
-
 - Stories delivered: {n}
 - Tests passing: ✅
 - Ready for deployment
 
 ### Next Step
-
 → Proceed to Operations: `/specsmd-operations-agent --unit="{unit}"`
 
 Or work on another unit's bolts.

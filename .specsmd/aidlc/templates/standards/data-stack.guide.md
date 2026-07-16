@@ -32,7 +32,6 @@ You are collaborating with a peer to discover their data persistence needs. This
 **Goal**: Understand data persistence needs.
 
 **Context:**
-
 > "Database choice affects data modeling, query patterns, scaling, and operational complexity. Some projects don't need a database initially - that's valid too."
 
 **Explore:**
@@ -46,14 +45,14 @@ You are collaborating with a peer to discover their data persistence needs. This
 
 **Guide by data patterns:**
 
-| Data Pattern                         | Recommendation              | Why                                  |
-| ------------------------------------ | --------------------------- | ------------------------------------ |
-| Relational (users, orders, products) | PostgreSQL                  | Flexible, powerful, great extensions |
-| Document-oriented, flexible schema   | MongoDB                     | Schema flexibility, nested data      |
-| Serverless, auto-scaling             | Supabase, PlanetScale, Neon | No ops, scales automatically         |
-| Real-time collaboration              | Supabase, Firebase          | Built-in subscriptions               |
-| Key-value, caching                   | Redis, DynamoDB             | Fast lookups, simple model           |
-| Time-series (logs, metrics)          | TimescaleDB, InfluxDB       | Optimized for time-based queries     |
+| Data Pattern | Recommendation | Why |
+|--------------|----------------|-----|
+| Relational (users, orders, products) | PostgreSQL | Flexible, powerful, great extensions |
+| Document-oriented, flexible schema | MongoDB | Schema flexibility, nested data |
+| Serverless, auto-scaling | Supabase, PlanetScale, Neon | No ops, scales automatically |
+| Real-time collaboration | Supabase, Firebase | Built-in subscriptions |
+| Key-value, caching | Redis, DynamoDB | Fast lookups, simple model |
+| Time-series (logs, metrics) | TimescaleDB, InfluxDB | Optimized for time-based queries |
 
 **Managed services to consider:**
 
@@ -64,7 +63,6 @@ You are collaborating with a peer to discover their data persistence needs. This
 - **AWS RDS/Aurora**: Enterprise-grade managed databases
 
 **If they're unsure:**
-
 > "For most web applications, PostgreSQL is a safe default. It's relational, has great tooling, and can handle JSON when you need flexibility. If you want managed + auth + real-time, Supabase wraps PostgreSQL nicely."
 
 ---
@@ -83,28 +81,28 @@ You are collaborating with a peer to discover their data persistence needs. This
 
 **TypeScript:**
 
-| ORM     | Style                      | Best For                               |
-| ------- | -------------------------- | -------------------------------------- |
-| Prisma  | Schema-first, type-safe    | Most projects, great DX                |
-| Drizzle | TypeScript-first, SQL-like | Performance, SQL lovers                |
-| Kysely  | Type-safe query builder    | Raw SQL with types                     |
-| TypeORM | Decorator-based            | Enterprise, existing TypeORM knowledge |
+| ORM | Style | Best For |
+|-----|-------|----------|
+| Prisma | Schema-first, type-safe | Most projects, great DX |
+| Drizzle | TypeScript-first, SQL-like | Performance, SQL lovers |
+| Kysely | Type-safe query builder | Raw SQL with types |
+| TypeORM | Decorator-based | Enterprise, existing TypeORM knowledge |
 
 **Python:**
 
-| ORM             | Style                  | Best For        |
-| --------------- | ---------------------- | --------------- |
-| SQLAlchemy      | Flexible, powerful     | Most projects   |
-| Django ORM      | Integrated with Django | Django projects |
-| Prisma (Python) | Schema-first           | Prisma fans     |
+| ORM | Style | Best For |
+|-----|-------|----------|
+| SQLAlchemy | Flexible, powerful | Most projects |
+| Django ORM | Integrated with Django | Django projects |
+| Prisma (Python) | Schema-first | Prisma fans |
 
 **Go:**
 
-| Library | Style                | Best For                 |
-| ------- | -------------------- | ------------------------ |
-| GORM    | Full ORM             | Quick development        |
-| sqlx    | SQL with structs     | Performance, SQL control |
-| pgx     | Low-level PostgreSQL | Maximum performance      |
+| Library | Style | Best For |
+|---------|-------|----------|
+| GORM | Full ORM | Quick development |
+| sqlx | SQL with structs | Performance, SQL control |
+| pgx | Low-level PostgreSQL | Maximum performance |
 
 ---
 
@@ -138,23 +136,19 @@ After confirmation, create `standards/data-stack.md`:
 # Data Stack
 
 ## Overview
-
 {1-2 sentence summary of the data persistence approach}
 
 ## Database
-
 {database choice}
 
 {Rationale - why this choice, scaling approach, managed vs self-hosted}
 
 ## ORM / Database Client
-
 {orm choice}
 
 {Rationale - why this choice, how it fits with the language/framework}
 
 ## Decision Relationships
-
 {Note any important connections, e.g., "Prisma was chosen because it integrates well with TypeScript and provides excellent type-safe database access"}
 ```
 

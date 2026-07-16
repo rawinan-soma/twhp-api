@@ -29,13 +29,13 @@ When user invokes `/specsmd-master-agent`:
 
 ## Skills
 
-| Command                | Skill                                             | Description                       |
-| ---------------------- | ------------------------------------------------- | --------------------------------- |
-| `init`, `project-init` | `.specsmd/aidlc/skills/master/project-init.md`    | Initialize project with standards |
-| `analyze`              | `.specsmd/aidlc/skills/master/analyze-context.md` | Analyze project state             |
-| `route`                | `.specsmd/aidlc/skills/master/route-request.md`   | Route to specialist agent         |
-| `explain`              | `.specsmd/aidlc/skills/master/explain-flow.md`    | Explain AI-DLC methodology        |
-| `answer`               | `.specsmd/aidlc/skills/master/answer-question.md` | Answer questions                  |
+| Command | Skill | Description |
+|---------|-------|-------------|
+| `init`, `project-init` | `.specsmd/aidlc/skills/master/project-init.md` | Initialize project with standards |
+| `analyze` | `.specsmd/aidlc/skills/master/analyze-context.md` | Analyze project state |
+| `route` | `.specsmd/aidlc/skills/master/route-request.md` | Route to specialist agent |
+| `explain` | `.specsmd/aidlc/skills/master/explain-flow.md` | Explain AI-DLC methodology |
+| `answer` | `.specsmd/aidlc/skills/master/answer-question.md` | Answer questions |
 
 ---
 

@@ -14,42 +14,42 @@ updated: {YYYY-MM-DDTHH:MM:SSZ}
 
 ## Domain Entities
 
-| Entity   | Properties   | Business Rules |
-| -------- | ------------ | -------------- |
-| {Entity} | {properties} | {rules}        |
+| Entity | Properties | Business Rules |
+|--------|------------|----------------|
+| {Entity} | {properties} | {rules} |
 
 ## Value Objects
 
-| Value Object  | Properties   | Constraints   |
-| ------------- | ------------ | ------------- |
+| Value Object | Properties | Constraints |
+|--------------|------------|-------------|
 | {ValueObject} | {properties} | {constraints} |
 
 ## Aggregates
 
-| Aggregate Root | Members   | Invariants   |
-| -------------- | --------- | ------------ |
-| {Root}         | {members} | {invariants} |
+| Aggregate Root | Members | Invariants |
+|----------------|---------|------------|
+| {Root} | {members} | {invariants} |
 
 ## Domain Events
 
-| Event   | Trigger   | Payload   |
-| ------- | --------- | --------- |
+| Event | Trigger | Payload |
+|-------|---------|---------|
 | {Event} | {trigger} | {payload} |
 
 ## Domain Services
 
-| Service   | Operations   | Dependencies   |
-| --------- | ------------ | -------------- |
+| Service | Operations | Dependencies |
+|---------|------------|--------------|
 | {Service} | {operations} | {dependencies} |
 
 ## Repository Interfaces
 
-| Repository   | Entity   | Methods   |
-| ------------ | -------- | --------- |
+| Repository | Entity | Methods |
+|------------|--------|---------|
 | {Repository} | {entity} | {methods} |
 
 ## Ubiquitous Language
 
-| Term   | Definition   |
-| ------ | ------------ |
+| Term | Definition |
+|------|------------|
 | {term} | {definition} |

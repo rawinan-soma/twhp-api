@@ -33,12 +33,10 @@ updated: {YYYY-MM-DDTHH:MM:SSZ}
 ## Scope
 
 ### In Scope
-
 - {What this unit IS responsible for}
 - {What this unit IS responsible for}
 
 ### Out of Scope
-
 - {What this unit is NOT responsible for}
 - {What other units handle}
 
@@ -48,8 +46,8 @@ updated: {YYYY-MM-DDTHH:MM:SSZ}
 
 **These FRs from the intent are assigned to this unit. Stories will be created from these.**
 
-| FR     | Requirement                               | Priority          |
-| ------ | ----------------------------------------- | ----------------- |
+| FR | Requirement | Priority |
+|----|-------------|----------|
 | FR-{n} | {description from intent requirements.md} | Must/Should/Could |
 
 ---
@@ -57,16 +55,14 @@ updated: {YYYY-MM-DDTHH:MM:SSZ}
 ## Domain Concepts
 
 ### Key Entities
-
-| Entity     | Description          | Attributes       |
-| ---------- | -------------------- | ---------------- |
+| Entity | Description | Attributes |
+|--------|-------------|------------|
 | {Entity 1} | {What it represents} | {Key properties} |
 | {Entity 2} | {What it represents} | {Key properties} |
 
 ### Key Operations
-
-| Operation     | Description    | Inputs       | Outputs       |
-| ------------- | -------------- | ------------ | ------------- |
+| Operation | Description | Inputs | Outputs |
+|-----------|-------------|--------|---------|
 | {Operation 1} | {What it does} | {Input data} | {Output data} |
 | {Operation 2} | {What it does} | {Input data} | {Output data} |
 
@@ -74,40 +70,37 @@ updated: {YYYY-MM-DDTHH:MM:SSZ}
 
 ## Story Summary
 
-| Metric        | Count |
-| ------------- | ----- |
-| Total Stories | {n}   |
-| Must Have     | {n}   |
-| Should Have   | {n}   |
-| Could Have    | {n}   |
+| Metric | Count |
+|--------|-------|
+| Total Stories | {n} |
+| Must Have | {n} |
+| Should Have | {n} |
+| Could Have | {n} |
 
 ### Stories
 
-| Story ID  | Title   | Priority | Status  |
-| --------- | ------- | -------- | ------- |
-| {story-1} | {Title} | Must     | Planned |
-| {story-2} | {Title} | Should   | Planned |
+| Story ID | Title | Priority | Status |
+|----------|-------|----------|--------|
+| {story-1} | {Title} | Must | Planned |
+| {story-2} | {Title} | Should | Planned |
 
 ---
 
 ## Dependencies
 
 ### Depends On
-
-| Unit        | Reason                       |
-| ----------- | ---------------------------- |
+| Unit | Reason |
+|------|--------|
 | {unit-name} | {Why this dependency exists} |
 
 ### Depended By
-
-| Unit        | Reason                    |
-| ----------- | ------------------------- |
+| Unit | Reason |
+|------|--------|
 | {unit-name} | {Why they depend on this} |
 
 ### External Dependencies
-
-| System            | Purpose      | Risk         |
-| ----------------- | ------------ | ------------ |
+| System | Purpose | Risk |
+|--------|---------|------|
 | {External system} | {Why needed} | {Risk level} |
 
 ---
@@ -115,19 +108,16 @@ updated: {YYYY-MM-DDTHH:MM:SSZ}
 ## Technical Context
 
 ### Suggested Technology
-
 {Recommendations based on tech stack standards}
 
 ### Integration Points
-
-| Integration   | Type         | Protocol           |
-| ------------- | ------------ | ------------------ |
+| Integration | Type | Protocol |
+|-------------|------|----------|
 | {System/Unit} | API/Event/DB | REST/GraphQL/Kafka |
 
 ### Data Storage
-
-| Data        | Type            | Volume   | Retention   |
-| ----------- | --------------- | -------- | ----------- |
+| Data | Type | Volume | Retention |
+|------|------|--------|-----------|
 | {Data type} | SQL/NoSQL/Cache | {Volume} | {Retention} |
 
 ---
@@ -142,17 +132,14 @@ updated: {YYYY-MM-DDTHH:MM:SSZ}
 ## Success Criteria
 
 ### Functional
-
 - [ ] {Criterion 1: What must work}
 - [ ] {Criterion 2: What must work}
 
 ### Non-Functional
-
 - [ ] {Performance target}
 - [ ] {Security requirement}
 
 ### Quality
-
 - [ ] Code coverage > 80%
 - [ ] All acceptance criteria met
 - [ ] Code reviewed and approved
@@ -163,10 +150,10 @@ updated: {YYYY-MM-DDTHH:MM:SSZ}
 
 Based on stories and complexity:
 
-| Bolt          | Type | Stories | Objective     |
-| ------------- | ---- | ------- | ------------- |
-| bolt-{unit}-1 | DDD  | S1, S2  | Core entities |
-| bolt-{unit}-2 | DDD  | S3, S4  | API layer     |
+| Bolt | Type | Stories | Objective |
+|------|------|---------|-----------|
+| bolt-{unit}-1 | DDD | S1, S2 | Core entities |
+| bolt-{unit}-2 | DDD | S3, S4 | API layer |
 
 ---
 

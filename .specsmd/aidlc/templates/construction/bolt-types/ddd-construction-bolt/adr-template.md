@@ -1,8 +1,8 @@
 ---
-bolt: { bolt-id }
-created: { YYYY-MM-DDTHH:MM:SSZ }
+bolt: {bolt-id}
+created: {YYYY-MM-DDTHH:MM:SSZ}
 status: proposed | accepted | deprecated | superseded
-superseded_by: { adr-number if applicable }
+superseded_by: {adr-number if applicable}
 ---
 
 # ADR-{number}: {title}
@@ -22,9 +22,9 @@ superseded_by: { adr-number if applicable }
 ### Alternatives Considered
 
 | Alternative | Pros | Cons | Why Rejected |
-| ----------- | ---- | ---- | ------------ |
-| {option 1}  |      |      |              |
-| {option 2}  |      |      |              |
+|-------------|------|------|--------------|
+| {option 1} | | | |
+| {option 2} | | | |
 
 ## Consequences
 

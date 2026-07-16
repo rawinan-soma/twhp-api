@@ -93,6 +93,7 @@ AI-DLC is a reimagined development methodology where AI drives the workflow and 
 You are in the **{phase}** phase, working on **{intent/unit/bolt}**.
 
 Next step: {specific action}
+
 ```
 
 ### 3. Answer Specific Questions
@@ -114,11 +115,9 @@ Provide a tailored explanation based on the user's question:
 {Clear, concise explanation}
 
 ### Your Current Context
-
 {Where user is in the flow, if known}
 
 ### What This Means For You
-
 {Practical implications}
 
 ### Actions
@@ -128,7 +127,6 @@ Provide a tailored explanation based on the user's question:
 3 - **different**: Ask about something else
 
 ### Suggested Next Step
-
 → **proceed** - {Recommended action}
 
 **Type a number or press Enter for suggested action.**

@@ -35,7 +35,6 @@ You are collaborating with a peer to establish their coding standards. This shou
 **Goal**: Establish consistent code formatting rules.
 
 **Context to share:**
-
 > "Formatting is the easiest standard to enforce automatically. Let's set it up once and forget about it."
 
 **Explore:**
@@ -49,25 +48,25 @@ You are collaborating with a peer to establish their coding standards. This shou
 
 **TypeScript/JavaScript:**
 
-| Tool                      | Description                                   |
-| ------------------------- | --------------------------------------------- |
-| Prettier                  | Opinionated, widely adopted, minimal config   |
+| Tool | Description |
+|------|-------------|
+| Prettier | Opinionated, widely adopted, minimal config |
 | ESLint (formatting rules) | More configurable, can conflict with Prettier |
-| Biome                     | Fast, all-in-one (lint + format)              |
+| Biome | Fast, all-in-one (lint + format) |
 
 **Python:**
 
-| Tool  | Description                                   |
-| ----- | --------------------------------------------- |
+| Tool | Description |
+|------|-------------|
 | Black | Opinionated, "uncompromising", widely adopted |
-| Ruff  | Extremely fast, Black-compatible              |
-| YAPF  | More configurable                             |
+| Ruff | Extremely fast, Black-compatible |
+| YAPF | More configurable |
 
 **Go:**
 
-| Tool      | Description                 |
-| --------- | --------------------------- |
-| gofmt     | Standard, use it            |
+| Tool | Description |
+|------|-------------|
+| gofmt | Standard, use it |
 | goimports | gofmt + import organization |
 
 **Common decisions:**
@@ -79,7 +78,6 @@ You are collaborating with a peer to establish their coding standards. This shou
 - Quote style (single, double)
 
 **If they're unsure:**
-
 > "For {language}, most teams use {default tool} with default settings. It eliminates debates and works well with AI code generation. Sound good?"
 
 ---
@@ -89,7 +87,6 @@ You are collaborating with a peer to establish their coding standards. This shou
 **Goal**: Establish static analysis rules for catching bugs and enforcing patterns.
 
 **Context:**
-
 > "Linting catches bugs and enforces patterns before code review. The key is balancing strictness with developer productivity."
 
 **Explore:**
@@ -103,11 +100,11 @@ You are collaborating with a peer to establish their coding standards. This shou
 
 **TypeScript:**
 
-| Config                           | Description                     |
-| -------------------------------- | ------------------------------- |
-| `@typescript-eslint/recommended` | Sensible defaults               |
-| `@typescript-eslint/strict`      | Stricter type checking          |
-| Airbnb                           | Very opinionated, comprehensive |
+| Config | Description |
+|--------|-------------|
+| `@typescript-eslint/recommended` | Sensible defaults |
+| `@typescript-eslint/strict` | Stricter type checking |
+| Airbnb | Very opinionated, comprehensive |
 
 **Key TypeScript decisions:**
 
@@ -118,12 +115,12 @@ You are collaborating with a peer to establish their coding standards. This shou
 
 **Python:**
 
-| Tool   | Description                      |
-| ------ | -------------------------------- |
-| Ruff   | Fast, replaces multiple tools    |
-| Flake8 | Classic, plugin ecosystem        |
+| Tool | Description |
+|------|-------------|
+| Ruff | Fast, replaces multiple tools |
+| Flake8 | Classic, plugin ecosystem |
 | Pylint | Very comprehensive, can be noisy |
-| mypy   | Type checking                    |
+| mypy | Type checking |
 
 **Key Python decisions:**
 
@@ -145,7 +142,6 @@ You are collaborating with a peer to establish their coding standards. This shou
 **Goal**: Establish consistent naming patterns across the codebase.
 
 **Context:**
-
 > "Consistent naming helps AI agents generate code that fits naturally into your codebase. Let's establish the patterns."
 
 **Explore:**
@@ -159,37 +155,37 @@ You are collaborating with a peer to establish their coding standards. This shou
 
 **TypeScript/JavaScript:**
 
-| Element            | Convention           | Example                           |
-| ------------------ | -------------------- | --------------------------------- |
-| Variables          | camelCase            | `userName`, `isActive`            |
-| Functions          | camelCase            | `getUserById`, `calculateTotal`   |
-| Classes            | PascalCase           | `UserService`, `PaymentProcessor` |
-| Interfaces         | PascalCase           | `User`, `PaymentOptions`          |
-| Types              | PascalCase           | `UserId`, `ApiResponse`           |
-| Constants          | UPPER_SNAKE          | `MAX_RETRIES`, `API_URL`          |
-| React components   | PascalCase           | `UserProfile`, `Header`           |
-| React hooks        | camelCase with `use` | `useAuth`, `useLocalStorage`      |
-| Files (components) | PascalCase           | `UserProfile.tsx`                 |
-| Files (utilities)  | kebab-case           | `date-utils.ts`                   |
+| Element | Convention | Example |
+|---------|------------|---------|
+| Variables | camelCase | `userName`, `isActive` |
+| Functions | camelCase | `getUserById`, `calculateTotal` |
+| Classes | PascalCase | `UserService`, `PaymentProcessor` |
+| Interfaces | PascalCase | `User`, `PaymentOptions` |
+| Types | PascalCase | `UserId`, `ApiResponse` |
+| Constants | UPPER_SNAKE | `MAX_RETRIES`, `API_URL` |
+| React components | PascalCase | `UserProfile`, `Header` |
+| React hooks | camelCase with `use` | `useAuth`, `useLocalStorage` |
+| Files (components) | PascalCase | `UserProfile.tsx` |
+| Files (utilities) | kebab-case | `date-utils.ts` |
 
 **Python:**
 
-| Element   | Convention         | Example                             |
-| --------- | ------------------ | ----------------------------------- |
-| Variables | snake_case         | `user_name`, `is_active`            |
-| Functions | snake_case         | `get_user_by_id`, `calculate_total` |
-| Classes   | PascalCase         | `UserService`, `PaymentProcessor`   |
-| Constants | UPPER_SNAKE        | `MAX_RETRIES`, `API_URL`            |
-| Modules   | snake_case         | `user_service.py`                   |
-| Private   | Leading underscore | `_internal_method`                  |
+| Element | Convention | Example |
+|---------|------------|---------|
+| Variables | snake_case | `user_name`, `is_active` |
+| Functions | snake_case | `get_user_by_id`, `calculate_total` |
+| Classes | PascalCase | `UserService`, `PaymentProcessor` |
+| Constants | UPPER_SNAKE | `MAX_RETRIES`, `API_URL` |
+| Modules | snake_case | `user_service.py` |
+| Private | Leading underscore | `_internal_method` |
 
 **Go:**
 
-| Element    | Convention | Example                      |
-| ---------- | ---------- | ---------------------------- |
-| Exported   | PascalCase | `UserService`, `GetUser`     |
-| Unexported | camelCase  | `userCache`, `calculateHash` |
-| Files      | snake_case | `user_service.go`            |
+| Element | Convention | Example |
+|---------|------------|---------|
+| Exported | PascalCase | `UserService`, `GetUser` |
+| Unexported | camelCase | `userCache`, `calculateHash` |
+| Files | snake_case | `user_service.go` |
 
 **Specific decisions:**
 
@@ -205,7 +201,6 @@ You are collaborating with a peer to establish their coding standards. This shou
 **Goal**: Establish project structure patterns.
 
 **Context:**
-
 > "Good organization makes it easy to find code and helps AI agents know where to put new files."
 
 **Explore:**
@@ -276,7 +271,6 @@ src/
 **Goal**: Establish testing approach and coverage expectations.
 
 **Context:**
-
 > "Testing strategy affects how AI writes code and tests. Let's define what 'tested' means for this project."
 
 **Explore:**
@@ -289,12 +283,12 @@ src/
 
 **Guide by test type:**
 
-| Type        | Purpose                         | Tools (JS/TS)              | Tools (Python)       |
-| ----------- | ------------------------------- | -------------------------- | -------------------- |
-| Unit        | Individual functions/components | Vitest, Jest               | pytest               |
-| Integration | Module interactions             | Vitest, Jest               | pytest               |
-| E2E         | Full user flows                 | Playwright, Cypress        | Playwright, Selenium |
-| Component   | UI components in isolation      | Testing Library, Storybook | -                    |
+| Type | Purpose | Tools (JS/TS) | Tools (Python) |
+|------|---------|---------------|----------------|
+| Unit | Individual functions/components | Vitest, Jest | pytest |
+| Integration | Module interactions | Vitest, Jest | pytest |
+| E2E | Full user flows | Playwright, Cypress | Playwright, Selenium |
+| Component | UI components in isolation | Testing Library, Storybook | - |
 
 **Key decisions:**
 
@@ -318,7 +312,6 @@ src/
 **Goal**: Establish consistent error handling across the codebase.
 
 **Context:**
-
 > "Consistent error handling makes debugging easier and helps AI generate robust code."
 
 **Explore:**
@@ -341,15 +334,15 @@ src/
 ```typescript
 // Option A: try/catch
 try {
-	const result = await doSomething();
+  const result = await doSomething();
 } catch (error) {
-	// handle
+  // handle
 }
 
 // Option B: Result type
 const result = await doSomething(); // returns Result<T, E>
 if (result.isErr()) {
-	// handle
+  // handle
 }
 ```
 
@@ -373,7 +366,6 @@ if (result.isErr()) {
 **Goal**: Establish consistent logging practices.
 
 **Context:**
-
 > "Good logging makes debugging possible. Let's establish what gets logged and how."
 
 **Explore:**
@@ -385,11 +377,11 @@ if (result.isErr()) {
 
 **Standard log levels:**
 
-| Level | When to Use                        |
-| ----- | ---------------------------------- |
-| error | Something failed, needs attention  |
-| warn  | Something unexpected, but handled  |
-| info  | Significant business events        |
+| Level | When to Use |
+|-------|-------------|
+| error | Something failed, needs attention |
+| warn | Something unexpected, but handled |
+| info | Significant business events |
 | debug | Detailed technical info (dev only) |
 
 **Key decisions:**
@@ -459,14 +451,12 @@ After confirmation, create `standards/coding-standards.md`:
 # Coding Standards
 
 ## Overview
-
 {1-2 sentence summary of the standards approach}
 
 ## Code Formatting
 
 **Tool**: {formatter}
 **Key Settings**:
-
 - {setting}: {value}
 - {setting}: {value}
 
@@ -479,19 +469,17 @@ After confirmation, create `standards/coding-standards.md`:
 **Strictness**: {strict/balanced/relaxed}
 
 **Key Rules**:
-
 - {rule}: {setting} - {why}
 - {rule}: {setting} - {why}
 
 ## Naming Conventions
 
-| Element   | Convention   | Example   |
-| --------- | ------------ | --------- |
+| Element | Convention | Example |
+|---------|------------|---------|
 | {element} | {convention} | {example} |
-| ...       | ...          | ...       |
+| ... | ... | ... |
 
 **File Naming**:
-
 - Components: {convention}
 - Utilities: {convention}
 - Tests: {convention}
@@ -501,7 +489,6 @@ After confirmation, create `standards/coding-standards.md`:
 **Pattern**: {feature-based/type-based/domain-driven}
 
 **Structure**:
-
 ```text
 {high-level folder structure}
 ```
@@ -519,9 +506,9 @@ After confirmation, create `standards/coding-standards.md`:
 
 **Test Types**:
 
-| Type   | Tool   | When to Use |
-| ------ | ------ | ----------- |
-| {type} | {tool} | {guidance}  |
+| Type | Tool | When to Use |
+|------|------|-------------|
+| {type} | {tool} | {guidance} |
 
 **Conventions**:
 
@@ -544,8 +531,8 @@ After confirmation, create `standards/coding-standards.md`:
 
 **Levels**:
 
-| Level   | Usage  |
-| ------- | ------ |
+| Level | Usage |
+|-------|-------|
 | {level} | {when} |
 
 **Rules**:

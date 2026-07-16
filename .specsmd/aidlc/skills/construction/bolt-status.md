@@ -47,13 +47,12 @@ For each completed stage, verify artifacts exist based on bolt type definition:
 - ✅ **{stage-2-name}**: `{artifact-from-bolt-type}` - Found
 - ⏳ **{current-stage}**: {expected-output} - In Progress
 
-_Note: Artifact names come from the bolt type definition, not hardcoded here._
+*Note: Artifact names come from the bolt type definition, not hardcoded here.*
 
 ### 4. Calculate Metrics
 
 ```markdown
 ### Progress Metrics
-
 - **Stages**: {completed}/{total} ({percentage}%)
 - **Stories**: {stories covered}
 - **Started**: {start date}
@@ -85,7 +84,6 @@ Check for issues:
 - **Status**: {planned|in-progress|complete|blocked}
 
 ### Progress
-
 [██████████░░░░░░░░░░] 50% (2/4 stages)
 
 ### Stage Breakdown
@@ -95,7 +93,7 @@ Check for issues:
 - ⏳ **3. {stage-3}**: Current ← working
 - [ ] **4. {stage-4}**: Pending
 
-_Stage names and artifacts are read from the bolt type definition._
+*Stage names and artifacts are read from the bolt type definition.*
 
 ### Stories Covered
 
@@ -109,23 +107,18 @@ _Stage names and artifacts are read from the bolt type definition._
 - `src/{unit}/...` (implementation files)
 
 ### Current Stage Details
-
 **Stage**: {current_stage}
 **Activities**:
-
 - {activity 1}
 - {activity 2}
 
 **Expected Output**:
-
 - {output 1}
 
 ### Blockers
-
 {None | List of blockers with details}
 
 ### Next Action
-
 → Continue with {current_stage} stage
 → Command: `bolt-start --bolt-id="{bolt-id}"`
 ```
@@ -150,7 +143,7 @@ _Stage names and artifacts are read from the bolt type definition._
 - ✅ **3. {stage-3}**: {date} → {output-3}
 - ✅ **4. {stage-4}**: {date} → {output-4}
 
-_Stage names and artifacts are read from the bolt type definition._
+*Stage names and artifacts are read from the bolt type definition.*
 
 ### Stories Delivered
 
@@ -158,11 +151,9 @@ _Stage names and artifacts are read from the bolt type definition._
 - ✅ **{SSS}-{story-slug}**: {story-title} - All criteria passed
 
 ### Summary
-
 All {n} stories implemented and tested.
 
 ### Next Action
-
 → Start next bolt: `bolt-start --bolt-id="{next-bolt}"`
 → Or proceed to Operations if all bolts complete
 ```

@@ -18,8 +18,8 @@ Show at start of this skill:
 
 ## Checkpoints in This Skill
 
-| Checkpoint   | Purpose                   | Wait For          |
-| ------------ | ------------------------- | ----------------- |
+| Checkpoint | Purpose | Wait For |
+|------------|---------|----------|
 | Checkpoint 4 | Monitoring setup approval | User confirmation |
 
 ---
@@ -76,7 +76,6 @@ Configure structured logging:
 
 **Format**: JSON structured logs
 **Fields**:
-
 - timestamp
 - level
 - service
@@ -127,7 +126,6 @@ Create operational runbooks:
 **Trigger**: Error rate > 1% for 5 minutes
 
 **Steps**:
-
 1. Check recent deployments
 2. Review error logs for patterns
 3. Check external dependencies
@@ -208,11 +206,9 @@ configured: {timestamp}
 - **Error Rate**: < 0.1%
 
 ### Documentation Created
-
 - `{unit-path}/deployment/monitoring.md`
 
 ### Operations Complete
-
 ✅ Unit `{unit-name}` is now fully operational with monitoring.
 
 ### Actions
@@ -222,7 +218,6 @@ configured: {timestamp}
 3 - **menu**: Return to operations menu
 
 ### Suggested Next Step
-
 → **menu** - Monitor for 24-48 hours, then return for adjustments
 
 **Type a number or press Enter for suggested action.**

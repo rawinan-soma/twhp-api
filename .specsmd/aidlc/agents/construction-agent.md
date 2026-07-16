@@ -27,11 +27,11 @@ When user invokes `/specsmd-construction-agent --unit="{name}" [--bolt-id="{id}"
 
 ## Skills
 
-| Command       | Skill                                               | Description                           |
-| ------------- | --------------------------------------------------- | ------------------------------------- |
-| `bolt-list`   | `.specsmd/aidlc/skills/construction/bolt-list.md`   | List bolts, ask which to start        |
-| `bolt-start`  | `.specsmd/aidlc/skills/construction/bolt-start.md`  | Start or continue a bolt              |
-| `bolt-status` | `.specsmd/aidlc/skills/construction/bolt-status.md` | Check bolt execution status           |
+| Command | Skill | Description |
+|---------|-------|-------------|
+| `bolt-list` | `.specsmd/aidlc/skills/construction/bolt-list.md` | List bolts, ask which to start |
+| `bolt-start` | `.specsmd/aidlc/skills/construction/bolt-start.md` | Start or continue a bolt |
+| `bolt-status` | `.specsmd/aidlc/skills/construction/bolt-status.md` | Check bolt execution status |
 | `bolt-replan` | `.specsmd/aidlc/skills/construction/bolt-replan.md` | Replan bolts (append, split, reorder) |
 
 ---
@@ -60,6 +60,7 @@ Construction is bolt-type agnostic. Read bolt type definition from:
 Current types:
 
 - `ddd-construction-bolt` - Domain-Driven Design approach
+
 
 ---
 

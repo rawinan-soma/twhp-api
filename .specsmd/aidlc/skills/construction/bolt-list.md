@@ -4,8 +4,8 @@
 
 ## Checkpoints in This Skill
 
-| Checkpoint   | Purpose                | Wait For       |
-| ------------ | ---------------------- | -------------- |
+| Checkpoint | Purpose | Wait For |
+|------------|---------|----------|
 | Checkpoint 1 | Which bolt to work on? | User selection |
 
 ---
@@ -29,7 +29,7 @@ Display all bolt instances with their status, optionally filtered by unit or int
 ### 1. Load Schema
 
 Read `.specsmd/aidlc/memory-bank.yaml` to get the `bolts` path.
-_(Default: `memory-bank/bolts/`)_
+*(Default: `memory-bank/bolts/`)*
 
 ### 2. Scan Bolt Files
 
@@ -77,8 +77,8 @@ Sort bolts by:
 
 ### Planned Bolts
 
-- [ ] **003-auth-service** (auth-service) - Stories: 005-_, 006-_ - Ready ✅
-- [ ] **004-payment-api** (payment-api) - Stories: 001-_, 002-_, 003-\* - Ready ✅
+- [ ] **003-auth-service** (auth-service) - Stories: 005-*, 006-* - Ready ✅
+- [ ] **004-payment-api** (payment-api) - Stories: 001-*, 002-*, 003-* - Ready ✅
 
 ### Blocked Bolts
 
@@ -89,7 +89,6 @@ Sort bolts by:
 - ✅ **001-auth-service** (auth-service) - Completed 2024-12-05 (4 hours)
 
 ### Summary
-
 - **Total**: {n} bolts
 - **In Progress**: {n}
 - **Planned**: {n}
@@ -113,9 +112,9 @@ Sort bolts by:
 ```markdown
 ## Bolts for Unit: {unit-name}
 
-- ✅ **001-{unit-name}** ({bolt-type}) - Completed 100% - Stories: 001-_, 002-_
-- ⏳ **002-{unit-name}** ({bolt-type}) - In progress 50% - Stories: 003-_, 004-_ ← current
-- [ ] **003-{unit-name}** ({bolt-type}) - Planned 0% - Stories: 005-\*
+- ✅ **001-{unit-name}** ({bolt-type}) - Completed 100% - Stories: 001-*, 002-*
+- ⏳ **002-{unit-name}** ({bolt-type}) - In progress 50% - Stories: 003-*, 004-* ← current
+- [ ] **003-{unit-name}** ({bolt-type}) - Planned 0% - Stories: 005-*
 
 ### Quick Actions
 

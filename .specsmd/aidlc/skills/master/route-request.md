@@ -39,20 +39,17 @@ Based on project state:
 ### 2. Handle Special Cases
 
 **User asks about something different than current state**:
-
 > "I see you're in {current phase}, but you're asking about {different thing}. Let me help you with that instead."
 
 **User is confused about what to do**:
-
 > "Based on your project state, the logical next step is {action}. Would you like me to route you there, or do you have something else in mind?"
 
 **Multiple options available**:
-
 > "You have several options at this point:
 >
 > 1. {Option 1} → {command}
 > 2. {Option 2} → {command}
->    Which would you like to pursue?"
+> Which would you like to pursue?"
 
 ### 3. Provide Clear Handoff
 
@@ -73,11 +70,9 @@ Always include:
 Based on your current state ({phase}) and request ({what user wants}):
 
 ### Recommended Action
-
 → **{Agent Name}**: {brief description of what it does}
 
 ### Command
-
 ```text
 {exact command with parameters}
 ```

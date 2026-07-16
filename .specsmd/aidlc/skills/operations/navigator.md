@@ -103,7 +103,6 @@ When user selects an option:
 ## Operations Agent
 
 ### Unit: `{unit-name}`
-
 **Construction Status**: ✅ Complete ({n} bolts)
 **Stories Delivered**: {n}
 
@@ -119,11 +118,9 @@ When user selects an option:
 2 - **View build history**: See previous builds (`build --unit="{unit}" --history`)
 
 ### Workflow
-
 Build → Dev → Verify → Staging → Verify → Prod → Verify → Monitor
 
 ### Suggested Next Step
-
 → **Build deployment artifacts** to start the deployment pipeline
 
 **Type a number to continue.**
@@ -137,7 +134,6 @@ Build → Dev → Verify → Staging → Verify → Prod → Verify → Monitor
 ## Operations Agent
 
 ### Unit: `{unit-name}`
-
 **Latest Build**: `v{version}`
 
 ### Deployment Status
@@ -153,7 +149,6 @@ Build → Dev → Verify → Staging → Verify → Prod → Verify → Monitor
 3 - **View history**: See deployment history (`history --unit="{unit}"`)
 
 ### Suggested Next Step
-
 → **Verify staging deployment** before promoting to production
 
 **Type a number to continue.**
@@ -167,7 +162,6 @@ Build → Dev → Verify → Staging → Verify → Prod → Verify → Monitor
 ## Operations Agent
 
 ### Unit: `{unit-name}`
-
 **Status**: ✅ FULLY OPERATIONAL
 
 ### All Environments
@@ -177,7 +171,6 @@ Build → Dev → Verify → Staging → Verify → Prod → Verify → Monitor
 - ✅ Production: `v{version}` - Verified, Monitored
 
 ### Resources
-
 - Dashboard: {dashboard-url}
 - Logs: {logs-url}
 - Alerts: {alerts-url}
@@ -190,7 +183,6 @@ Build → Dev → Verify → Staging → Verify → Prod → Verify → Monitor
 4 - **Deploy new version**: When code changes
 
 ### Unit Complete
-
 ✅ Unit `{unit-name}` is fully deployed and monitored.
 
 **Type a number or return to Master Agent.**

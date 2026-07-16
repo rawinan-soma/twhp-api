@@ -65,7 +65,6 @@ Status progression based on artifacts present:
 - ✅ **{intent-3}**: Completed - Operations
 
 ### Summary
-
 - **Total**: {count} intents
 - **By Phase**: Inception ({n}), Construction ({n}), Operations ({n})
 - **Needs Attention**: {list of blocked or stale intents}
@@ -88,7 +87,6 @@ Status progression based on artifacts present:
 - ✅ **core-api**: Completed 2024-11-28 - Production
 
 ### Summary
-
 - **Total**: 3 intents
 - **Active**: 2
 - **Completed**: 1
@@ -100,7 +98,6 @@ Status progression based on artifacts present:
 3 - **create-intent**: Create a new intent
 
 ### Suggested Next Step
-
 → **payment-integration** - Complete inception by creating stories
 
 **Type a number or press Enter for suggested action.**

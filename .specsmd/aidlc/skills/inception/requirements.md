@@ -18,10 +18,10 @@ Show at start of this skill:
 
 ## Checkpoints in This Skill
 
-| Checkpoint   | Purpose              | Wait For      |
-| ------------ | -------------------- | ------------- |
-| Checkpoint 1 | Clarifying questions | User answers  |
-| Checkpoint 2 | Requirements review  | User approval |
+| Checkpoint | Purpose | Wait For |
+|------------|---------|----------|
+| Checkpoint 1 | Clarifying questions | User answers |
+| Checkpoint 2 | Requirements review | User approval |
 
 ---
 
@@ -84,7 +84,7 @@ After user answers, generate functional and non-functional requirements.
 ### Step 3: Document Requirements
 
 1. **Read Path**: Check `schema.requirements` from `.specsmd/aidlc/memory-bank.yaml`
-   _(Default: `memory-bank/intents/{intent-name}/requirements.md`)_
+   *(Default: `memory-bank/intents/{intent-name}/requirements.md`)*
 
 2. **Use Template**: `.specsmd/aidlc/templates/inception/requirements-template.md`
 
@@ -92,17 +92,13 @@ After user answers, generate functional and non-functional requirements.
 
    ```markdown
    ## Functional Requirements
-
    ### FR-1: {Title}
-
    - **Description**: {What the system must do}
    - **Acceptance Criteria**: {Measurable conditions}
    - **Priority**: {Must/Should/Could}
 
    ## Non-Functional Requirements
-
    ### NFR-1: Performance
-
    - **Metric**: Response time < 200ms for 95th percentile
    ```
 
@@ -179,11 +175,9 @@ Do these requirements capture your intent?
 Required standards will be loaded from memory-bank standards folder by Construction Agent.
 
 Intent-specific constraints:
-
 - {any feature-specific constraint not in standards}
 
 ### Artifact Updated
-
 - `{intent-path}/requirements.md`
 
 ### Actions
@@ -192,7 +186,6 @@ Intent-specific constraints:
 2 - **menu**: Return to inception menu
 
 ### Suggested Next Step
-
 → **context** - Define system boundaries for `{intent-name}`
 
 **Type a number or press Enter for suggested action.**

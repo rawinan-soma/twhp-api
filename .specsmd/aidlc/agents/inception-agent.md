@@ -26,17 +26,17 @@ When user invokes `/specsmd-inception-agent`:
 
 ## Skills
 
-| Command         | Skill                                              | Description               |
-| --------------- | -------------------------------------------------- | ------------------------- |
-| `menu`          | `.specsmd/aidlc/skills/inception/navigator.md`     | Show progress and options |
-| `create-intent` | `.specsmd/aidlc/skills/inception/intent-create.md` | Create a new intent       |
-| `list-intents`  | `.specsmd/aidlc/skills/inception/intent-list.md`   | List all intents          |
-| `requirements`  | `.specsmd/aidlc/skills/inception/requirements.md`  | Gather requirements       |
-| `context`       | `.specsmd/aidlc/skills/inception/context.md`       | Define system context     |
-| `units`         | `.specsmd/aidlc/skills/inception/units.md`         | Decompose into units      |
-| `stories`       | `.specsmd/aidlc/skills/inception/story-create.md`  | Create user stories       |
-| `bolt-plan`     | `.specsmd/aidlc/skills/inception/bolt-plan.md`     | Plan construction bolts   |
-| `review`        | `.specsmd/aidlc/skills/inception/review.md`        | Review and complete       |
+| Command | Skill | Description |
+|---------|-------|-------------|
+| `menu` | `.specsmd/aidlc/skills/inception/navigator.md` | Show progress and options |
+| `create-intent` | `.specsmd/aidlc/skills/inception/intent-create.md` | Create a new intent |
+| `list-intents` | `.specsmd/aidlc/skills/inception/intent-list.md` | List all intents |
+| `requirements` | `.specsmd/aidlc/skills/inception/requirements.md` | Gather requirements |
+| `context` | `.specsmd/aidlc/skills/inception/context.md` | Define system context |
+| `units` | `.specsmd/aidlc/skills/inception/units.md` | Decompose into units |
+| `stories` | `.specsmd/aidlc/skills/inception/story-create.md` | Create user stories |
+| `bolt-plan` | `.specsmd/aidlc/skills/inception/bolt-plan.md` | Plan construction bolts |
+| `review` | `.specsmd/aidlc/skills/inception/review.md` | Review and complete |
 
 ---
 
@@ -81,14 +81,14 @@ Only stop at designated checkpoints (1-4 above).
 
 ## Artifacts Created
 
-| Artifact       | Location                                    | Template                                         |
-| -------------- | ------------------------------------------- | ------------------------------------------------ |
-| Requirements   | `{intent}/requirements.md`                  | `templates/inception/requirements-template.md`   |
-| System Context | `{intent}/system-context.md`                | `templates/inception/system-context-template.md` |
-| Units          | `{intent}/units.md`                         | `templates/inception/units-template.md`          |
-| Unit Brief     | `{intent}/units/{unit}/unit-brief.md`       | `templates/inception/unit-brief-template.md`     |
-| Stories        | `{intent}/units/{unit}/stories/`            | `templates/inception/stories-template.md`        |
-| Bolt Instances | `memory-bank/bolts/bolt-{unit}-{N}/bolt.md` | `templates/construction/bolt-template.md`        |
+| Artifact | Location | Template |
+|----------|----------|----------|
+| Requirements | `{intent}/requirements.md` | `templates/inception/requirements-template.md` |
+| System Context | `{intent}/system-context.md` | `templates/inception/system-context-template.md` |
+| Units | `{intent}/units.md` | `templates/inception/units-template.md` |
+| Unit Brief | `{intent}/units/{unit}/unit-brief.md` | `templates/inception/unit-brief-template.md` |
+| Stories | `{intent}/units/{unit}/stories/` | `templates/inception/stories-template.md` |
+| Bolt Instances | `memory-bank/bolts/bolt-{unit}-{N}/bolt.md` | `templates/construction/bolt-template.md` |
 
 ---
 

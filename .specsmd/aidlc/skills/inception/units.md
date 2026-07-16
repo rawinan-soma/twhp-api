@@ -55,7 +55,7 @@ Break the Intent into independently deployable Units of Work based on project ty
 1. **Read project type** from `memory-bank/project.yaml`:
 
    ```yaml
-   project_type: full-stack-web # or backend-api, frontend-app, cli-tool, library
+   project_type: full-stack-web  # or backend-api, frontend-app, cli-tool, library
    ```
 
 2. **Read unit structure** from `catalog.yaml` under `project_types.{project_type}.unit_structure`:
@@ -70,7 +70,7 @@ Break the Intent into independently deployable Units of Work based on project ty
        enabled: true
        decomposition: feature-based
        default_bolt_type: simple-construction-bolt
-       naming_pattern: '{intent}-ui'
+       naming_pattern: "{intent}-ui"
    ```
 
 3. **Determine which unit types to create**:
@@ -170,7 +170,6 @@ Present proposed decomposition with their assigned requirements:
 ## Proposed Units
 
 ### Unit 1: {unit-name}
-
 - **Purpose**: {what it does}
 - **Responsibility**: {single responsibility}
 - **Assigned Requirements**: FR-1, FR-2
@@ -178,12 +177,10 @@ Present proposed decomposition with their assigned requirements:
 - **Interface**: {how other units interact with it}
 
 ### Unit 2: {unit-name}
-
 - **Assigned Requirements**: FR-3, FR-4
-  ...
+...
 
 ### Unit N: {intent}-ui (if frontend enabled)
-
 - **Purpose**: Frontend application
 - **Unit Type**: frontend
 - **Dependencies**: All backend units
@@ -192,7 +189,7 @@ Present proposed decomposition with their assigned requirements:
 ### 7. Document Units
 
 1. **Read Path**: Check `schema.units` from `.specsmd/aidlc/memory-bank.yaml`
-   _(Default: `memory-bank/intents/{intent-name}/units.md`)_
+   *(Default: `memory-bank/intents/{intent-name}/units.md`)*
 
 2. **Create Central List**:
    Update `units.md` with all units for this intent
@@ -265,6 +262,7 @@ For each unit, verify:
 ✅ `{intent-path}/units.md`
 ✅ `{intent-path}/units/{UUU}-{unit-1}/unit-brief.md`
 ✅ `{intent-path}/units/{UUU}-{unit-2}/unit-brief.md`
+
 ```
 
 **No menu** - Skill complete, return to agent.

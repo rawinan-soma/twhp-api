@@ -10,19 +10,19 @@ updated: {YYYY-MM-DDTHH:MM:SSZ}
 
 ## Test Summary
 
-| Category    | Passed | Failed | Skipped | Coverage |
-| ----------- | ------ | ------ | ------- | -------- |
-| Unit        | {n}    | {n}    | {n}     | {n}%     |
-| Integration | {n}    | {n}    | {n}     | {n}%     |
-| Security    | {n}    | {n}    | {n}     | -        |
-| Performance | {n}    | {n}    | {n}     | -        |
-| **Total**   | {n}    | {n}    | {n}     | {n}%     |
+| Category | Passed | Failed | Skipped | Coverage |
+|----------|--------|--------|---------|----------|
+| Unit | {n} | {n} | {n} | {n}% |
+| Integration | {n} | {n} | {n} | {n}% |
+| Security | {n} | {n} | {n} | - |
+| Performance | {n} | {n} | {n} | - |
+| **Total** | {n} | {n} | {n} | {n}% |
 
 ## Acceptance Criteria Validation
 
-| Story      | Criteria   | Status |
-| ---------- | ---------- | ------ |
-| {story-id} | {criteria} | ✅/❌  |
+| Story | Criteria | Status |
+|-------|----------|--------|
+| {story-id} | {criteria} | ✅/❌ |
 
 ## Unit Tests
 
@@ -38,10 +38,10 @@ updated: {YYYY-MM-DDTHH:MM:SSZ}
 
 ## Performance Tests
 
-| Metric              | Target   | Actual   | Status |
-| ------------------- | -------- | -------- | ------ |
-| Response Time (p95) | {target} | {actual} | ✅/❌  |
-| Throughput          | {target} | {actual} | ✅/❌  |
+| Metric | Target | Actual | Status |
+|--------|--------|--------|--------|
+| Response Time (p95) | {target} | {actual} | ✅/❌ |
+| Throughput | {target} | {actual} | ✅/❌ |
 
 ## Coverage Report
 
@@ -49,8 +49,8 @@ updated: {YYYY-MM-DDTHH:MM:SSZ}
 
 ## Issues Found
 
-| Issue   | Severity          | Status       |
-| ------- | ----------------- | ------------ |
+| Issue | Severity | Status |
+|-------|----------|--------|
 | {issue} | {High/Medium/Low} | {Fixed/Open} |
 
 ## Ready for Operations

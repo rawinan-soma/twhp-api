@@ -34,7 +34,7 @@ Stage 1: Domain Model → Stage 2: Technical Design → Stage 3: ADR Analysis (o
 - ✅/[ ] **2. Technical Design** (Required) → `ddd-02-technical-design.md`
 - ✅/[ ] **3. ADR Analysis** (Optional) → `adr-{n}-{slug}.md` (zero or more)
 - ✅/[ ] **4. Implement** (Required) → Source code
-- ✅/[ ] **5. Test** (Required) → Tests written from story ACs only + `ddd-03-test-report.md`
+- ✅/[ ] **5. Test** (Required) → Tests + `ddd-03-test-report.md`
 
 **Rules**:
 
@@ -51,8 +51,8 @@ Stage 1: Domain Model → Stage 2: Technical Design → Stage 3: ADR Analysis (o
 ```yaml
 bolt_type: ddd-construction-bolt
 name: DDD Construction Bolt
-description: Domain-Driven Design construction with modeling, design, implementation, and testing. Stage 5 tests are derived from story ACs only — not from implementation code.
-version: 2.1.0
+description: Domain-Driven Design construction with modeling, design, implementation, and testing
+version: 2.0.0
 suitable_for:
   - Domain-heavy business logic
   - Complex entity relationships
@@ -101,15 +101,15 @@ This bolt type implements Domain-Driven Design (DDD) methodology through five se
 **Artifact**: `ddd-01-domain-model.md`
 **Template**: `.specsmd/aidlc/templates/construction/bolt-types/ddd-construction-bolt/ddd-01-domain-model-template.md`
 **Location**: Path defined by `schema.bolts` in `.specsmd/aidlc/memory-bank.yaml`
-_(Default: `memory-bank/bolts/{bolt-id}/ddd-01-domain-model.md`)_
+*(Default: `memory-bank/bolts/{bolt-id}/ddd-01-domain-model.md`)*
 
 **Template Structure**:
 
 ```markdown
 ---
 stage: model
-bolt: { bolt-id }
-created: { YYYY-MM-DDTHH:MM:SSZ }
+bolt: {bolt-id}
+created: {YYYY-MM-DDTHH:MM:SSZ}
 ---
 
 ## Static Model: {unit-name}
@@ -181,35 +181,33 @@ created: { YYYY-MM-DDTHH:MM:SSZ }
 **Artifact**: `ddd-02-technical-design.md`
 **Template**: `.specsmd/aidlc/templates/construction/bolt-types/ddd-construction-bolt/ddd-02-technical-design-template.md`
 **Location**: Path defined by `schema.bolts` in `.specsmd/aidlc/memory-bank.yaml`
-_(Default: `memory-bank/bolts/{bolt-id}/ddd-02-technical-design.md`)_
+*(Default: `memory-bank/bolts/{bolt-id}/ddd-02-technical-design.md`)*
 
 **Template Structure**:
 
-````markdown
+```markdown
 ---
 stage: design
-bolt: { bolt-id }
-created: { YYYY-MM-DDTHH:MM:SSZ }
+bolt: {bolt-id}
+created: {YYYY-MM-DDTHH:MM:SSZ}
 ---
 
 ## Technical Design: {unit-name}
 
 ### Architecture Pattern
-
 {Selected pattern and rationale}
 
 ### Layer Structure
-
 ​```text
 
 ┌─────────────────────────────┐
-│ Presentation │ API/UI
+│      Presentation           │  API/UI
 ├─────────────────────────────┤
-│ Application │ Use Cases
+│      Application            │  Use Cases
 ├─────────────────────────────┤
-│ Domain │ Business Logic
+│        Domain               │  Business Logic
 ├─────────────────────────────┤
-│ Infrastructure │ Database/External
+│     Infrastructure          │  Database/External
 └─────────────────────────────┘
 
 ​```
@@ -229,7 +227,7 @@ created: { YYYY-MM-DDTHH:MM:SSZ }
 ### NFR Implementation
 
 - **{Requirement}**: {Design Approach}
-````
+```
 
 **Completion Criteria**:
 
@@ -316,7 +314,6 @@ For each ADR created, add an entry to `memory-bank/standards/decision-index.md`:
 
 ```markdown
 ### ADR-{n}: {title}
-
 - **Status**: {status from ADR frontmatter}
 - **Date**: {YYYY-MM-DD from ADR created timestamp}
 - **Bolt**: {bolt-id} ({unit-name})
@@ -340,21 +337,17 @@ Update frontmatter: increment `total_decisions`, update `last_updated` timestamp
 # ADR-001: Use CQRS for Task Queries
 
 ## Context
-
 Task list requires complex filtering and sorting that doesn't align with write model.
 
 ## Decision
-
 Implement CQRS pattern with separate read models for task queries.
 
 ## Rationale
-
 - Write model optimized for domain invariants
 - Read model optimized for query performance
 - Allows independent scaling
 
 ## Consequences
-
 - Additional complexity in sync
 - Need event-driven updates to read model
 ```
@@ -385,8 +378,6 @@ Implement CQRS pattern with separate read models for task queries.
 - **REQUIRED**: Load all bolt folder artifacts (see Bolt Context Loading section)
 - **OUTPUT**: Source code based on design docs
 
----
-
 **Activities**:
 
 1 - **Setup project structure**: Create scaffolding
@@ -400,6 +391,26 @@ Implement CQRS pattern with separate read models for task queries.
 
 **Artifact**: Source code in unit directory
 **Location**: `src/{unit}/` or as defined in project structure
+
+**Project Structure**:
+
+```text
+src/{unit}/
+├── domain/
+│   ├── entities/
+│   ├── value-objects/
+│   ├── services/
+│   └── events/
+├── application/
+│   ├── use-cases/
+│   └── dto/
+├── infrastructure/
+│   ├── repositories/
+│   └── external/
+└── presentation/
+    ├── controllers/
+    └── middleware/
+```
 
 **Completion Criteria**:
 
@@ -429,26 +440,18 @@ Implement CQRS pattern with separate read models for task queries.
 
 **Activities**:
 
-1 - **Read all story files first**: Load every story's acceptance criteria — these are the test specification. Do this before opening any implementation file.
-2 - **Write unit tests from ACs**: Each Gherkin `Given/When/Then` scenario becomes one test. Each prose AC becomes at least one test. No test may be written for a code path not described in a story AC.
-3 - **Write integration tests**: Test API endpoints end-to-end
-4 - **Write security tests**: Validate security controls
-5 - **Write performance tests**: Load and stress tests
-6 - **Run all tests**: Execute test suite
-7 - **Measure coverage**: Generate coverage report
-8 - **Verify AC coverage**: Every story AC must map to a passing test
-
-**Story-Orientation Rule**:
-
-- ⛔ Tests are derived from **story ACs only**, not from implementation code
-- Test names must reference the story scenario they cover
-- If a story AC is hard to test, flag it — do not simplify the test to match the code
-- Every story AC must have a corresponding test; untested ACs = incomplete bolt
+1 - **Write unit tests**: Test domain logic
+2 - **Write integration tests**: Test API endpoints
+3 - **Write security tests**: Validate security controls
+4 - **Write performance tests**: Load and stress tests
+5 - **Run all tests**: Execute test suite
+6 - **Measure coverage**: Generate coverage report
+7 - **Verify acceptance criteria**: Validate against stories
 
 **Artifact**: `ddd-03-test-report.md`
 **Template**: `.specsmd/aidlc/templates/construction/bolt-types/ddd-construction-bolt/ddd-03-test-report-template.md`
 **Location**: Path defined by `schema.bolts` in `.specsmd/aidlc/memory-bank.yaml`
-_(Default: `memory-bank/bolts/{bolt-id}/ddd-03-test-report.md`)_
+*(Default: `memory-bank/bolts/{bolt-id}/ddd-03-test-report.md`)*
 
 **Test Structure**:
 
@@ -465,8 +468,8 @@ tests/
 ```markdown
 ---
 stage: test
-bolt: { bolt-id }
-created: { YYYY-MM-DDTHH:MM:SSZ }
+bolt: {bolt-id}
+created: {YYYY-MM-DDTHH:MM:SSZ}
 ---
 
 ## Test Report: {unit-name}
@@ -480,14 +483,12 @@ created: { YYYY-MM-DDTHH:MM:SSZ }
 
 ### Acceptance Criteria Validation
 
-- ✅/❌ **{Story} — {AC or Scenario title}**: {Status}
+- ✅/❌ **{Story}**: {Criteria} - {Status}
 
 ### Issues Found
-
 {Any issues discovered during testing}
 
 ### Recommendations
-
 {Improvements or follow-ups needed}
 ```
 
@@ -498,7 +499,6 @@ created: { YYYY-MM-DDTHH:MM:SSZ }
 - [ ] Security tests passing
 - [ ] Performance tests meet targets
 - [ ] Code coverage > 80%
-- [ ] Every story AC has a corresponding passing test
 - [ ] All acceptance criteria met
 
 **⛔ HUMAN Checkpoint**: Present test report and **STOP**. Wait for user to confirm bolt completion.

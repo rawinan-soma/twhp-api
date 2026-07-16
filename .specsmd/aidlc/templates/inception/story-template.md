@@ -45,19 +45,17 @@ implemented: false
 ## Dependencies
 
 ### Requires
-
 - {Other stories this depends on, or "None"}
 
 ### Enables
-
 - {Stories that depend on this, or "None"}
 
 ## Edge Cases
 
-| Scenario      | Expected Behavior |
-| ------------- | ----------------- |
-| {edge case 1} | {behavior}        |
-| {edge case 2} | {behavior}        |
+| Scenario | Expected Behavior |
+|----------|-------------------|
+| {edge case 1} | {behavior} |
+| {edge case 2} | {behavior} |
 
 ## Out of Scope
 
@@ -68,24 +66,24 @@ implemented: false
 
 ## Priority Levels
 
-| Priority | Meaning          | Criteria                        |
-| -------- | ---------------- | ------------------------------- |
-| `must`   | Required for MVP | System unusable without this    |
-| `should` | Important        | Significant value, not blocking |
-| `could`  | Nice to have     | Enhances experience             |
+| Priority | Meaning | Criteria |
+|----------|---------|----------|
+| `must` | Required for MVP | System unusable without this |
+| `should` | Important | Significant value, not blocking |
+| `could` | Nice to have | Enhances experience |
 
 ---
 
 ## Status Values
 
-| Status        | Meaning                     |
-| ------------- | --------------------------- |
-| `draft`       | Story written, needs review |
-| `ready`       | Reviewed, ready for bolt    |
+| Status | Meaning |
+|--------|---------|
+| `draft` | Story written, needs review |
+| `ready` | Reviewed, ready for bolt |
 | `in-progress` | Being implemented in a bolt |
-| `implemented` | Code complete               |
-| `tested`      | Tests passing               |
-| `done`        | All acceptance criteria met |
+| `implemented` | Code complete |
+| `tested` | Tests passing |
+| `done` | All acceptance criteria met |
 
 ---
 
@@ -128,21 +126,19 @@ implemented: false
 ## Dependencies
 
 ### Requires
-
 - None (first story)
 
 ### Enables
-
 - 002-user-login (User login)
 - 003-email-verification (Email verification)
 
 ## Edge Cases
 
-| Scenario                     | Expected Behavior                |
-| ---------------------------- | -------------------------------- |
-| SQL injection in email       | Safely escaped, validation fails |
-| Very long email (255+ chars) | Validation error                 |
-| Unicode in password          | Allowed, properly encoded        |
+| Scenario | Expected Behavior |
+|----------|-------------------|
+| SQL injection in email | Safely escaped, validation fails |
+| Very long email (255+ chars) | Validation error |
+| Unicode in password | Allowed, properly encoded |
 
 ## Out of Scope
 

@@ -82,12 +82,12 @@ Document what data crosses the boundary:
 
 Generate a C4 Context diagram (Mermaid):
 
-````markdown
+```markdown
 ## System Context Diagram
 
 ​```mermaid
 C4Context
-title System Context - {intent-name}
+    title System Context - {intent-name}
 
     Person(user, "User", "Primary user of the system")
     System(sys, "{System Name}", "The system being built")
@@ -95,14 +95,13 @@ title System Context - {intent-name}
 
     Rel(user, sys, "Uses")
     Rel(sys, ext1, "Integrates with")
-
 ​```
-````
+```
 
 ### 5. Document Context
 
 1. **Read Path**: Check `schema.system_context` from `.specsmd/aidlc/memory-bank.yaml`
-   _(Default: `memory-bank/intents/{intent-name}/system-context.md`)_
+   *(Default: `memory-bank/intents/{intent-name}/system-context.md`)*
 
 2. **Use Template**: `.specsmd/aidlc/templates/inception/system-context-template.md`
 
@@ -118,13 +117,10 @@ title System Context - {intent-name}
    - **{System}**: {Purpose} - {Integration Type}
 
    ## Data Flows
-
    ### Inbound
-
    ### Outbound
 
    ## Context Diagram
-
    {Mermaid diagram}
    ```
 
@@ -155,12 +151,10 @@ Ask:
 - **SendGrid**: Email - Risk: Medium
 
 ### Data Flow Summary
-
 - **Inbound**: User requests, webhook events
 - **Outbound**: Transaction records, notifications
 
 ### Artifact Created
-
 ✅ `{intent-path}/system-context.md`
 ```
 

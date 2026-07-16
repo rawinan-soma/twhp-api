@@ -78,20 +78,20 @@ AI-DLC is an **AWS methodology** for AI-native software development that optimiz
 
 ## Artifact Ownership Matrix
 
-| Phase / Agent    | Primary Output Artifacts | Description                              |
-| ---------------- | ------------------------ | ---------------------------------------- |
-| **Inception**    | **Requirements**         | Functional & Non-functional requirements |
-|                  | **Stories**              | User stories scoped to a Unit            |
-|                  | **System Context**       | High-level boundaries & actors           |
-|                  | **Unit Decomposition**   | Identification of independent units      |
-|                  | **Bolt Plans**           | Planned work sessions                    |
-| **Construction** | **Domain Design**        | Entities, Aggregates, Value Objects      |
-|                  | **Logical Design**       | APIs, Schemas, Cloud Resources           |
-|                  | **Code**                 | Source code implementation               |
-|                  | **Tests**                | Unit, Integration, & E2E tests           |
-| **Operations**   | **Build Artifacts**      | Docker images, binaries, bundles         |
-|                  | **Infrastructure**       | Terraform/CloudFormation/CDK             |
-|                  | **Documentation**        | Runbooks, API docs                       |
+| Phase / Agent | Primary Output Artifacts | Description |
+|--------------|-------------------------|-------------|
+| **Inception** | **Requirements** | Functional & Non-functional requirements |
+| | **Stories** | User stories scoped to a Unit |
+| | **System Context** | High-level boundaries & actors |
+| | **Unit Decomposition** | Identification of independent units |
+| | **Bolt Plans** | Planned work sessions |
+| **Construction** | **Domain Design** | Entities, Aggregates, Value Objects |
+| | **Logical Design** | APIs, Schemas, Cloud Resources |
+| | **Code** | Source code implementation |
+| | **Tests** | Unit, Integration, & E2E tests |
+| **Operations** | **Build Artifacts** | Docker images, binaries, bundles |
+| | **Infrastructure** | Terraform/CloudFormation/CDK |
+| | **Documentation** | Runbooks, API docs |
 
 ## Decomposition Hierarchy
 
@@ -369,4 +369,4 @@ You can customize this flow by editing:
 
 **Happy building with AI-DLC!** 🚀
 
-_This is the official AI-DLC implementation by specsmd, following the AWS AI-DLC methodology._
+*This is the official AI-DLC implementation by specsmd, following the AWS AI-DLC methodology.*

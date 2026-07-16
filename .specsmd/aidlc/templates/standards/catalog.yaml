@@ -11,7 +11,7 @@ standards:
     sections:
       - header: Overview
         type: static
-        content: 'Core technology decisions for this project.'
+        content: "Core technology decisions for this project."
       - type: from_decisions
     decisions:
       - id: languages
@@ -54,7 +54,7 @@ standards:
     sections:
       - header: Overview
         type: static
-        content: 'Database and data persistence decisions for this project.'
+        content: "Database and data persistence decisions for this project."
       - type: from_decisions
     decisions:
       - id: database
@@ -78,7 +78,7 @@ standards:
     sections:
       - header: Overview
         type: static
-        content: 'Code style and quality standards for this project.'
+        content: "Code style and quality standards for this project."
       - type: from_decisions
     decisions:
       - id: formatting
@@ -133,7 +133,7 @@ standards:
     sections:
       - header: Overview
         type: static
-        content: 'High-level architectural decisions and patterns.'
+        content: "High-level architectural decisions and patterns."
       - type: from_decisions
     decisions:
       - id: architecture_style
@@ -179,7 +179,7 @@ standards:
     sections:
       - header: Overview
         type: static
-        content: 'UI/UX standards and design system choices.'
+        content: "UI/UX standards and design system choices."
       - type: from_decisions
     decisions:
       - id: design_system
@@ -216,7 +216,7 @@ standards:
     sections:
       - header: Overview
         type: static
-        content: 'API design conventions and response formats.'
+        content: "API design conventions and response formats."
       - type: from_decisions
     decisions:
       - id: api_style
@@ -273,7 +273,7 @@ project_types:
         enabled: true
         decomposition: feature-based
         default_bolt_type: simple-construction-bolt
-        naming_pattern: '{intent}-ui'
+        naming_pattern: "{intent}-ui"
         description: Frontend application (pages, components, state)
 
   backend-api:

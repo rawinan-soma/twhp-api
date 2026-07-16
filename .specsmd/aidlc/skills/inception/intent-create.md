@@ -67,7 +67,6 @@ Consider the project type and generate suggestions that:
 **Project Type**: {project_type}
 
 Here are some ideas for your first feature:
-
 - "{creative suggestion 1 relevant to project type}"
 - "{creative suggestion 2 relevant to project type}"
 - "{creative suggestion 3 relevant to project type}"
@@ -108,14 +107,12 @@ Then suggest:
 ## Create New Intent
 
 Based on your existing intents:
-
 - `001-user-authentication` - {brief description from requirements}
 - `002-product-catalog` - {brief description from requirements}
 
 Your project appears to be a **{inferred domain, e.g., "e-commerce platform"}**.
 
 Here are some features that might complement your existing work:
-
 - "{suggestion 1}"
 - "{suggestion 2}"
 - "{suggestion 3}"
@@ -155,7 +152,7 @@ Determine the intent category:
 Once confirmed, perform these file operations:
 
 1. **Read Schema**: Check `.specsmd/aidlc/memory-bank.yaml` for `intents` path
-   _(Default: `memory-bank/intents/{intent-name}/`)_
+   *(Default: `memory-bank/intents/{intent-name}/`)*
 
 2. **Create Directory**:
 
@@ -185,7 +182,6 @@ Show confirmation with **exactly ONE action list** - no workflow overview, no ex
 **Location**: `{intent-path}/`
 
 Files created:
-
 - `requirements.md` (draft)
 - `inception-log.md` (progress tracker)
 

@@ -23,11 +23,11 @@ The installer will:
 
 AI-DLC has three sequential phases, each with a specialized agent:
 
-| Phase            | Agent              | Purpose                                                    |
-| ---------------- | ------------------ | ---------------------------------------------------------- |
-| **Inception**    | Inception Agent    | Capture intents, gather requirements, decompose into units |
-| **Construction** | Construction Agent | Execute bolts (rapid iterations) to build code             |
-| **Operations**   | Operations Agent   | Deploy, verify, and monitor                                |
+| Phase | Agent | Purpose |
+|-------|-------|---------|
+| **Inception** | Inception Agent | Capture intents, gather requirements, decompose into units |
+| **Construction** | Construction Agent | Execute bolts (rapid iterations) to build code |
+| **Operations** | Operations Agent | Deploy, verify, and monitor |
 
 The **Master Agent** orchestrates everything and helps you navigate.
 
@@ -85,10 +85,10 @@ Once units are defined, plan your first bolt:
 
 A **Bolt** is a rapid iteration (hours to days). Two types available:
 
-| Bolt Type               | Best For                                |
-| ----------------------- | --------------------------------------- |
-| **DDD Construction**    | Complex business logic, domain modeling |
-| **Simple Construction** | UI, integrations, utilities             |
+| Bolt Type | Best For |
+|-----------|----------|
+| **DDD Construction** | Complex business logic, domain modeling |
+| **Simple Construction** | UI, integrations, utilities |
 
 ### Step 4: Execute Bolts
 
@@ -130,46 +130,46 @@ When bolts are complete, use the Operations Agent:
 
 ### Master Agent (`/specsmd-master-agent`)
 
-| Skill             | Purpose                            |
-| ----------------- | ---------------------------------- |
-| `project-init`    | Initialize project with standards  |
-| `analyze-context` | View current project state         |
-| `route-request`   | Get directed to the right agent    |
-| `explain-flow`    | Learn about AI-DLC methodology     |
+| Skill | Purpose |
+|-------|---------|
+| `project-init` | Initialize project with standards |
+| `analyze-context` | View current project state |
+| `route-request` | Get directed to the right agent |
+| `explain-flow` | Learn about AI-DLC methodology |
 | `answer-question` | Get help with any specsmd question |
 
 ### Inception Agent (`/specsmd-inception-agent`)
 
-| Skill           | Purpose                       |
-| --------------- | ----------------------------- |
-| `intent-create` | Create a new intent           |
-| `intent-list`   | List all intents              |
-| `requirements`  | Elaborate intent requirements |
-| `context`       | Define system context         |
-| `units`         | Decompose into units          |
-| `story-create`  | Create stories for a unit     |
-| `bolt-plan`     | Plan bolts for stories        |
-| `review`        | Review inception artifacts    |
-| `navigator`     | Navigate inception workflow   |
+| Skill | Purpose |
+|-------|---------|
+| `intent-create` | Create a new intent |
+| `intent-list` | List all intents |
+| `requirements` | Elaborate intent requirements |
+| `context` | Define system context |
+| `units` | Decompose into units |
+| `story-create` | Create stories for a unit |
+| `bolt-plan` | Plan bolts for stories |
+| `review` | Review inception artifacts |
+| `navigator` | Navigate inception workflow |
 
 ### Construction Agent (`/specsmd-construction-agent`)
 
-| Skill         | Purpose                        |
-| ------------- | ------------------------------ |
-| `bolt-start`  | Start executing a bolt         |
-| `bolt-status` | Check bolt progress            |
-| `bolt-list`   | List all bolts                 |
-| `bolt-plan`   | Plan additional bolts          |
-| `navigator`   | Navigate construction workflow |
+| Skill | Purpose |
+|-------|---------|
+| `bolt-start` | Start executing a bolt |
+| `bolt-status` | Check bolt progress |
+| `bolt-list` | List all bolts |
+| `bolt-plan` | Plan additional bolts |
+| `navigator` | Navigate construction workflow |
 
 ### Operations Agent (`/specsmd-operations-agent`)
 
-| Skill     | Purpose               |
-| --------- | --------------------- |
-| `build`   | Build the project     |
-| `deploy`  | Deploy to environment |
-| `verify`  | Verify deployment     |
-| `monitor` | Set up monitoring     |
+| Skill | Purpose |
+|-------|---------|
+| `build` | Build the project |
+| `deploy` | Deploy to environment |
+| `verify` | Verify deployment |
+| `monitor` | Set up monitoring |
 
 ---
 
@@ -177,13 +177,13 @@ When bolts are complete, use the Operations Agent:
 
 Choose your project type during initialization:
 
-| Type               | Required Standards           | Recommended Standards                          |
-| ------------------ | ---------------------------- | ---------------------------------------------- |
+| Type | Required Standards | Recommended Standards |
+|------|-------------------|----------------------|
 | **full-stack-web** | tech-stack, coding-standards | system-architecture, ux-guide, api-conventions |
-| **backend-api**    | tech-stack, coding-standards | system-architecture, api-conventions           |
-| **frontend-app**   | tech-stack, coding-standards | ux-guide                                       |
-| **cli-tool**       | tech-stack, coding-standards | -                                              |
-| **library**        | tech-stack, coding-standards | api-conventions                                |
+| **backend-api** | tech-stack, coding-standards | system-architecture, api-conventions |
+| **frontend-app** | tech-stack, coding-standards | ux-guide |
+| **cli-tool** | tech-stack, coding-standards | - |
+| **library** | tech-stack, coding-standards | api-conventions |
 
 ---
 

@@ -178,7 +178,6 @@ Select an option (1-4):
    - [ ] **004-auth-service** ({bolt-type}): 007-api-keys, 008-rate-limit - requires 003-auth-service
 
    Updated files:
-
    - `memory-bank/bolts/003-auth-service/bolt.md` (updated)
    - `memory-bank/bolts/004-auth-service/bolt.md` (created)
    - `memory-bank/bolts/002-auth-service/bolt.md` (updated enables_bolts)
@@ -242,7 +241,6 @@ Select an option (1-4):
    001-auth-service (completed) → 002-auth-service (in-progress) → 004-auth-service (planned) → 003-auth-service (planned)
 
    Updated files:
-
    - `memory-bank/bolts/003-auth-service/bolt.md` (requires_bolts updated)
    - `memory-bank/bolts/004-auth-service/bolt.md` (requires_bolts updated)
    ```

@@ -18,8 +18,8 @@ Show at start of this skill:
 
 ## Checkpoints in This Skill
 
-| Checkpoint   | Purpose        | Wait For          |
-| ------------ | -------------- | ----------------- |
+| Checkpoint | Purpose | Wait For |
+|------------|---------|----------|
 | Checkpoint 1 | Build approval | User confirmation |
 
 ---
@@ -96,23 +96,21 @@ Create/update `deployment/build.md`:
 
 ```markdown
 ---
-version: { version }
-commit: { sha }
-built: { timestamp }
+version: {version}
+commit: {sha}
+built: {timestamp}
 status: success
 ---
 
 ## Build: {version}
 
 ### Artifact
-
 - **Type**: {container|function|package}
 - **Tag**: `{registry}/{unit}:{version}`
 - **Size**: {size}
 - **SHA**: {artifact-sha}
 
 ### Build Environment
-
 - OS: {os}
 - Runtime: {runtime-version}
 - Builder: {tool-version}
@@ -123,7 +121,6 @@ status: success
 - **{dep2}**: {ver}
 
 ### Build Log Summary
-
 {key events from build}
 ```
 
@@ -142,13 +139,11 @@ status: success
 - **Size**: {size}
 
 ### Build Summary
-
 - Dependencies: {count} packages
 - Build time: {duration}
 - Tests: ✅ All passing
 
 ### Artifact Location
-
 ```text
 {registry-url}/{unit}:{version}
 ```
@@ -177,7 +172,6 @@ status: success
 ## Build Failed: {unit-name}
 
 ### Error
-
 ```text
 {error message}
 ```

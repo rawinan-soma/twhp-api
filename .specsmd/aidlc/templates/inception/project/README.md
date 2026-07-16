@@ -24,29 +24,23 @@ updated: 2024-11-22
 # Project Brief
 
 ## Project Name
-
 {Your project name}
 
 ## Overview
-
 {Brief description of what this project does}
 
 ## Business Goals
-
 - {Goal 1}
 - {Goal 2}
 
 ## Target Users
-
 {Who will use this system}
 
 ## Success Criteria
-
 - {Measurable criterion 1}
 - {Measurable criterion 2}
 
 ## Timeline
-
 - Inception: {dates}
 - Construction: {dates}
 - Launch: {target date}

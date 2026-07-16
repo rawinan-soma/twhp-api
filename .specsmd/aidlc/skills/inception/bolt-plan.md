@@ -86,12 +86,12 @@ Review all stories to understand:
 
 For each story, evaluate these factors:
 
-| Factor           | Question                           | Low (1)              | Medium (2)                 | High (3)                        |
-| ---------------- | ---------------------------------- | -------------------- | -------------------------- | ------------------------------- |
-| **Complexity**   | How intricate is the logic?        | CRUD, known patterns | Business rules, validation | Novel algorithms, complex logic |
-| **Uncertainty**  | How clear are requirements?        | Fully specified      | Some ambiguity             | Many unknowns (→ spike)         |
-| **Dependencies** | What external things does it need? | Self-contained       | Internal APIs/units        | External systems, 3rd party     |
-| **Testing**      | What validation is needed?         | Unit tests           | Integration tests          | E2E + manual validation         |
+| Factor | Question | Low (1) | Medium (2) | High (3) |
+|--------|----------|---------|------------|----------|
+| **Complexity** | How intricate is the logic? | CRUD, known patterns | Business rules, validation | Novel algorithms, complex logic |
+| **Uncertainty** | How clear are requirements? | Fully specified | Some ambiguity | Many unknowns (→ spike) |
+| **Dependencies** | What external things does it need? | Self-contained | Internal APIs/units | External systems, 3rd party |
+| **Testing** | What validation is needed? | Unit tests | Integration tests | E2E + manual validation |
 
 ### 4. Group Stories into Bolts
 
@@ -150,7 +150,6 @@ For each bolt, check if it depends on another unit:
 - **bolt-payment-1** requires user-service unit (Needs user data)
 
 ### Dependency Warnings
-
 - ⚠️ bolt-api-1 blocked until auth-service unit complete
 - ⚠️ Circular dependency detected: {if any}
 ```
@@ -159,7 +158,7 @@ For each bolt, check if it depends on another unit:
 
 Establish execution order based on dependencies:
 
-````markdown
+```markdown
 ## Bolt Sequence
 
 ```text
@@ -169,8 +168,8 @@ Establish execution order based on dependencies:
    ▼            ▼
  Entity      API Layer
  Setup       Implementation
+
 ```
-````
 
 ## Cross-Unit Dependencies
 
@@ -189,7 +188,7 @@ Establish execution order based on dependencies:
 **⚠️ DO NOT CREATE A SUMMARY DOCUMENT CALLED "bolt-plan.md"**
 
 1. **Read Path**: Check `schema.bolts` from `.specsmd/aidlc/memory-bank.yaml`
-   _(Default: `memory-bank/bolts/{bolt-id}/`)_
+   *(Default: `memory-bank/bolts/{bolt-id}/`)*
 
 2. **Determine Bolt ID**:
    - List all directories in `memory-bank/bolts/`
@@ -229,7 +228,7 @@ Establish execution order based on dependencies:
    └── {stage-artifacts}            ← Created during construction (varies by bolt type)
    ```
 
-   _Note: Artifact names depend on bolt type (e.g., DDD bolts create `ddd-01-domain-model.md`, simple bolts create `implementation-plan.md`)._
+   *Note: Artifact names depend on bolt type (e.g., DDD bolts create `ddd-01-domain-model.md`, simple bolts create `implementation-plan.md`).*
 
 4. **Bolt File Structure** (CRITICAL: Include all dependencies in frontmatter):
 
@@ -242,13 +241,13 @@ Establish execution order based on dependencies:
    status: planned
    stories: [story-1, story-2]
    created: {date}
-   
+
    # Dependency Tracking (REQUIRED)
    requires_bolts: [001-auth-service]       # Bolts that must complete first
    enables_bolts: [003-auth-service, 001-api-service] # Bolts that depend on this
    requires_units: [auth-service]           # Units that must be complete
    blocks: false                            # true if waiting on dependency
-   
+
    # Complexity Assessment (aggregate of included stories)
    complexity:
      avg_complexity: 2        # 1=Low, 2=Medium, 3=High
@@ -260,7 +259,6 @@ Establish execution order based on dependencies:
    ## Bolt: {BBB}-{unit-name}
 
    ### Objective
-
    {What this bolt will accomplish}
 
    ### Stories Included
@@ -268,7 +266,6 @@ Establish execution order based on dependencies:
    - [ ] **{story-id}**: {description} - Priority: {priority}
 
    ### Expected Outputs
-
    - {artifact 1}
    - {artifact 2}
 
@@ -284,7 +281,6 @@ Establish execution order based on dependencies:
    - **auth-service**: Needs auth tokens - Completed
 
    #### Enables (other bolts waiting on this)
-
    - 003-auth-service
    - 001-api-service
    ```
@@ -351,17 +347,14 @@ memory-bank/bolts/{BBB}-{unit-name}/bolt.md  ← CREATE THIS DIRECTORY AND FILE
 - [ ] **003-auth-service** ({bolt-type}): 005-mfa-setup
 
 ### Dependency Graph
-
 001-auth-service ──► 002-auth-service ──► 003-auth-service
 
 ### Directories Created
-
 ✅ `memory-bank/bolts/001-auth-service/bolt.md`
 ✅ `memory-bank/bolts/002-auth-service/bolt.md`
 ✅ `memory-bank/bolts/003-auth-service/bolt.md`
 
 ### Total
-
 - {n} bolts created
 - {n} stories covered
 ```

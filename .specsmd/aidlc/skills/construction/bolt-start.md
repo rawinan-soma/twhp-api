@@ -104,13 +104,6 @@ Based on bolt state:
 - **completed** → Inform user bolt is done
 - **blocked** → Show blocker, ask how to resolve
 
-### 5b. Git Branch (NEW BOLT ONLY — status was `planned`)
-
-The IDE manages worktrees automatically. No manual `git worktree` command is needed.
-Proceed directly to Step 6.
-
----
-
 ### 6. Update Bolt File on Start (CRITICAL - DO FIRST)
 
 **⚠️ BEFORE any stage work begins, update the bolt file IMMEDIATELY.**
@@ -119,9 +112,9 @@ When transitioning from `planned` to `in-progress`:
 
 ```yaml
 ---
-status: in-progress # was: planned
-started: { ISO-8601-timestamp } # was: null
-current_stage: { first-stage } # was: null (e.g., "domain-model")
+status: in-progress          # was: planned
+started: {ISO-8601-timestamp} # was: null
+current_stage: {first-stage}  # was: null (e.g., "domain-model")
 ---
 ```
 
@@ -143,19 +136,15 @@ For the current stage, follow the bolt type definition:
    ## Stage: {stage-name}
 
    ### Objective
-
    {From bolt type definition}
 
    ### Activities
-
    {From bolt type definition}
 
    ### Expected Output
-
    {From bolt type definition}
 
    ### Stories in Scope
-
    {From bolt instance}
    ```
 
@@ -224,11 +213,11 @@ After each stage completion:
 ```yaml
 ---
 status: in-progress
-current_stage: { next-stage-from-bolt-type }
+current_stage: {next-stage-from-bolt-type}
 stages_completed:
-  - name: { stage-name }
-    completed: { timestamp }
-    artifact: { artifact-filename }
+  - name: {stage-name}
+    completed: {timestamp}
+    artifact: {artifact-filename}
 ---
 ```
 
@@ -297,10 +286,6 @@ Stories: 12 updated, 0 skipped, 0 errors
 
 **Do NOT manually edit story files.** The command handles everything deterministically.
 
-**After the script succeeds:**
-
-The IDE manages branch merging automatically. No manual merge or worktree cleanup is needed.
-
 **Verify the script completed successfully:**
 
 After running the command, verify the changes were applied correctly:
@@ -363,29 +348,24 @@ If construction log doesn't exist, create it using template:
 ## Executing Bolt: {bolt-id}
 
 ### Current Stage: {stage-name}
-
 **Type**: {bolt-type}
 **Progress**: Stage {n} of {total}
 
 ### Activities Performed
-
 1. ✅ {activity 1}
 2. ✅ {activity 2}
 3. ⏳ {activity 3 - in progress}
 
 ### Artifacts Created
-
 - `{path/to/artifact}` - {description}
 
 ### Stories Addressed
-
 - ✅ **{SSS}-{story-slug}**: {criteria} - Complete
 - ⏳ **{SSS}-{story-slug}**: {criteria} - In Progress
 
 ---
 
 ### Checkpoint (if defined by bolt type)
-
 > "{checkpoint prompt from bolt type definition}"
 ```
 
@@ -397,17 +377,14 @@ If construction log doesn't exist, create it using template:
 ## Bolt Complete: {bolt-id}
 
 ### Summary
-
 - **Type**: {bolt-type}
 - **Duration**: {time elapsed}
 - **Stages Completed**: {all stages from bolt type}
 
 ### Artifacts Produced
-
 {List artifacts as defined by bolt type}
 
 ### Stories Delivered
-
 - ✅ **{SSS}-{story-slug}**: Complete
 - ✅ **{SSS}-{story-slug}**: Complete
 
@@ -427,8 +404,6 @@ If construction log doesn't exist, create it using template:
 **Use this checklist to verify all completion tasks are done:**
 
 ```text
-□ bolt-complete.cjs script run successfully (Step 10)
-
 □ Bolt file updated:
   □ status: complete
   □ completed: {timestamp}
@@ -439,7 +414,7 @@ If construction log doesn't exist, create it using template:
     □ status: complete
     □ implemented: true
 
-□ Status cascade checked:
+□ Status cascade checked (Step 11):
   □ Unit status updated if all bolts complete
   □ Intent status updated if all units complete
 

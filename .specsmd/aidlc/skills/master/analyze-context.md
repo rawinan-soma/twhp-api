@@ -116,13 +116,12 @@ If inconsistencies found, report them:
 ```markdown
 ## ⚠️ Status Inconsistencies Detected
 
-| Artifact                           | Current Status | Expected Status | Reason                |
-| ---------------------------------- | -------------- | --------------- | --------------------- |
-| unit-brief: file-watcher           | draft          | complete        | All bolts complete    |
-| requirements: 011-vscode-extension | units-defined  | construction    | Has in-progress units |
+| Artifact | Current Status | Expected Status | Reason |
+|----------|----------------|-----------------|--------|
+| unit-brief: file-watcher | draft | complete | All bolts complete |
+| requirements: 011-vscode-extension | units-defined | construction | Has in-progress units |
 
 ### Actions
-
 1 - **fix**: Update all statuses to expected values
 2 - **skip**: Continue without fixing
 3 - **review**: Show details for each inconsistency
@@ -148,9 +147,9 @@ Append entry to `memory-bank/maintenance-log.md` (create if doesn't exist):
 
 **Triggered by**: analyze-context integrity check
 
-| Artifact | Old Status | New Status | Reason   |
-| -------- | ---------- | ---------- | -------- |
-| {path}   | {old}      | {new}      | {reason} |
+| Artifact | Old Status | New Status | Reason |
+|----------|------------|------------|--------|
+| {path} | {old} | {new} | {reason} |
 
 ---
 ```
@@ -162,11 +161,11 @@ Append entry to `memory-bank/maintenance-log.md` (create if doesn't exist):
 
 **Triggered by**: analyze-context integrity check
 
-| Artifact                                                | Old Status    | New Status   | Reason                   |
-| ------------------------------------------------------- | ------------- | ------------ | ------------------------ |
-| 011-vscode-extension/units/file-watcher/unit-brief.md   | draft         | complete     | All bolts complete (1/1) |
-| 011-vscode-extension/units/extension-core/unit-brief.md | draft         | complete     | All bolts complete (1/1) |
-| 011-vscode-extension/requirements.md                    | units-defined | construction | Has in-progress units    |
+| Artifact | Old Status | New Status | Reason |
+|----------|------------|------------|--------|
+| 011-vscode-extension/units/file-watcher/unit-brief.md | draft | complete | All bolts complete (1/1) |
+| 011-vscode-extension/units/extension-core/unit-brief.md | draft | complete | All bolts complete (1/1) |
+| 011-vscode-extension/requirements.md | units-defined | construction | Has in-progress units |
 
 ---
 ```
@@ -181,26 +180,22 @@ Provide a structured analysis:
 ## Project State Analysis
 
 ### Summary
-
 - **Phase**: {current phase}
 - **Active Intent**: {name or "None"}
 - **Active Unit**: {name or "None"}
 - **Active Bolt**: {id or "None"}
 
 ### Evidence
-
 - Intents found: {count} ({list names})
 - Units found: {count} for {intent}
 - Stories found: {count} for {unit}
 - Bolts found: {count} ({status breakdown})
 
 ### Status Integrity
-
 - ✅ All statuses consistent (or)
 - ⚠️ {N} inconsistencies found (see details below)
 
 ### Current State Details
-
 {Specific details about what exists and what's missing}
 
 {If inconsistencies found, include the inconsistency table here}
@@ -213,7 +208,6 @@ Provide a structured analysis:
 {If inconsistencies: 4 - **fix**: Fix status inconsistencies}
 
 ### Suggested Next Step
-
 → **proceed** - {Specific command to run}
 
 **Type a number or press Enter for suggested action.**

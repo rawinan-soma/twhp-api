@@ -84,22 +84,18 @@ For each feature in the unit:
 ## Story: {story-id}
 
 ### User Story
-
 As a {role}
 I want to {action}
 So that {benefit}
 
 ### Acceptance Criteria
-
 - [ ] Given {context}, When {action}, Then {outcome}
 - [ ] Given {context}, When {action}, Then {outcome}
 
 ### Technical Notes
-
 - {implementation hints if any}
 
 ### Dependencies
-
 - {other stories this depends on}
 ```
 
@@ -125,7 +121,7 @@ Organize stories for bolt planning:
 ### 5. Document Stories
 
 1. **Read Path**: Check `schema.stories` from `.specsmd/aidlc/memory-bank.yaml`
-   _(Default: `memory-bank/intents/{intent-name}/units/{unit-name}/stories/`)_
+   *(Default: `memory-bank/intents/{intent-name}/units/{unit-name}/stories/`)*
 
 2. **Create Directory**:
    Ensure `.../units/{unit-name}/stories/` exists
@@ -202,7 +198,6 @@ This ensures each unit-brief shows its story count at a glance.
 
    ```markdown
    ### 001-user-signup.md ✅ GENERATED
-
    **Title**: User Registration with Password Hashing
    ```
 
@@ -230,7 +225,6 @@ This ensures each unit-brief shows its story count at a glance.
    # Global Story Index
 
    ## Overview
-
    - **Total stories**: {count}
    - **Generated**: {count with ✅ GENERATED}
    - **Last updated**: {date}
@@ -261,7 +255,6 @@ This ensures each unit-brief shows its story count at a glance.
 
    ```markdown
    ### Verification: {unit-name}
-
    - Stories planned: {n}
    - Stories created: {n}
    - Index updated: {n} marked ✅ GENERATED
@@ -283,20 +276,17 @@ This ensures each unit-brief shows its story count at a glance.
 - [ ] **S4**: User can enable MFA - Could - Requires S2
 
 ### Acceptance Criteria Count
-
 - **Total criteria**: {n}
 - **Must-have stories**: {n}
 - **Should-have stories**: {n}
 - **Could-have stories**: {n}
 
 ### Artifacts Created (one file per story)
-
 ✅ `{unit-path}/stories/001-{title-slug}.md`
 ✅ `{unit-path}/stories/002-{title-slug}.md`
 ✅ `{unit-path}/stories/003-{title-slug}.md`
 
 ### Estimated Bolt Coverage
-
 - Stories can be grouped into ~{n} bolts
 - Suggested grouping provided in bolt-plan
 ```

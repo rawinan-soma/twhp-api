@@ -19,11 +19,11 @@ Show at start of this skill:
 
 ## Checkpoints in This Skill
 
-| Checkpoint   | Purpose                     | Wait For          |
-| ------------ | --------------------------- | ----------------- |
-| Checkpoint 1 | Prototype inventory review  | User confirmation |
-| Checkpoint 2 | Design system approval      | User approval     |
-| Checkpoint 3 | Derived requirements review | User approval     |
+| Checkpoint | Purpose | Wait For |
+|------------|---------|----------|
+| Checkpoint 1 | Prototype inventory review | User confirmation |
+| Checkpoint 2 | Design system approval | User approval |
+| Checkpoint 3 | Derived requirements review | User approval |
 
 ---
 
@@ -115,26 +115,21 @@ For each screen, extract:
 
 ```markdown
 ### Screen: {screen-name}
-
 **Source**: {filename}
 **Purpose**: {inferred purpose}
 
 #### Layout
-
 - Structure: {e.g., sidebar-main, header-content-footer}
 - Responsive hints: {any visible breakpoint patterns}
 
 #### Components Identified
-
 - [ ] {component-1}: {description}
 - [ ] {component-2}: {description}
 
 #### Interactions
-
 - {interaction-1}: {trigger} → {result}
 
 #### Design Tokens
-
 - Primary color: {hex}
 - Text color: {hex}
 - Background: {hex}
@@ -152,31 +147,28 @@ Combine analysis from all screens into a unified design system:
 ## Design System: {prototype-name}
 
 ### Color Palette
-
-| Token          | Value | Usage                   |
-| -------------- | ----- | ----------------------- |
-| primary        | {hex} | Buttons, links, accents |
-| secondary      | {hex} | Secondary actions       |
-| background     | {hex} | Page background         |
-| surface        | {hex} | Card backgrounds        |
-| text-primary   | {hex} | Main text               |
-| text-secondary | {hex} | Muted text              |
-| border         | {hex} | Borders, dividers       |
-| success        | {hex} | Success states          |
-| error          | {hex} | Error states            |
+| Token | Value | Usage |
+|-------|-------|-------|
+| primary | {hex} | Buttons, links, accents |
+| secondary | {hex} | Secondary actions |
+| background | {hex} | Page background |
+| surface | {hex} | Card backgrounds |
+| text-primary | {hex} | Main text |
+| text-secondary | {hex} | Muted text |
+| border | {hex} | Borders, dividers |
+| success | {hex} | Success states |
+| error | {hex} | Error states |
 
 ### Typography
-
-| Element | Font   | Size   | Weight   |
-| ------- | ------ | ------ | -------- |
-| h1      | {font} | {size} | {weight} |
-| h2      | {font} | {size} | {weight} |
-| body    | {font} | {size} | {weight} |
-| label   | {font} | {size} | {weight} |
+| Element | Font | Size | Weight |
+|---------|------|------|--------|
+| h1 | {font} | {size} | {weight} |
+| h2 | {font} | {size} | {weight} |
+| body | {font} | {size} | {weight} |
+| label | {font} | {size} | {weight} |
 | caption | {font} | {size} | {weight} |
 
 ### Spacing Scale
-
 - xs: {px}
 - sm: {px}
 - md: {px}
@@ -184,20 +176,17 @@ Combine analysis from all screens into a unified design system:
 - xl: {px}
 
 ### Border Radius
-
 - sm: {px}
 - md: {px}
 - lg: {px}
 - full: 9999px
 
 ### Shadows
-
 - sm: {shadow}
 - md: {shadow}
 - lg: {shadow}
 
 ### Component Patterns
-
 {list of reusable patterns identified}
 ```
 
@@ -227,34 +216,29 @@ Create a component catalog from the prototype:
 ## Component Catalog: {prototype-name}
 
 ### Navigation Components
-
 - **Sidebar**: {description, screens where found}
 - **Header**: {description}
 - **Breadcrumb**: {description}
 
 ### Form Components
-
 - **Text Input**: {variants, validation states}
 - **Button**: {variants: primary, secondary, ghost}
 - **Select/Dropdown**: {description}
 - **Checkbox/Radio**: {description}
 
 ### Display Components
-
 - **Card**: {variants}
 - **List**: {variants}
 - **Table**: {if present}
 - **Modal/Dialog**: {if present}
 
 ### Feedback Components
-
 - **Toast/Notification**: {if present}
 - **Loading States**: {spinners, skeletons}
 - **Empty States**: {if present}
 - **Error States**: {if present}
 
 ### Layout Components
-
 - **Container**: {max-width, padding}
 - **Grid**: {columns, gaps}
 - **Stack**: {spacing patterns}
@@ -270,18 +254,15 @@ Identify user flows from screen sequences:
 ## User Flows
 
 ### Flow 1: {flow-name}
-
 **Screens**: {screen-1} → {screen-2} → {screen-3}
 **Goal**: {what user accomplishes}
 **Steps**:
-
 1. User sees {screen-1}, {action}
 2. System shows {screen-2}
 3. User {action}
 4. System {result}
 
 ### Flow 2: {flow-name}
-
 ...
 ```
 
@@ -297,7 +278,6 @@ Transform visual analysis into formal requirements:
 ### Functional Requirements (from prototype)
 
 #### FR-P1: {Component/Feature Name}
-
 - **Source**: {screenshot reference}
 - **Description**: {what it does based on visual}
 - **Acceptance Criteria**:
@@ -307,22 +287,18 @@ Transform visual analysis into formal requirements:
 - **Priority**: {inferred from prominence}
 
 #### FR-P2: {Component/Feature Name}
-
 ...
 
 ### Non-Functional Requirements (inferred)
 
 #### NFR-P1: Visual Consistency
-
 - Design system must be applied consistently
 - All components follow extracted patterns
 
 #### NFR-P2: Responsive Design
-
 - {any responsive hints from prototype}
 
 ### Open Questions
-
 - {things that aren't clear from prototype}
 - {interactions that need clarification}
 ```
@@ -367,14 +343,12 @@ Save to `memory-bank/prototypes/{prototype-name}/`:
 ## Vibe-to-Spec Complete: {prototype-name}
 
 ### Prototype Analysis
-
 - **Screens analyzed**: {n}
 - **Components identified**: {n}
 - **User flows mapped**: {n}
 - **Requirements derived**: {n}
 
 ### Artifacts Created
-
 - `memory-bank/prototypes/{name}/screen-inventory.md`
 - `memory-bank/prototypes/{name}/design-system.md`
 - `memory-bank/prototypes/{name}/component-catalog.md`
@@ -388,7 +362,6 @@ Save to `memory-bank/prototypes/{prototype-name}/`:
 3 - **review**: Review all prototype artifacts
 
 ### Suggested Next Step
-
 → **intent-create** - Create intent "{suggested-name}" from prototype
 
 **Type a number or press Enter for suggested action.**
@@ -401,7 +374,7 @@ Save to `memory-bank/prototypes/{prototype-name}/`:
 After vibe-to-spec completes:
 
 1. **intent-create** can reference `derived-requirements.md`
-2. **requirements** skill can import and refine FR-P\* items
+2. **requirements** skill can import and refine FR-P* items
 3. **context** skill can use component catalog for system boundaries
 4. **units** skill can organize by identified flows
 5. **stories** skill can generate from user flow mapping

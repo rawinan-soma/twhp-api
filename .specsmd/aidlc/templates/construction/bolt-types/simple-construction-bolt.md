@@ -106,31 +106,26 @@ This bolt type provides a lightweight construction process for work that doesn't
 ```markdown
 ---
 stage: plan
-bolt: { bolt-id }
-created: { YYYY-MM-DDTHH:MM:SSZ }
+bolt: {bolt-id}
+created: {YYYY-MM-DDTHH:MM:SSZ}
 ---
 
 ## Implementation Plan: {unit-name}
 
 ### Objective
-
 {What this bolt will accomplish}
 
 ### Deliverables
-
 - {Deliverable 1}
 - {Deliverable 2}
 
 ### Dependencies
-
 - {Dependency 1}: {why needed}
 
 ### Technical Approach
-
 {Brief notes on how to implement}
 
 ### Acceptance Criteria
-
 - [ ] {Criterion 1}
 - [ ] {Criterion 2}
 ```
@@ -179,8 +174,8 @@ created: { YYYY-MM-DDTHH:MM:SSZ }
 ```markdown
 ---
 stage: implement
-bolt: { bolt-id }
-created: { YYYY-MM-DDTHH:MM:SSZ }
+bolt: {bolt-id}
+created: {YYYY-MM-DDTHH:MM:SSZ}
 ---
 
 ## Implementation Walkthrough: {unit-name}
@@ -264,8 +259,8 @@ created: { YYYY-MM-DDTHH:MM:SSZ }
 ```markdown
 ---
 stage: test
-bolt: { bolt-id }
-created: { YYYY-MM-DDTHH:MM:SSZ }
+bolt: {bolt-id}
+created: {YYYY-MM-DDTHH:MM:SSZ}
 ---
 
 ## Test Report: {unit-name}
@@ -285,11 +280,9 @@ created: { YYYY-MM-DDTHH:MM:SSZ }
 - ✅/❌ **{Criterion}**: {Status}
 
 ### Issues Found
-
 {Any issues discovered during testing}
 
 ### Notes
-
 {Additional observations}
 ```
 

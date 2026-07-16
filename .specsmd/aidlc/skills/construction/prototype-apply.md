@@ -60,44 +60,41 @@ Matching prototype screens to bolt scope:
 
 From the prototype artifacts, extract what needs to be built:
 
-````markdown
+```markdown
 ## Implementation Requirements
 
 ### Screen: {screen-name}
-
 **Prototype Source**: {screenshot-path}
 **Target Location**: {src/path/to/component}
 
 ### Design Tokens to Apply
-
 ```typescript
 // From prototype design-system.md
 const tokens = {
-	colors: {
-		primary: '{hex}',
-		secondary: '{hex}',
-		background: '{hex}'
-		// ...
-	},
-	typography: {
-		fontFamily: '{font}'
-		// ...
-	},
-	spacing: {
-		xs: '{px}'
-		// ...
-	}
-};
+  colors: {
+    primary: '{hex}',
+    secondary: '{hex}',
+    background: '{hex}',
+    // ...
+  },
+  typography: {
+    fontFamily: '{font}',
+    // ...
+  },
+  spacing: {
+    xs: '{px}',
+    // ...
+  }
+}
 ```
-````
 
 ### Components to Implement
 
-| Component       | Prototype Ref | Target File       | Status  |
-| --------------- | ------------- | ----------------- | ------- |
-| {Sidebar}       | screen-2.png  | Sidebar.tsx       | pending |
-| {ChatList}      | screen-2.png  | ChatList.tsx      | pending |
-| {MessageBubble} | screen-3.png  | MessageBubble.tsx | pending |
+| Component | Prototype Ref | Target File | Status |
+|-----------|---------------|-------------|--------|
+| {Sidebar} | screen-2.png | Sidebar.tsx | pending |
+| {ChatList} | screen-2.png | ChatList.tsx | pending |
+| {MessageBubble} | screen-3.png | MessageBubble.tsx | pending |
 
 ### Layout Structure
 
@@ -114,7 +111,7 @@ const tokens = {
 └─────────────────────────────────────────┘
 ```
 
-````
+```
 
 ---
 
@@ -138,7 +135,7 @@ Cross-reference with project standards:
 ### Coding Standards
 - **File naming**: {from coding-standards.md}
 - **Component structure**: {from coding-standards.md}
-````
+```
 
 ---
 
@@ -167,7 +164,7 @@ Generate code that matches the prototype while following project standards.
  * - {criterion from prototype}
  */
 export function ComponentName({ props }: Props) {
-	// Implementation matching prototype
+  // Implementation matching prototype
 }
 ```
 
@@ -181,36 +178,30 @@ Create a verification checklist comparing implementation to prototype:
 ## Visual Verification: {screen-name}
 
 ### Layout
-
 - [ ] Overall structure matches prototype
 - [ ] Spacing between elements is consistent
 - [ ] Responsive breakpoints work correctly
 
 ### Colors
-
 - [ ] Primary color matches: {hex}
 - [ ] Background color matches: {hex}
 - [ ] Text colors match design system
 
 ### Typography
-
 - [ ] Font family applied correctly
 - [ ] Font sizes match design system
 - [ ] Font weights are correct
 
 ### Components
-
 - [ ] {Component-1} matches prototype
 - [ ] {Component-2} matches prototype
 - [ ] Interactive states (hover, focus, active) implemented
 
 ### Interactions
-
 - [ ] {Interaction-1} works as shown in flow
 - [ ] {Interaction-2} works as shown in flow
 
 ### Screenshots for Comparison
-
 - Prototype: `{prototype-path}`
 - Implementation: `{screenshot after implementation}`
 ```
@@ -225,38 +216,32 @@ Create a verification checklist comparing implementation to prototype:
 ## Prototype Applied: {screen-name}
 
 ### Components Implemented
-
-| Component  | File                        | Lines  | Status   |
-| ---------- | --------------------------- | ------ | -------- |
-| {Sidebar}  | src/components/Sidebar.tsx  | 45-120 | complete |
-| {ChatList} | src/components/ChatList.tsx | 1-80   | complete |
+| Component | File | Lines | Status |
+|-----------|------|-------|--------|
+| {Sidebar} | src/components/Sidebar.tsx | 45-120 | complete |
+| {ChatList} | src/components/ChatList.tsx | 1-80 | complete |
 
 ### Design System Applied
-
 - Color tokens: {n} applied
 - Typography: {n} styles applied
 - Spacing: {n} values applied
 
 ### Deviations from Prototype
-
-| Aspect  | Prototype | Implementation | Reason           |
-| ------- | --------- | -------------- | ---------------- |
-| {color} | #xxx      | #yyy           | Project standard |
-| {font}  | Inter     | system-ui      | Performance      |
+| Aspect | Prototype | Implementation | Reason |
+|--------|-----------|----------------|--------|
+| {color} | #xxx | #yyy | Project standard |
+| {font} | Inter | system-ui | Performance |
 
 ### Visual Verification
-
 - [ ] Side-by-side comparison reviewed
 - [ ] Responsive behavior verified
 - [ ] Accessibility checked
 
 ### Files Modified
-
 - `{file-1}` - {description}
 - `{file-2}` - {description}
 
 ### Next Steps
-
 1 - Continue with next screen
 2 - Run visual regression tests
 3 - Review with stakeholder

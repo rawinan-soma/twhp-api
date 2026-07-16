@@ -77,9 +77,9 @@ Create `deployment/verification-{version}.md`:
 
 ```markdown
 ---
-version: { version }
-environment: { env }
-verified: { timestamp }
+version: {version}
+environment: {env}
+verified: {timestamp}
 status: passed|failed
 ---
 
@@ -108,7 +108,6 @@ status: passed|failed
 - **Error Rate**: 0.01% → 0.02% (+0.01%)
 
 ### Conclusion
-
 {passed|failed}: {summary}
 ```
 
@@ -138,7 +137,6 @@ status: passed|failed
 - ✅ **{env}**: `{version}` - Verified
 
 ### Documentation Created
-
 - `{unit-path}/deployment/verification-{version}.md`
 
 ### Actions
@@ -148,7 +146,6 @@ status: passed|failed
 3 - **menu**: Return to operations menu
 
 ### Suggested Next Step
-
 → **monitor** - Setup monitoring for `{unit-name}`
 
 **Type a number or press Enter for suggested action.**
@@ -169,7 +166,6 @@ status: passed|failed
 - ❌ **{check2}**: Expected {expected}, got {actual}
 
 ### Error Details
-
 {error messages or logs}
 
 ### Impact Assessment
@@ -178,7 +174,6 @@ status: passed|failed
 - **Affected**: {what's broken}
 
 ### Recommended Action
-
 ⚠️ **ROLLBACK RECOMMENDED**
 
 Previous stable version: `{prev-version}`
@@ -193,7 +188,6 @@ deploy --unit="{unit}" --env="{env}" --version="{prev-version}"
 3 - **menu**: Return to operations menu
 
 ### Suggested Next Step
-
 → **rollback** - Restore `{prev-version}` immediately
 
 **Type a number or press Enter for suggested action.**
@@ -204,11 +198,9 @@ deploy --unit="{unit}" --env="{env}" --version="{prev-version}"
 ## Human Validation Point
 
 On success:
-
 > "Verification passed for `{unit}` v`{version}` in {env}. All {n} checks passed. Ready to proceed to {next-action}?"
 
 On failure:
-
 > "⚠️ Verification FAILED for `{unit}` v`{version}`. {n} checks failed. Recommend rollback to `{prev-version}`. Proceed with rollback?"
 
 ---

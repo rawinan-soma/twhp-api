@@ -32,7 +32,6 @@ You are collaborating with a peer to discover their tech stack preferences. This
 **Goal**: Understand what programming language(s) they'll use.
 
 **Open with context:**
-
 > "Let's start with languages. This affects everything else - framework options, available libraries, team hiring, and performance characteristics."
 
 **Explore:**
@@ -45,13 +44,13 @@ You are collaborating with a peer to discover their tech stack preferences. This
 
 **If they're unsure, guide by use case:**
 
-| Use Case                 | Recommendation       | Why                                                 |
-| ------------------------ | -------------------- | --------------------------------------------------- |
-| Web app (full-stack)     | TypeScript           | Type safety, React/Next.js ecosystem, great tooling |
-| API service              | TypeScript or Go     | TS for ecosystem, Go for performance                |
-| ML/AI/Data               | Python               | Libraries (PyTorch, pandas), community              |
-| High-performance systems | Go or Rust           | Go for simplicity, Rust for safety                  |
-| Scripts/automation       | Python or TypeScript | Readability, quick iteration                        |
+| Use Case | Recommendation | Why |
+|----------|----------------|-----|
+| Web app (full-stack) | TypeScript | Type safety, React/Next.js ecosystem, great tooling |
+| API service | TypeScript or Go | TS for ecosystem, Go for performance |
+| ML/AI/Data | Python | Libraries (PyTorch, pandas), community |
+| High-performance systems | Go or Rust | Go for simplicity, Rust for safety |
+| Scripts/automation | Python or TypeScript | Readability, quick iteration |
 
 **Common signals to listen for:**
 
@@ -62,7 +61,6 @@ You are collaborating with a peer to discover their tech stack preferences. This
 - "Enterprise environment" → Java/Kotlin or TypeScript
 
 **Validate before moving on:**
-
 > "So we're going with {language}. This means {implication}. Sound right?"
 
 ---
@@ -72,7 +70,6 @@ You are collaborating with a peer to discover their tech stack preferences. This
 **Goal**: Understand their application framework choice.
 
 **Context to share:**
-
 > "Your framework shapes project structure, available patterns, and deployment options. It's one of the hardest things to change later."
 
 **Explore:**
@@ -87,38 +84,38 @@ You are collaborating with a peer to discover their tech stack preferences. This
 
 **TypeScript - Web Applications:**
 
-| Framework | Best For                                | Tradeoffs                               |
-| --------- | --------------------------------------- | --------------------------------------- |
-| Next.js   | Full-stack, SSR/SSG, Vercel deployment  | Opinionated, tied to React              |
-| Remix     | Web standards, nested routing, great DX | Smaller ecosystem                       |
-| Astro     | Content-heavy sites, partial hydration  | Less suited for highly interactive apps |
-| SvelteKit | Performance, smaller bundle, great DX   | Smaller ecosystem than React            |
+| Framework | Best For | Tradeoffs |
+|-----------|----------|-----------|
+| Next.js | Full-stack, SSR/SSG, Vercel deployment | Opinionated, tied to React |
+| Remix | Web standards, nested routing, great DX | Smaller ecosystem |
+| Astro | Content-heavy sites, partial hydration | Less suited for highly interactive apps |
+| SvelteKit | Performance, smaller bundle, great DX | Smaller ecosystem than React |
 
 **TypeScript - API Only:**
 
-| Framework | Best For                                     | Tradeoffs                      |
-| --------- | -------------------------------------------- | ------------------------------ |
-| Fastify   | Performance, low overhead                    | Less opinionated               |
-| NestJS    | Enterprise, structured, dependency injection | More boilerplate               |
-| Hono      | Edge functions, ultra-lightweight            | Newer, smaller ecosystem       |
-| Express   | Simple, huge middleware ecosystem            | Older patterns, callback-heavy |
+| Framework | Best For | Tradeoffs |
+|-----------|----------|-----------|
+| Fastify | Performance, low overhead | Less opinionated |
+| NestJS | Enterprise, structured, dependency injection | More boilerplate |
+| Hono | Edge functions, ultra-lightweight | Newer, smaller ecosystem |
+| Express | Simple, huge middleware ecosystem | Older patterns, callback-heavy |
 
 **Python - APIs:**
 
-| Framework | Best For                            | Tradeoffs                       |
-| --------- | ----------------------------------- | ------------------------------- |
-| FastAPI   | Modern async, auto-docs, type hints | Async complexity                |
-| Django    | Batteries-included, ORM, admin      | Heavier, monolithic             |
-| Flask     | Minimal, flexible                   | Need to add everything yourself |
+| Framework | Best For | Tradeoffs |
+|-----------|----------|-----------|
+| FastAPI | Modern async, auto-docs, type hints | Async complexity |
+| Django | Batteries-included, ORM, admin | Heavier, monolithic |
+| Flask | Minimal, flexible | Need to add everything yourself |
 
 **Go - APIs:**
 
-| Framework        | Best For                               | Tradeoffs               |
-| ---------------- | -------------------------------------- | ----------------------- |
-| Gin              | Fast, popular, good docs               |                         |
-| Echo             | Similar to Gin, slightly different API |                         |
-| Chi              | Lightweight, idiomatic Go              | Less batteries included |
-| Standard library | Maximum control                        | More code to write      |
+| Framework | Best For | Tradeoffs |
+|-----------|----------|-----------|
+| Gin | Fast, popular, good docs | |
+| Echo | Similar to Gin, slightly different API | |
+| Chi | Lightweight, idiomatic Go | Less batteries included |
+| Standard library | Maximum control | More code to write |
 
 **Questions to surface tradeoffs:**
 
@@ -143,17 +140,16 @@ You are collaborating with a peer to discover their tech stack preferences. This
 
 **Options:**
 
-| Solution      | Best For                    | Tradeoffs                |
-| ------------- | --------------------------- | ------------------------ |
-| Supabase Auth | Supabase users, quick setup | Tied to Supabase         |
-| NextAuth.js   | Next.js apps, flexible      | Configuration complexity |
-| Clerk         | Quick setup, beautiful UI   | Cost at scale            |
-| Auth0         | Enterprise, SSO             | Cost, complexity         |
-| Lucia         | Lightweight, self-hosted    | More DIY                 |
-| Custom        | Full control                | Security responsibility  |
+| Solution | Best For | Tradeoffs |
+|----------|----------|-----------|
+| Supabase Auth | Supabase users, quick setup | Tied to Supabase |
+| NextAuth.js | Next.js apps, flexible | Configuration complexity |
+| Clerk | Quick setup, beautiful UI | Cost at scale |
+| Auth0 | Enterprise, SSO | Cost, complexity |
+| Lucia | Lightweight, self-hosted | More DIY |
+| Custom | Full control | Security responsibility |
 
 **If using Supabase for database:**
-
 > "Since you're using Supabase for the database, Supabase Auth integrates seamlessly. It handles email/password, social providers, and row-level security. Worth considering unless you have specific needs."
 
 ---
@@ -172,14 +168,14 @@ You are collaborating with a peer to discover their tech stack preferences. This
 
 **Guide by context:**
 
-| Context                 | Recommendation           | Why                                     |
-| ----------------------- | ------------------------ | --------------------------------------- |
-| Solo dev, startup       | Vercel, Railway, Render  | Minimal ops, fast deployment            |
-| Next.js app             | Vercel                   | Optimized for Next.js                   |
-| Need containers         | Fly.io, Railway, Render  | Simple container hosting                |
-| Enterprise/compliance   | AWS, GCP, Azure          | Full control, compliance certifications |
-| Cost-sensitive at scale | Fly.io, self-managed k8s | Lower costs, more ops                   |
-| Already in AWS          | AWS ecosystem            | Consistency, existing knowledge         |
+| Context | Recommendation | Why |
+|---------|----------------|-----|
+| Solo dev, startup | Vercel, Railway, Render | Minimal ops, fast deployment |
+| Next.js app | Vercel | Optimized for Next.js |
+| Need containers | Fly.io, Railway, Render | Simple container hosting |
+| Enterprise/compliance | AWS, GCP, Azure | Full control, compliance certifications |
+| Cost-sensitive at scale | Fly.io, self-managed k8s | Lower costs, more ops |
+| Already in AWS | AWS ecosystem | Consistency, existing knowledge |
 
 **Serverless vs. Containers:**
 
@@ -195,12 +191,12 @@ You are collaborating with a peer to discover their tech stack preferences. This
 
 **For JavaScript/TypeScript:**
 
-| Manager | Best For                          |
-| ------- | --------------------------------- |
-| pnpm    | Monorepos, disk efficiency, speed |
-| npm     | Default, widest compatibility     |
-| yarn    | Existing yarn projects            |
-| bun     | Experimental, very fast           |
+| Manager | Best For |
+|---------|----------|
+| pnpm | Monorepos, disk efficiency, speed |
+| npm | Default, widest compatibility |
+| yarn | Existing yarn projects |
+| bun | Experimental, very fast |
 
 **Default recommendation:** pnpm (fast, efficient, great monorepo support)
 
@@ -244,39 +240,32 @@ After confirmation, create `standards/tech-stack.md`:
 # Tech Stack
 
 ## Overview
-
 {1-2 sentence summary of the stack and why it fits the project}
 
 ## Languages
-
 {language(s)}
 
 {Rationale - why this choice, what it enables}
 
 ## Framework
-
 {framework}
 
 {Rationale - why this choice, deployment implications}
 
 ## Authentication
-
 {auth solution or "TBD"}
 
 {Rationale if selected}
 
 ## Infrastructure & Deployment
-
 {infrastructure choice}
 
 {Rationale - deployment strategy, scaling approach}
 
 ## Package Manager
-
 {package manager}
 
 ## Decision Relationships
-
 {Note any important connections between choices}
 ```
 

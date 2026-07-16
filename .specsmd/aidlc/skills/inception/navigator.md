@@ -41,15 +41,15 @@ Build menu dynamically using the Output sections below based on current state.
 
 Scan artifacts **in order** - first missing item is the suggested next step:
 
-| Check (in order)        | If missing → Suggest |
-| ----------------------- | -------------------- |
-| No intent folder exists | Create Intent        |
-| `requirements.md`       | Gather Requirements  |
-| `system-context.md`     | Define Context       |
-| `units.md`              | Decompose Units      |
-| `story-index.md`        | Create Stories       |
-| `bolt-plan.md`          | Plan Bolts           |
-| All complete            | Review & Complete    |
+| Check (in order)              | If missing → Suggest     |
+|-------------------------------|--------------------------|
+| No intent folder exists       | Create Intent            |
+| `requirements.md`             | Gather Requirements      |
+| `system-context.md`           | Define Context           |
+| `units.md`                    | Decompose Units          |
+| `story-index.md`              | Create Stories           |
+| `bolt-plan.md`                | Plan Bolts               |
+| All complete                  | Review & Complete        |
 
 **CRITICAL**: The suggested step becomes **Option 1** in the menu.
 
@@ -94,11 +94,9 @@ When user selects an option:
 ## Inception Agent
 
 ### Active Intent: `{intent-name}`
-
 **Goal**: {intent goal}
 
 ### Progress
-
 - {✅ or [ ]} Requirements gathered {← current if next step}
 - {✅ or [ ]} System context defined {← current if next step}
 - {✅ or [ ]} Units decomposed {← current if next step}
@@ -130,11 +128,9 @@ When user selects an option:
 ## Inception Agent
 
 ### Active Intent: `user-auth`
-
 **Goal**: Implement user authentication with OAuth
 
 ### Progress
-
 - ✅ Requirements gathered
 - [ ] System context defined ← current
 - [ ] Units decomposed
@@ -179,14 +175,12 @@ All inception artifacts have been created:
 - ✅ Review complete
 
 ### Summary
-
 - Units defined: {n}
 - Stories created: {n}
 - Bolts planned: {n}
 - Ready for Construction
 
 ### Next Step
-
 → Proceed to Construction: `/specsmd-construction-agent --intent="{intent-name}"`
 
 Or create another intent.

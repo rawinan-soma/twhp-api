@@ -30,45 +30,44 @@ status: {in-progress | complete}
 
 ## Artifacts Created
 
-| Artifact       | Status | File                            |
-| -------------- | ------ | ------------------------------- |
-| Requirements   | ✅     | requirements.md                 |
-| System Context | ✅     | system-context.md               |
-| Units          | ✅     | units/{unit-name}/unit-brief.md |
-| Stories        | ✅     | units/{unit-name}/stories/\*.md |
-| Bolt Plan      | ✅     | memory-bank/bolts/bolt-\*.md    |
+| Artifact | Status | File |
+|----------|--------|------|
+| Requirements | ✅ | requirements.md |
+| System Context | ✅ | system-context.md |
+| Units | ✅ | units/{unit-name}/unit-brief.md |
+| Stories | ✅ | units/{unit-name}/stories/*.md |
+| Bolt Plan | ✅ | memory-bank/bolts/bolt-*.md |
 
 ## Summary
 
-| Metric                      | Count |
-| --------------------------- | ----- |
-| Functional Requirements     | {n}   |
-| Non-Functional Requirements | {n}   |
-| Units                       | {n}   |
-| Stories                     | {n}   |
-| Bolts Planned               | {n}   |
+| Metric | Count |
+|--------|-------|
+| Functional Requirements | {n} |
+| Non-Functional Requirements | {n} |
+| Units | {n} |
+| Stories | {n} |
+| Bolts Planned | {n} |
 
 ## Units Breakdown
 
-| Unit     | Stories | Bolts | Priority |
-| -------- | ------- | ----- | -------- |
-| {unit-1} | {n}     | {n}   | Must     |
-| {unit-2} | {n}     | {n}   | Should   |
+| Unit | Stories | Bolts | Priority |
+|------|---------|-------|----------|
+| {unit-1} | {n} | {n} | Must |
+| {unit-2} | {n} | {n} | Should |
 
 ## Decision Log
 
 | Date | Decision | Rationale | Approved |
-| ---- | -------- | --------- | -------- |
+|------|----------|-----------|----------|
 
 ## Scope Changes
 
 | Date | Change | Reason | Impact |
-| ---- | ------ | ------ | ------ |
+|------|--------|--------|--------|
 
 ## Ready for Construction
 
 **Checklist**:
-
 - [ ] All requirements documented
 - [ ] System context defined
 - [ ] Units decomposed
@@ -114,11 +113,11 @@ Update this file when:
 ```markdown
 ## Decision Log
 
-| Date       | Decision                | Rationale                        | Approved |
-| ---------- | ----------------------- | -------------------------------- | -------- |
-| 2025-12-07 | Split auth into 2 units | Separation of concerns           | Yes      |
-| 2025-12-07 | Use JWT over sessions   | Stateless API requirement        | Yes      |
-| 2025-12-08 | Add MFA to scope        | Security requirement from review | Yes      |
+| Date | Decision | Rationale | Approved |
+|------|----------|-----------|----------|
+| 2025-12-07 | Split auth into 2 units | Separation of concerns | Yes |
+| 2025-12-07 | Use JWT over sessions | Stateless API requirement | Yes |
+| 2025-12-08 | Add MFA to scope | Security requirement from review | Yes |
 ```
 
 ---
@@ -128,8 +127,8 @@ Update this file when:
 ```markdown
 ## Scope Changes
 
-| Date       | Change               | Reason               | Impact              |
-| ---------- | -------------------- | -------------------- | ------------------- |
-| 2025-12-08 | Added MFA stories    | Security requirement | +2 stories, +1 bolt |
+| Date | Change | Reason | Impact |
+|------|--------|--------|--------|
+| 2025-12-08 | Added MFA stories | Security requirement | +2 stories, +1 bolt |
 | 2025-12-09 | Removed social login | Out of scope for MVP | -3 stories, -1 bolt |
 ```

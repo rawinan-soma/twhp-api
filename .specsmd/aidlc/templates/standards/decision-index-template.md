@@ -1,5 +1,5 @@
 ---
-last_updated: { YYYY-MM-DDTHH:MM:SSZ }
+last_updated: {YYYY-MM-DDTHH:MM:SSZ}
 total_decisions: 0
 ---
 

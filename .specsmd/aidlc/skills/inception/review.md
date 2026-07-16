@@ -18,10 +18,10 @@ Show at start of this skill:
 
 ## Checkpoints in This Skill
 
-| Checkpoint   | Purpose                                              | Wait For          |
-| ------------ | ---------------------------------------------------- | ----------------- |
-| Checkpoint 3 | Artifacts review (Context + Units + Stories + Bolts) | User approval     |
-| Checkpoint 4 | Ready for Construction                               | User confirmation |
+| Checkpoint | Purpose | Wait For |
+|------------|---------|----------|
+| Checkpoint 3 | Artifacts review (Context + Units + Stories + Bolts) | User approval |
+| Checkpoint 4 | Ready for Construction | User confirmation |
 
 ---
 
@@ -143,7 +143,6 @@ status: complete
 ## Ready for Construction
 
 **Checklist**:
-
 - [x] All requirements documented
 - [x] System context defined
 - [x] Units decomposed
@@ -207,11 +206,9 @@ Ready to start construction?
 - ✅ Bolts planned
 
 ### Log Updated
-
 - `{schema.intents}/{intent-name}/inception-log.md`
 
 ### Ready for Construction
-
 ✅ **INCEPTION COMPLETE**
 
 Intent `{intent-name}` is ready for Construction Phase.
@@ -221,7 +218,6 @@ Intent `{intent-name}` is ready for Construction Phase.
 1 - **construction**: Start building with first bolt
 
 ### Suggested Next Step
-
 → **construction** - Start with `/specsmd-construction-agent --unit="{first-unit}" --bolt-id="{first-bolt}"`
 
 **Type a number or press Enter for suggested action.**

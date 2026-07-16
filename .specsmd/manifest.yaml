@@ -1,6 +1,6 @@
 flow: aidlc
-version: 0.1.65
-installed_at: '2026-05-16T01:16:09.726Z'
+version: 0.1.74
+installed_at: '2026-07-10T11:09:31.803Z'
 tools:
   - claude
-  - opencode
+  - codex

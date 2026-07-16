@@ -63,12 +63,10 @@ Identify what type of information is being requested:
 I couldn't find information about "{topic}" in the memory bank.
 
 **Searched**:
-
 - `{path1}` - not found
 - `{path2}` - not found
 
 **Suggestions**:
-
 - Would you like to create this artifact?
 - Is this information stored elsewhere?
 ```
@@ -96,15 +94,12 @@ I couldn't find information about "{topic}" in the memory bank.
 {Clear, direct answer}
 
 ### Details
-
 {Supporting information if relevant}
 
 ### Source
-
 - `{path/to/source/file.md}`
 
 ### Related Information
-
 - {Other relevant artifacts if any}
 
 ### Actions
@@ -114,7 +109,6 @@ I couldn't find information about "{topic}" in the memory bank.
 3 - **another**: Ask another question
 
 ### Suggested Next Step
-
 → **more** - Learn more about {specific aspect}
 
 **Type a number or press Enter for suggested action.**
