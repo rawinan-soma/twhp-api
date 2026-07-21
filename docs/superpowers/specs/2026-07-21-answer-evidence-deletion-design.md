@@ -107,17 +107,23 @@ concurrently. If one deletion fails, another may already have succeeded or may s
 `Promise.all` cannot cancel in-flight MinIO operations. The service returns HTTP 500 and performs no
 database write, but PostgreSQL can still reference any object that was removed successfully.
 
-The same dangling-reference risk exists if all explicit deletions succeed and a later implicit
-deletion, replacement deletion, or replacement upload fails before the database transaction. A
-replacement upload that succeeds before another file operation fails can also become an orphan. If
-all file operations succeed but the database transaction then fails, deleted objects remain
-referenced and newly uploaded objects can remain orphaned.
+After strict explicit deletions, replacement uploads run before the database transaction. An upload
+failure returns HTTP 500 without a database write, but an earlier explicit deletion can already have
+left a dangling filename, and an upload completed concurrently can become an orphan. If all file
+operations succeed but the database transaction then fails, deleted objects remain referenced and
+newly uploaded objects can remain orphaned.
+
+Legacy `special=3` implicit clearing and old-file replacement cleanup use the best-effort delete
+helper. It catches and logs deletion failures, permits processing and the database update to
+continue, and can therefore return success while an old object remains orphaned. These best-effort
+deletion failures do not produce the strict deletion's HTTP 500/no-database-write behavior.
 
 These are existing architectural limitations of the Answer update workflow. There is no automatic
 compensation, recovery, or reconciliation; an operator must investigate and reconcile MinIO objects
-with Answer columns after such a failure. Failures must be logged without including object names or
-presigned URLs. Serialization, a transactional outbox, or a recoverable object lifecycle requires a
-separate design decision and is outside this feature's scope.
+with Answer columns after such a failure. The best-effort helper logs its caught deletion failure;
+operational reports must not reproduce stored object names or presigned URLs. Serialization, a
+transactional outbox, or a recoverable object lifecycle requires a separate design decision and is
+outside this feature's scope.
 
 Replacement behavior remains unchanged by this feature. The implementation must not broaden the
 change into a general rewrite of upload compensation.
@@ -131,8 +137,9 @@ The PATCH route documents these additional HTTP 400 outcomes:
 - the projected evidence is missing a file required by the effective choice.
 
 Request-schema failures continue through the global validation handler and are normalized to HTTP
-400. Unexpected MinIO or database failures continue through the established 500 handling without
-exposing stored object names.
+400. Unexpected strict MinIO, upload, or database failures continue through the established 500
+handling without exposing stored object names in the response body. Best-effort implicit/replacement
+deletion failures are logged and do not change the response to 500.
 
 ## Verification
 
@@ -159,6 +166,6 @@ Biome check and report baseline diagnostics separately from introduced diagnosti
 
 ## Documentation
 
-After implementation, align `docs/api-conventions.md`, the PATCH response schema, and generated API
-artifacts. Regenerating API artifacts requires separate approval under the repository change-control
-rules.
+Implementation aligned `docs/api-conventions.md` and the PATCH response schema. Generated API and
+OpenAPI artifacts were intentionally not regenerated because that action requires separate approval
+under the repository change-control rules.

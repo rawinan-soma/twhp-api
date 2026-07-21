@@ -110,11 +110,13 @@ Multipart numeric fields use `t.Numeric()` and decode numeric strings to numbers
 
 Answer PATCH requests may explicitly remove an existing evidence object with the matching optional
 `delete_file_<row>_<slot>=true` multipart field. Omission or `false` keeps the existing object;
-supplying a PDF replaces it. Explicit deletion is available only while the Answer's latest status is
-`in_review`, deletes the exact MinIO object, and persists `null` in the matching Answer column.
-Uploading and deleting the same slot returns 400, as does deleting evidence required by the effective
-choice. Evaluator rejection remains separate: files stay on verdict save and all files for rejected
-Answers are removed when ODPC/admin finalizes.
+supplying a PDF normally replaces it. For a non-standard `special=3` Question, rows not selected by
+the effective score are implicitly cleared and an upload for one of those rows is ignored. Explicit
+deletion is available only while the Answer's latest status is `in_review`, deletes the exact MinIO
+object, and persists `null` in the matching Answer column. Uploading and deleting the same slot
+returns 400, as does deleting evidence required by the effective choice. Evaluator rejection remains
+separate: files stay on verdict save and all files for rejected Answers are removed when ODPC/admin
+finalizes.
 
 ### DTO and serialization style
 
@@ -286,10 +288,15 @@ Database transactions do not include MinIO, Redis, BullMQ, or SMTP:
 
 - uploads occur before DB insert/update, so a later failure can orphan objects;
 - replacement updates can delete the old object before the DB update succeeds;
-- Answer PATCH explicit deletions run concurrently and cannot be cancelled: one removal can succeed
-  or remain in flight when another delete fails, and later implicit/replacement file I/O can fail
-  after earlier mutations. The request returns 500 without a DB write, but filenames can then point
-  to removed objects and completed uploads can be orphaned;
+- Answer PATCH explicit deletions use strict removal. A strict failure returns 500 without a DB
+  update, but concurrent removals cannot be cancelled: another removal can already have succeeded or
+  can remain in flight, leaving its stored filename dangling;
+- Answer PATCH uploads also run before its DB transaction. A later upload failure returns 500
+  without a DB update, but an earlier explicit deletion can already have left a dangling filename
+  and an upload completed concurrently can become an orphan;
+- legacy `special=3` implicit clearing and replacement cleanup use best-effort deletion. That helper
+  catches and logs deletion failures, then permits the DB update and successful response; an old
+  object can therefore remain orphaned;
 - finalize strictly deletes rejected files before its DB transaction and aborts on delete failure;
 - finalize commits DB state before enqueueing email and deliberately does not roll back if enqueue fails;
 - OTP/reset state is written before queueing, so queue failure can leave throttling/challenge state;
@@ -317,9 +324,11 @@ If finalize succeeds without an email, treat the database transition as authorit
 
 If Answer PATCH returns `failed to delete answer files; update aborted`, at least one strict deletion
 failed, but other concurrent deletions may already have succeeded or may still complete. Other file
-I/O or database failures can likewise occur after earlier deletions/uploads. There is no automatic
-compensation or reconciliation; an operator must compare the affected Answer columns with MinIO and
-repair dangling references or orphaned objects without exposing object names in logs.
+upload or database failures can likewise occur after earlier strict deletions or uploads. In
+contrast, best-effort implicit/replacement cleanup logs a deletion failure and permits the update to
+continue. There is no automatic compensation or reconciliation; an operator must compare the
+affected Answer columns with MinIO and repair dangling references or orphaned objects. Operational
+reports must not reproduce stored object names or presigned URLs.
 
 If finalize returns `failed to delete rejected answer files; finalize aborted`, the service failed during strict MinIO deletion before its DB transaction. If MinIO deletion succeeded but a later DB operation failed, database filenames may refer to removed objects.
 
