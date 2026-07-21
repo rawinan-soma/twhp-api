@@ -286,6 +286,10 @@ Database transactions do not include MinIO, Redis, BullMQ, or SMTP:
 
 - uploads occur before DB insert/update, so a later failure can orphan objects;
 - replacement updates can delete the old object before the DB update succeeds;
+- Answer PATCH explicit deletions run concurrently and cannot be cancelled: one removal can succeed
+  or remain in flight when another delete fails, and later implicit/replacement file I/O can fail
+  after earlier mutations. The request returns 500 without a DB write, but filenames can then point
+  to removed objects and completed uploads can be orphaned;
 - finalize strictly deletes rejected files before its DB transaction and aborts on delete failure;
 - finalize commits DB state before enqueueing email and deliberately does not roll back if enqueue fails;
 - OTP/reset state is written before queueing, so queue failure can leave throttling/challenge state;
@@ -310,6 +314,12 @@ Service-level “already exists” checks are not backed by database uniqueness 
 If OTP or reset email does not arrive, verify Redis, BullMQ queue `email`, the separately running `bun run worker` process, and SMTP connectivity. Challenge/reset TTL can expire even while email delivery is delayed.
 
 If finalize succeeds without an email, treat the database transition as authoritative and inspect `verdict-result-finished` or `verdict-result-in-progress` jobs. Do not re-run finalize before checking current state.
+
+If Answer PATCH returns `failed to delete answer files; update aborted`, at least one strict deletion
+failed, but other concurrent deletions may already have succeeded or may still complete. Other file
+I/O or database failures can likewise occur after earlier deletions/uploads. There is no automatic
+compensation or reconciliation; an operator must compare the affected Answer columns with MinIO and
+repair dangling references or orphaned objects without exposing object names in logs.
 
 If finalize returns `failed to delete rejected answer files; finalize aborted`, the service failed during strict MinIO deletion before its DB transaction. If MinIO deletion succeeded but a later DB operation failed, database filenames may refer to removed objects.
 

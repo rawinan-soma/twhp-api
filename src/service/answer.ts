@@ -9,6 +9,7 @@ import type {
 } from "../schema/answer";
 import { utilities } from "../utils";
 import {
+  type AnswerFileRow,
   buildAnswerFilePlan,
   findUploadDeleteConflict,
   hasExplicitDeletion,
@@ -511,7 +512,7 @@ export const createAnswerService = (database: typeof db) => {
         ? "3"
         : (dto.selectedChoice ?? existingAnswer.selectedChoice);
 
-      const implicitClearRows =
+      const implicitClearRows: readonly AnswerFileRow[] =
         !factoryHasMatchingStandard && question.special === 3
           ? [1, 2, 3].filter((row) => String(row) !== effectiveChoice)
           : [];

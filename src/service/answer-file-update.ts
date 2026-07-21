@@ -13,6 +13,7 @@ export const ANSWER_FILE_SLOTS = [
 ] as const;
 
 export type AnswerFileColumn = (typeof ANSWER_FILE_SLOTS)[number]["column"];
+export type AnswerFileRow = (typeof ANSWER_FILE_SLOTS)[number]["row"];
 export type AnswerFileState = Record<AnswerFileColumn, string | null | undefined>;
 export type AnswerFileAction = "keep" | "replace" | "delete_explicit" | "delete_implicit";
 
@@ -26,7 +27,7 @@ export type AnswerFilePlanEntry = (typeof ANSWER_FILE_SLOTS)[number] & {
 export const buildAnswerFilePlan = (
   dto: UpdateAnswerWithFilesDto,
   existing: AnswerFileState,
-  implicitClearRows: readonly number[] = [],
+  implicitClearRows: readonly AnswerFileRow[] = [],
 ): AnswerFilePlanEntry[] =>
   ANSWER_FILE_SLOTS.map((slot) => {
     const upload = dto[slot.uploadKey];

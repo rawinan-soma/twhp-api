@@ -147,8 +147,8 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Implementation:** `answer.ts:124-210,525-670,782-817,893-1035`; answer DTOs.
 - **Inputs/conditions:** effective choice, Question `special`, new/existing PDF files.
 - **Result:** validated filenames stored.
-- **Edges/failure:** on initial `0`/`n/a`, supplied files pass DTO validation but are silently ignored. `special=3` edit/redo clears non-selected groups. Other specials preserve all old groups even on lowering. For non-special `0`/`n/a`, update/redo may preserve or upload evidence although initial create ignores it. MinIO changes happen before DB commit. PATCH supports optional `delete_file_<row>_<slot>` flags while the latest Answer status is `in_review`. Deletion eligibility is independent of `Question.special`; the projected evidence must still satisfy the existing choice matrix. Omission preserves a stored file. Explicit deletion uses strict MinIO removal before the Answer columns are updated, so MinIO success followed by database failure can leave a dangling filename.
-- **Failure behavior:** missing required evidence 400.
+- **Edges/failure:** on initial `0`/`n/a`, supplied files pass DTO validation but are silently ignored. `special=3` edit/redo clears non-selected groups. Other specials preserve all old groups even on lowering. For non-special `0`/`n/a`, update/redo may preserve or upload evidence although initial create ignores it. MinIO changes happen before DB commit. PATCH supports optional `delete_file_<row>_<slot>` flags while the latest Answer status is `in_review`. Deletion eligibility is independent of `Question.special`; the projected evidence must still satisfy the existing choice matrix. Omission preserves a stored file. Strict explicit deletions run concurrently; one can succeed or remain in flight when another fails because `Promise.all` cannot cancel MinIO work. A later implicit deletion, replacement deletion/upload, or database failure can likewise occur after earlier object mutations. The aborted request performs no database write, but successful removals can leave dangling filenames and successful uploads can become orphans.
+- **Failure behavior:** missing required evidence 400. File-operation or database failure returns 500. There is no automatic compensation, recovery, or reconciliation; operators must reconcile affected Answer columns and MinIO objects without exposing object names in logs.
 - **Risk of change:** High—evidence retention and client uploads.
 - **Confidence:** **Verified.**
 
@@ -294,7 +294,7 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Implementation:** Factory/Cover/Answer/Enrollment/Evaluator Review services; `utilities.uploadFile/deleteFile/deleteFileStrict`.
 - **Inputs/conditions:** object I/O plus DB mutation.
 - **Result:** local DB atomicity, not distributed atomicity.
-- **Edges/failure:** failed DB after upload leaves orphans; delete-before-update may break references; finalize delete-before-transaction can lose evidence on DB failure. There is no outbox, compensation, reconciliation, lock, version, or idempotency key.
+- **Edges/failure:** failed DB after upload leaves orphans; delete-before-update may break references; finalize delete-before-transaction can lose evidence on DB failure. Concurrent Answer deletions are not cancellable: one MinIO delete may succeed or finish after another fails, and later replacement/implicit file I/O can fail after explicit deletion. The request then has no DB write while stored filenames can reference removed objects, and completed uploads can be orphaned. There is no automatic recovery, outbox, compensation, reconciliation, lock, version, or idempotency key; operator reconciliation is required.
 - **Risk of change:** High—architectural and operational migration.
 - **Confidence:** **Verified.**
 

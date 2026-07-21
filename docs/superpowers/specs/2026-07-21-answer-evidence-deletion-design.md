@@ -102,11 +102,22 @@ Explicit deletion uses the strict MinIO delete helper. If MinIO deletion fails, 
 HTTP 500 and performs no database write. This avoids reporting success while the requested evidence
 object remains stored.
 
-MinIO cannot participate in the PostgreSQL transaction. If object deletion succeeds but the later
-database transaction fails, the database can leave a dangling object name. This is an
-existing architectural limitation of the Answer update workflow; the failure must be logged without
-including the object name or presigned URL. A transactional outbox or recoverable object lifecycle is
-outside this feature's scope.
+MinIO cannot participate in the PostgreSQL transaction. Strict explicit deletions are started
+concurrently. If one deletion fails, another may already have succeeded or may still complete because
+`Promise.all` cannot cancel in-flight MinIO operations. The service returns HTTP 500 and performs no
+database write, but PostgreSQL can still reference any object that was removed successfully.
+
+The same dangling-reference risk exists if all explicit deletions succeed and a later implicit
+deletion, replacement deletion, or replacement upload fails before the database transaction. A
+replacement upload that succeeds before another file operation fails can also become an orphan. If
+all file operations succeed but the database transaction then fails, deleted objects remain
+referenced and newly uploaded objects can remain orphaned.
+
+These are existing architectural limitations of the Answer update workflow. There is no automatic
+compensation, recovery, or reconciliation; an operator must investigate and reconcile MinIO objects
+with Answer columns after such a failure. Failures must be logged without including object names or
+presigned URLs. Serialization, a transactional outbox, or a recoverable object lifecycle requires a
+separate design decision and is outside this feature's scope.
 
 Replacement behavior remains unchanged by this feature. The implementation must not broaden the
 change into a general rewrite of upload compensation.
