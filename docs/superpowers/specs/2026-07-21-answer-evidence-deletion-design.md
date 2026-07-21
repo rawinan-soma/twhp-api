@@ -1,18 +1,19 @@
 # Factory Answer Evidence Deletion Design
 
 **Date:** 2026-07-21
-**Status:** Approved; partially verified (PostgreSQL integration pending)
+**Status:** Implementation complete; PostgreSQL and physical MinIO verification pending
 
 ## Problem
 
-`PATCH /twhp/api/factories/assessments/answers` currently treats an omitted `file_*` multipart field
-as “keep the stored object name.” This preserves existing clients, but gives a Factory no explicit
-way to remove one optional evidence file. Sending an empty string, `null`, or a stored object name in
-a `file_*` field fails request validation because those fields accept only newly uploaded PDF files.
+Before this feature, `PATCH /twhp/api/factories/assessments/answers` treated an omitted `file_*`
+multipart field as “keep the stored object name.” This preserved existing clients, but gave a
+Factory no explicit way to remove one optional evidence file. Sending an empty string, `null`, or a
+stored object name in a `file_*` field failed request validation because those fields accepted only
+newly uploaded PDF files.
 
-The maintained API documentation currently mentions `delete_file_<row>_<slot>` fields, but the
-runtime schema and service do not implement them. Source remains authoritative until this design is
-implemented and verified.
+At design approval, the maintained API documentation mentioned `delete_file_<row>_<slot>` fields,
+but the runtime schema and service did not implement them. Source remained authoritative while this
+design awaited implementation and verification.
 
 ## Scope
 
