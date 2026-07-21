@@ -1,16 +1,16 @@
 # Testing
 
-This project uses Bun's built-in `bun:test` runner for isolated, HTTP-component, schema, and PostgreSQL integration tests. This page describes the repository as verified on 2026-07-15; it does not imply that the full suite is green.
+This project uses Bun's built-in `bun:test` runner for isolated, HTTP-component, schema, and PostgreSQL integration tests. The test-file inventory was refreshed directly from source on 2026-07-21; environment and tooling audit results remain point-in-time evidence from 2026-07-15 unless dated otherwise. This page does not imply that the full suite is green.
 
 For environment setup and service ports, see [Development](./development.md). For database lifecycle and schema guidance, see [Database](./database.md). Unresolved quality risks are tracked in [Technical debt](./technical-debt.md).
 
 ## Current status
 
-- **12 test files and 167 tests** were found.
-- **86 tests in 5 files** are isolated unit, configuration, schema, or in-process route tests.
-- **81 tests in 7 files** are PostgreSQL integration tests.
-- The five isolated files were run separately during the audit: **86 passed, 0 failed, with 192 `expect()` calls**.
-- The 81 integration tests were **not run**. Their setup performs real inserts and deletes against `DATABASE_URL`, whose test preload fallback names the ordinary local `twhp` database.
+- **14 test files and 182 declared tests** were found by counting `it(...)`/`test(...)` declarations in current test source.
+- **95 tests in 7 files** are isolated unit, configuration, schema, or in-process route tests.
+- **87 tests in 7 files** are PostgreSQL integration tests.
+- The five pre-existing isolated files were run separately during the 2026-07-15 audit: **86 passed, 0 failed, with 192 `expect()` calls**. The two new Answer schema/planner suites were run together on 2026-07-21: **9 passed, 0 failed, with 50 `expect()` calls**.
+- The 87 integration tests, including the six expanded Answer deletion cases, were **not run here**. Their setup performs real inserts and deletes against `DATABASE_URL`, whose test preload fallback names the ordinary local `twhp` database.
 - `bun run test` is not usable: the `package.json` script prints `Error: no test specified` and exits 1.
 - The observed repository-wide read-only Biome check was red: **8 errors, 30 warnings, and 3 infos**.
 - Current TypeScript status is unknown. No local `node_modules/.bin/tsc` exists, and both attempted `bunx tsc --noEmit` commands failed before type-checking with a Bun temporary-directory permission error.
@@ -29,12 +29,14 @@ Do not summarize the repository as having “no tests,” and do not describe th
 | `src/service/authentication.2fa.test.ts` | 30 | OTP generation, hashing, TTL, attempts, resend, masking, and role routing with mocked DB/Redis/queue |
 | `src/routes/authentication/index.test.ts` | 22 | In-process Elysia login, OTP, bypass, error, and request-validation behavior with mocked authentication/JWT modules |
 | `src/service/score.test.ts` | 24 | Score arithmetic, category breakdown, `n/a` handling, boundaries, and TypeBox response shape |
+| `src/schema/answer.test.ts` | 4 | Multipart deletion-flag decoding, optionality, invalid values, and correspondence with planner slot keys |
+| `src/service/answer-file-update.test.ts` | 5 | Pure file-plan keep/delete/conflict/replace/projected-state and `special=3` implicit-clearing behavior |
 
 ### PostgreSQL integration tests
 
 | File | Tests | Scope |
 |---|---:|---|
-| `src/service/answer.integration.test.ts` | 3 | Answer read model and latest-verdict enrichment |
+| `src/service/answer.integration.test.ts` | 9 | Answer read model/latest-verdict enrichment plus optional explicit deletion, required-evidence and upload/delete pre-I/O rejection, `rejected`-status gating, `special=3` eligibility, and strict-delete DB/log preservation source cases |
 | `src/service/enroll.integration.test.ts` | 12 | Latest Cover status, filtering, scope composition, and response schemas |
 | `src/service/evaluator-review.integration.test.ts` | 10 | Reviewer resolution, regional/category scope, and admin read behavior |
 | `src/service/evaluator-review.save.integration.test.ts` | 19 | Per-Answer verdict validation, decisions, access, authorship, and immutability |
@@ -52,17 +54,20 @@ bun test src/service/auth-dev-bypass.test.ts
 bun test src/service/authentication.2fa.test.ts
 bun test src/routes/authentication/index.test.ts
 bun test src/service/score.test.ts
+bun test src/schema/answer.test.ts
+bun test src/service/answer-file-update.test.ts
 ```
 
-These are the exact observed results from 2026-07-15 using Bun 1.3.6:
+These are the exact observed results using Bun 1.3.6; dates distinguish the original audit from the added suites:
 
-| Command | Observed result |
-|---|---|
-| `bun test src/config.test.ts` | 4 pass, 0 fail, 8 expects, 145 ms |
-| `bun test src/service/auth-dev-bypass.test.ts` | 6 pass, 0 fail, 11 expects, 53 ms |
-| `bun test src/service/authentication.2fa.test.ts` | 30 pass, 0 fail, 64 expects, 43 ms |
-| `bun test src/routes/authentication/index.test.ts` | 22 pass, 0 fail, 61 expects, 51 ms |
-| `bun test src/service/score.test.ts` | 24 pass, 0 fail, 48 expects, 26 ms |
+| Command | Date | Observed result |
+|---|---|---|
+| `bun test src/config.test.ts` | 2026-07-15 | 4 pass, 0 fail, 8 expects, 145 ms |
+| `bun test src/service/auth-dev-bypass.test.ts` | 2026-07-15 | 6 pass, 0 fail, 11 expects, 53 ms |
+| `bun test src/service/authentication.2fa.test.ts` | 2026-07-15 | 30 pass, 0 fail, 64 expects, 43 ms |
+| `bun test src/routes/authentication/index.test.ts` | 2026-07-15 | 22 pass, 0 fail, 61 expects, 51 ms |
+| `bun test src/service/score.test.ts` | 2026-07-15 | 24 pass, 0 fail, 48 expects, 26 ms |
+| `bun test src/schema/answer.test.ts src/service/answer-file-update.test.ts` | 2026-07-21 | 9 pass, 0 fail, 50 expects, 166 ms |
 
 Results are point-in-time evidence, not a substitute for running the commands after a change.
 
@@ -104,7 +109,8 @@ Setting `TMPDIR=/private/tmp` produced the same pre-execution failure, and `node
 - Development OTP bypass parsing and fail-closed decision logic.
 - Staff 2FA role routing, OTP policy, hashing, TTL, attempt limits, resend throttling, masking, and route response paths using mocks.
 - Score calculation, `n/a` exclusion, category aggregation, numeric boundaries, and nested response schemas.
-- At the integration-test source level: Cover-status filters, score queries, evaluator regional/category reads, per-Answer verdict editing, finalization outcomes and atomicity, answer verdict enrichment, and standard-file filtering.
+- Answer multipart deletion-flag decoding and pure file-update planning without external services.
+- At the integration-test source level: Cover-status filters, score queries, evaluator regional/category reads, per-Answer verdict editing, finalization outcomes and atomicity, answer verdict enrichment, standard-file filtering, and six explicit Answer evidence-deletion cases.
 
 The integration bullet describes existing test source, not a current passing result.
 
@@ -117,7 +123,7 @@ The integration bullet describes existing test source, not a current passing res
 | Full application behavior | Global 400/404/500 mapping, logging, response validation, route autoload, and OpenAPI completeness; the auth component test sees raw Elysia 422 rather than exercising the app's claimed 400 mapping |
 | Fiscal year | Bangkok-time Sep 30/Oct 1 boundaries, leap-year behavior, host-timezone independence, and correct query scoping across enroll/Cover/answer/score/factory services |
 | Updates and concurrency | Double-submit, concurrent finalizers, idempotency, stale writes, uniqueness/conflict paths, and transaction rollback under races |
-| Files and external services | Answer/enrollment upload replacement and compensation, real MinIO behavior, Redis integration, BullMQ processing/retry, SMTP failure, and repeat-job scheduling |
+| Files and external services | Answer/enrollment upload replacement and compensation; Answer deletion with matching standards, `recommended`/`finished` latest statuses, already-empty slots, successful AnswerLog append/count, and physical MinIO object verification; Redis integration, BullMQ processing/retry, SMTP failure, and repeat-job scheduling |
 | Untested domains | Standalone behavior for admin, Cover, evaluator, factory, file, location, provincial-officer, and question services and guarded routes |
 
 Prioritize auth/RBAC, fiscal-year boundaries, concurrency/idempotency, and destructive file/update workflows. See [Technical debt](./technical-debt.md) for the consolidated risk backlog.

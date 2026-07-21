@@ -42,8 +42,10 @@ the PATCH succeeds only after that exact object has been removed from MinIO.
 
 Existing upload fields retain their current semantics:
 
-- omitted `file_<row>_<slot>`: keep the stored file;
-- supplied PDF: replace the stored file;
+- omitted `file_<row>_<slot>`: normally keep the stored file;
+- supplied PDF: normally replace the stored file;
+- non-standard `special=3` exception: for every row not selected by the effective choice, ignore a
+  supplied upload, best-effort delete any stored object, and persist `null` for the row's columns;
 - empty string, stored filename, non-PDF, or file larger than 10 MiB: request validation fails.
 
 A request that supplies a PDF and sets the matching deletion flag to `true` is contradictory and
