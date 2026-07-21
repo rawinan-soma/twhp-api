@@ -4,6 +4,11 @@ import { BaseAnswerInsert } from ".";
 
 export const fileOption: FileOptions = { type: "application/pdf", maxSize: "10m" };
 
+export const MultipartBoolean = t
+  .Transform(t.Union([t.Boolean(), t.Literal("true"), t.Literal("false")]))
+  .Decode((value) => value === true || value === "true")
+  .Encode((value) => value);
+
 export const CreateAnswerSchema = t.Omit(BaseAnswerInsert, ["id", "coverId"]);
 
 export const CreateAnswerWithFilesSchema = t.Object({
@@ -40,6 +45,15 @@ export const UpdateAnswerWithFilesSchema = t.Object({
   file_3_1: t.Optional(t.File(fileOption)),
   file_3_2: t.Optional(t.File(fileOption)),
   file_3_3: t.Optional(t.File(fileOption)),
+  delete_file_1_1: t.Optional(MultipartBoolean),
+  delete_file_1_2: t.Optional(MultipartBoolean),
+  delete_file_1_3: t.Optional(MultipartBoolean),
+  delete_file_2_1: t.Optional(MultipartBoolean),
+  delete_file_2_2: t.Optional(MultipartBoolean),
+  delete_file_2_3: t.Optional(MultipartBoolean),
+  delete_file_3_1: t.Optional(MultipartBoolean),
+  delete_file_3_2: t.Optional(MultipartBoolean),
+  delete_file_3_3: t.Optional(MultipartBoolean),
 });
 
 export const NegotiateAnswerSchema = t.Object({
