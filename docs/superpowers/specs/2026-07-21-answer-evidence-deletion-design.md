@@ -58,8 +58,10 @@ choice against that projected state.
 Deletion eligibility is not conditional on `Question.special`, standard classification, selected
 choice, or file slot. The mechanism applies uniformly to every Answer that is otherwise eligible for
 PATCH. After applying requested deletions to the projected state, the service runs the existing
-choice/evidence validation unchanged. A deletion returns HTTP 400 only if that projected state no
-longer satisfies the Answer's existing evidence requirements.
+choice/evidence validation unchanged. That evidence-validation check returns HTTP 400 when the
+projected state no longer satisfies the Answer's existing evidence requirements. Explicit deletion
+also returns HTTP 400 when the latest status is not `in_review` or when the request uploads and
+deletes the same slot.
 
 The existing behavior for `special` and matching-standard Questions remains a business-validation
 concern; it must not bypass or disable explicit deletion of an Answer-owned MinIO object.
@@ -101,7 +103,7 @@ HTTP 500 and performs no database write. This avoids reporting success while the
 object remains stored.
 
 MinIO cannot participate in the PostgreSQL transaction. If object deletion succeeds but the later
-database transaction fails, the database can temporarily retain a dangling object name. This is an
+database transaction fails, the database can leave a dangling object name. This is an
 existing architectural limitation of the Answer update workflow; the failure must be logged without
 including the object name or presigned URL. A transactional outbox or recoverable object lifecycle is
 outside this feature's scope.
@@ -113,6 +115,7 @@ change into a general rewrite of upload compensation.
 
 The PATCH route documents these additional HTTP 400 outcomes:
 
+- explicit deletion is attempted while the Answer's latest status is not `in_review`;
 - the same slot cannot be uploaded and deleted in one request;
 - the projected evidence is missing a file required by the effective choice.
 
