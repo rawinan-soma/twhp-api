@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { eq, inArray } from "drizzle-orm";
+import { afterAll, beforeAll, describe, expect, it, spyOn } from "bun:test";
+import { and, count, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { ElysiaCustomStatusResponse } from "elysia";
 import { Pool } from "pg";
@@ -12,6 +12,7 @@ import {
   enrolls,
   factories,
 } from "../drizzle/schema";
+import * as utils from "../utils";
 import { createAnswerService } from "./answer";
 
 // ─── Test DB ─────────────────────────────────────────────────────────────────
@@ -19,6 +20,7 @@ import { createAnswerService } from "./answer";
 const pool = new Pool({ connectionString: Bun.env.DATABASE_URL! });
 const db = drizzle(pool);
 const answerService = createAnswerService(db);
+const realUtilities = utils.utilities;
 
 // ─── Fixture constants ───────────────────────────────────────────────────────
 
@@ -28,7 +30,17 @@ const PROVINCE = 10;
 const SEEDED_EVALUATOR_ID = 78;
 
 // one seeded question id per scenario
-const Q = { inReview: 1, changeScore: 12, hardReject: 23, finished: 36 };
+const Q = {
+  inReview: 1,
+  changeScore: 12,
+  hardReject: 23,
+  finished: 36,
+  deleteOptional: 2,
+  deleteRequired: 3,
+  deleteRejected: 4,
+  deleteFailure: 5,
+  deleteSpecial: 14,
+};
 
 let coverId: number;
 
@@ -75,6 +87,22 @@ const enrollValues = (factoryId: number) => ({
 });
 
 /** Insert an answer + its answerLog history (latest log = latest verdict). */
+type AnswerSeedValues = Partial<
+  Pick<
+    typeof answers.$inferInsert,
+    | "selectedChoice"
+    | "fileUrl1_1"
+    | "fileUrl1_2"
+    | "fileUrl1_3"
+    | "fileUrl2_1"
+    | "fileUrl2_2"
+    | "fileUrl2_3"
+    | "fileUrl3_1"
+    | "fileUrl3_2"
+    | "fileUrl3_3"
+  >
+>;
+
 async function seedAnswer(
   questionId: number,
   logs: {
@@ -82,20 +110,21 @@ async function seedAnswer(
     verdictChoice?: string | null;
     description?: string | null;
   }[],
+  values: AnswerSeedValues = {},
 ) {
   const [ans] = await db
     .insert(answers)
-    .values({ questionId, coverId, selectedChoice: "2" })
+    .values({ questionId, coverId, selectedChoice: "2", ...values })
     .returning();
-  for (const l of logs) {
+  for (const log of logs) {
     await db.insert(answerLogs).values({
       answerId: ans.id,
-      status: l.status,
-      verdictChoice: l.verdictChoice ?? null,
-      description: l.description ?? null,
+      status: log.status,
+      verdictChoice: log.verdictChoice ?? null,
+      description: log.description ?? null,
     });
   }
-  return ans.id;
+  return ans;
 }
 
 async function cleanupFactory(factoryId: number) {
@@ -174,6 +203,38 @@ beforeAll(async () => {
   ]);
   // finished
   await seedAnswer(Q.finished, [{ status: "in_review" }, { status: "finished" }]);
+  await seedAnswer(Q.deleteOptional, [{ status: "in_review" }], {
+    selectedChoice: "3",
+    fileUrl1_1: "optional-anchor-1.pdf",
+    fileUrl1_2: "optional-delete.pdf",
+    fileUrl2_1: "optional-anchor-2.pdf",
+    fileUrl3_1: "optional-anchor-3.pdf",
+  });
+  await seedAnswer(Q.deleteRequired, [{ status: "in_review" }], {
+    selectedChoice: "3",
+    fileUrl1_1: "required-anchor-1.pdf",
+    fileUrl2_1: "required-anchor-2.pdf",
+    fileUrl3_1: "required-anchor-3.pdf",
+  });
+  await seedAnswer(Q.deleteRejected, [{ status: "rejected" }], {
+    selectedChoice: "3",
+    fileUrl1_1: "rejected-anchor-1.pdf",
+    fileUrl1_2: "rejected-optional.pdf",
+    fileUrl2_1: "rejected-anchor-2.pdf",
+    fileUrl3_1: "rejected-anchor-3.pdf",
+  });
+  await seedAnswer(Q.deleteFailure, [{ status: "in_review" }], {
+    selectedChoice: "3",
+    fileUrl1_1: "failure-anchor-1.pdf",
+    fileUrl1_2: "failure-optional.pdf",
+    fileUrl2_1: "failure-anchor-2.pdf",
+    fileUrl3_1: "failure-anchor-3.pdf",
+  });
+  await seedAnswer(Q.deleteSpecial, [{ status: "in_review" }], {
+    selectedChoice: "3",
+    fileUrl3_1: "special-anchor.pdf",
+    fileUrl3_2: "special-optional.pdf",
+  });
 });
 
 afterAll(async () => {
@@ -196,7 +257,7 @@ describe("getAnswerByFactoryId — verdict enrichment", () => {
   it("AC: surfaces latest status + verdictChoice + description per answer (latest-log-wins)", async () => {
     const rows = (await answerService.getAnswerByFactoryId(FACTORY)) as Row[];
     expect(Array.isArray(rows)).toBe(true);
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(9);
     const byQ = (qid: number) => rows.find((r) => r.questionId === qid)!;
 
     // in_review — no evaluator action
@@ -231,5 +292,143 @@ describe("getAnswerByFactoryId — verdict enrichment", () => {
     const res = await answerService.getAnswerByFactoryId(NO_DATA_FACTORY);
     expect(res).toBeInstanceOf(ElysiaCustomStatusResponse);
     expect((res as { code: number }).code).toBe(404);
+  });
+});
+
+const responseCode = (value: unknown) =>
+  value instanceof ElysiaCustomStatusResponse ? value.code : 200;
+
+const answerForQuestion = (questionId: number) =>
+  db
+    .select()
+    .from(answers)
+    .where(and(eq(answers.coverId, coverId), eq(answers.questionId, questionId)))
+    .limit(1)
+    .then((rows) => rows[0]);
+
+describe("answerService.update — explicit evidence deletion", () => {
+  it("deletes one optional MinIO object and nulls only its column", async () => {
+    const deleted: string[] = [];
+    const utilitySpy = spyOn(utils, "utilities").mockImplementation(() => ({
+      ...realUtilities(),
+      deleteFileStrict: async (name) => {
+        if (name) deleted.push(name);
+      },
+    }));
+
+    const result = await answerService.update(FACTORY, {
+      questionId: Q.deleteOptional,
+      delete_file_1_2: true,
+    });
+    utilitySpy.mockRestore();
+
+    expect(responseCode(result)).toBe(200);
+    expect(deleted).toEqual(["optional-delete.pdf"]);
+    const row = await answerForQuestion(Q.deleteOptional);
+    expect(row.fileUrl1_2).toBeNull();
+    expect(row.fileUrl1_1).toBe("optional-anchor-1.pdf");
+    expect(row.fileUrl2_1).toBe("optional-anchor-2.pdf");
+    expect(row.fileUrl3_1).toBe("optional-anchor-3.pdf");
+  });
+
+  it("rejects deletion of evidence required by choice 3 before MinIO I/O", async () => {
+    let calls = 0;
+    const utilitySpy = spyOn(utils, "utilities").mockImplementation(() => ({
+      ...realUtilities(),
+      deleteFileStrict: async () => {
+        calls += 1;
+      },
+    }));
+    const result = await answerService.update(FACTORY, {
+      questionId: Q.deleteRequired,
+      delete_file_2_1: true,
+    });
+    utilitySpy.mockRestore();
+
+    expect(responseCode(result)).toBe(400);
+    expect(calls).toBe(0);
+    expect((await answerForQuestion(Q.deleteRequired)).fileUrl2_1).toBe("required-anchor-2.pdf");
+  });
+
+  it("rejects upload and delete on the same slot before any file I/O", async () => {
+    const calls = { strictDelete: 0, delete: 0, upload: 0 };
+    const utilitySpy = spyOn(utils, "utilities").mockImplementation(() => ({
+      ...realUtilities(),
+      deleteFileStrict: async () => {
+        calls.strictDelete += 1;
+      },
+      deleteFile: async () => {
+        calls.delete += 1;
+      },
+      uploadFile: async () => {
+        calls.upload += 1;
+        return "replacement-object.pdf";
+      },
+    }));
+    const replacement = new File(["pdf"], "replacement.pdf", { type: "application/pdf" });
+    const result = await answerService.update(FACTORY, {
+      questionId: Q.deleteRequired,
+      file_1_2: replacement,
+      delete_file_1_2: true,
+    });
+    utilitySpy.mockRestore();
+
+    expect(responseCode(result)).toBe(400);
+    expect(calls).toEqual({ strictDelete: 0, delete: 0, upload: 0 });
+  });
+
+  it("rejects explicit deletion unless the latest status is in_review", async () => {
+    const result = await answerService.update(FACTORY, {
+      questionId: Q.deleteRejected,
+      delete_file_1_2: true,
+    });
+    expect(responseCode(result)).toBe(400);
+    expect((await answerForQuestion(Q.deleteRejected)).fileUrl1_2).toBe("rejected-optional.pdf");
+  });
+
+  it("supports optional deletion for special=3 without using special as an eligibility gate", async () => {
+    const deleted: string[] = [];
+    const utilitySpy = spyOn(utils, "utilities").mockImplementation(() => ({
+      ...realUtilities(),
+      deleteFileStrict: async (name) => {
+        if (name) deleted.push(name);
+      },
+    }));
+    const result = await answerService.update(FACTORY, {
+      questionId: Q.deleteSpecial,
+      delete_file_3_2: true,
+    });
+    utilitySpy.mockRestore();
+
+    expect(responseCode(result)).toBe(200);
+    expect(deleted).toContain("special-optional.pdf");
+    expect((await answerForQuestion(Q.deleteSpecial)).fileUrl3_2).toBeNull();
+  });
+
+  it("returns 500 and leaves DB state/log count unchanged when strict MinIO deletion fails", async () => {
+    const before = await answerForQuestion(Q.deleteFailure);
+    const [{ value: logsBefore }] = await db
+      .select({ value: count() })
+      .from(answerLogs)
+      .where(eq(answerLogs.answerId, before.id));
+    const utilitySpy = spyOn(utils, "utilities").mockImplementation(() => ({
+      ...realUtilities(),
+      deleteFileStrict: async () => {
+        throw new Error("simulated MinIO failure");
+      },
+    }));
+    const result = await answerService.update(FACTORY, {
+      questionId: Q.deleteFailure,
+      delete_file_1_2: true,
+    });
+    utilitySpy.mockRestore();
+
+    expect(responseCode(result)).toBe(500);
+    expect((await answerForQuestion(Q.deleteFailure)).fileUrl1_2).toBe("failure-optional.pdf");
+    const [{ value: logsAfter }] = await db
+      .select({ value: count() })
+      .from(answerLogs)
+      .where(eq(answerLogs.answerId, before.id));
+    expect(logsAfter).toBe(logsBefore);
   });
 });

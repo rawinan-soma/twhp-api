@@ -8,6 +8,12 @@ import type {
   UpdateAnswerWithFilesDto,
 } from "../schema/answer";
 import { utilities } from "../utils";
+import {
+  buildAnswerFilePlan,
+  findUploadDeleteConflict,
+  hasExplicitDeletion,
+  hasProjectedFile,
+} from "./answer-file-update";
 
 export const createAnswerService = (database: typeof db) => {
   return {
@@ -448,7 +454,16 @@ export const createAnswerService = (database: typeof db) => {
         return status(400, { message: "answer cannot be updated in its current status" });
       }
 
+      const deletionProbe = buildAnswerFilePlan(dto, existingAnswer);
+      if (hasExplicitDeletion(deletionProbe) && latestLog.status !== "in_review") {
+        return status(400, {
+          message: "answer files can only be deleted while answer is in_review",
+        });
+      }
+
       // 5. Standard question branch
+      let factoryHasMatchingStandard = false;
+      let hasMatchingStandardFile = false;
       if (question.standard.length > 0) {
         const enroll = await database
           .select()
@@ -485,185 +500,99 @@ export const createAnswerService = (database: typeof db) => {
           standardHAS: enroll.fileStandardHasUrl,
         };
 
-        const factoryHasMatchingStandard = question.standard.some((s) => !!standardBoolMap[s]);
-
-        if (factoryHasMatchingStandard) {
-          const hasFiles =
-            dto.file_1_1 ||
-            dto.file_1_2 ||
-            dto.file_1_3 ||
-            dto.file_2_1 ||
-            dto.file_2_2 ||
-            dto.file_2_3 ||
-            dto.file_3_1 ||
-            dto.file_3_2 ||
-            dto.file_3_3;
-
-          if (hasFiles) return status(400, { message: "standard question does not accept files" });
-
-          const hasMatchingFile = question.standard.some((s) => !!standardUrlMap[s]);
-          if (!hasMatchingFile)
-            return status(404, { message: "standard file not found in enroll" });
-
-          // Force selectedChoice = "3" — factory holds the certified standard
-          await database.transaction(async (tx) => {
-            await tx
-              .update(answers)
-              .set({ selectedChoice: "3" })
-              .where(eq(answers.id, existingAnswer.id));
-            await tx
-              .insert(answerLogs)
-              .values({ answerId: existingAnswer.id, status: "in_review" });
-          });
-
-          return { message: "answer update" };
-        }
+        factoryHasMatchingStandard = question.standard.some((s) => !!standardBoolMap[s]);
+        hasMatchingStandardFile = question.standard.some((s) => !!standardUrlMap[s]);
 
         // Factory has no relevant standard → fall through to non-standard path
       }
 
       // 6. Non-standard: determine effective choice
-      const effectiveChoice = dto.selectedChoice ?? existingAnswer.selectedChoice;
+      const effectiveChoice = factoryHasMatchingStandard
+        ? "3"
+        : (dto.selectedChoice ?? existingAnswer.selectedChoice);
+
+      const implicitClearRows =
+        !factoryHasMatchingStandard && question.special === 3
+          ? [1, 2, 3].filter((row) => String(row) !== effectiveChoice)
+          : [];
+      const filePlan = buildAnswerFilePlan(dto, existingAnswer, implicitClearRows);
+
+      const conflictingSlot = findUploadDeleteConflict(filePlan);
+      if (conflictingSlot) {
+        return status(400, {
+          message: `${conflictingSlot} cannot be uploaded and deleted in the same request`,
+        });
+      }
+
+      if (factoryHasMatchingStandard) {
+        if (filePlan.some((entry) => entry.upload)) {
+          return status(400, { message: "standard question does not accept files" });
+        }
+        if (!hasMatchingStandardFile) {
+          return status(404, { message: "standard file not found in enroll" });
+        }
+      }
 
       // 7. File validation — new DTO file OR existing DB URL both satisfy the requirement
-      if (question.special === 3) {
-        if (effectiveChoice === "1" && !dto.file_1_1 && !existingAnswer.fileUrl1_1)
-          return status(400, { message: "choice 1 requires file_1_1" });
-        if (effectiveChoice === "2" && !dto.file_2_1 && !existingAnswer.fileUrl2_1)
-          return status(400, { message: "choice 2 requires file_2_1" });
-        if (effectiveChoice === "3" && !dto.file_3_1 && !existingAnswer.fileUrl3_1)
-          return status(400, { message: "choice 3 requires file_3_1" });
-      } else {
-        if (effectiveChoice === "1" && !dto.file_1_1 && !existingAnswer.fileUrl1_1)
-          return status(400, { message: "choice 1 requires at least file_1_1" });
-        if (
-          effectiveChoice === "2" &&
-          ((!dto.file_1_1 && !existingAnswer.fileUrl1_1) ||
-            (!dto.file_2_1 && !existingAnswer.fileUrl2_1))
-        )
-          return status(400, { message: "choice 2 requires at least file_1_1 and file_2_1" });
-        if (
-          effectiveChoice === "3" &&
-          ((!dto.file_1_1 && !existingAnswer.fileUrl1_1) ||
-            (!dto.file_2_1 && !existingAnswer.fileUrl2_1) ||
-            (!dto.file_3_1 && !existingAnswer.fileUrl3_1))
-        )
-          return status(400, {
-            message: "choice 3 requires at least file_1_1, file_2_1, and file_3_1",
-          });
-      }
-
-      // 8. Process file updates: if new file → delete old + upload; else keep existing
-      const processAnswerFile = async (
-        newFile: File | undefined,
-        oldUrl: string | null | undefined,
-      ) => {
-        if (newFile) {
-          if (oldUrl) await utilities().deleteFile(oldUrl);
-          return await utilities().uploadFile(newFile);
+      if (!factoryHasMatchingStandard) {
+        if (question.special === 3) {
+          if (effectiveChoice === "1" && !hasProjectedFile(filePlan, "fileUrl1_1"))
+            return status(400, { message: "choice 1 requires file_1_1" });
+          if (effectiveChoice === "2" && !hasProjectedFile(filePlan, "fileUrl2_1"))
+            return status(400, { message: "choice 2 requires file_2_1" });
+          if (effectiveChoice === "3" && !hasProjectedFile(filePlan, "fileUrl3_1"))
+            return status(400, { message: "choice 3 requires file_3_1" });
+        } else {
+          if (effectiveChoice === "1" && !hasProjectedFile(filePlan, "fileUrl1_1"))
+            return status(400, { message: "choice 1 requires at least file_1_1" });
+          if (
+            effectiveChoice === "2" &&
+            (!hasProjectedFile(filePlan, "fileUrl1_1") || !hasProjectedFile(filePlan, "fileUrl2_1"))
+          )
+            return status(400, { message: "choice 2 requires at least file_1_1 and file_2_1" });
+          if (
+            effectiveChoice === "3" &&
+            (!hasProjectedFile(filePlan, "fileUrl1_1") ||
+              !hasProjectedFile(filePlan, "fileUrl2_1") ||
+              !hasProjectedFile(filePlan, "fileUrl3_1"))
+          )
+            return status(400, {
+              message: "choice 3 requires at least file_1_1, file_2_1, and file_3_1",
+            });
         }
-        return oldUrl ?? null;
-      };
-
-      const clearFile = async (oldUrl: string | null | undefined) => {
-        if (oldUrl) await utilities().deleteFile(oldUrl);
-        return null;
-      };
-
-      let fileUrl1_1: string | null,
-        fileUrl1_2: string | null,
-        fileUrl1_3: string | null,
-        fileUrl2_1: string | null,
-        fileUrl2_2: string | null,
-        fileUrl2_3: string | null,
-        fileUrl3_1: string | null,
-        fileUrl3_2: string | null,
-        fileUrl3_3: string | null;
-
-      if (question.special === 3) {
-        const g1 = effectiveChoice === "1";
-        const g2 = effectiveChoice === "2";
-        const g3 = effectiveChoice === "3";
-
-        [
-          fileUrl1_1,
-          fileUrl1_2,
-          fileUrl1_3,
-          fileUrl2_1,
-          fileUrl2_2,
-          fileUrl2_3,
-          fileUrl3_1,
-          fileUrl3_2,
-          fileUrl3_3,
-        ] = await Promise.all([
-          g1
-            ? processAnswerFile(dto.file_1_1, existingAnswer.fileUrl1_1)
-            : clearFile(existingAnswer.fileUrl1_1),
-          g1
-            ? processAnswerFile(dto.file_1_2, existingAnswer.fileUrl1_2)
-            : clearFile(existingAnswer.fileUrl1_2),
-          g1
-            ? processAnswerFile(dto.file_1_3, existingAnswer.fileUrl1_3)
-            : clearFile(existingAnswer.fileUrl1_3),
-          g2
-            ? processAnswerFile(dto.file_2_1, existingAnswer.fileUrl2_1)
-            : clearFile(existingAnswer.fileUrl2_1),
-          g2
-            ? processAnswerFile(dto.file_2_2, existingAnswer.fileUrl2_2)
-            : clearFile(existingAnswer.fileUrl2_2),
-          g2
-            ? processAnswerFile(dto.file_2_3, existingAnswer.fileUrl2_3)
-            : clearFile(existingAnswer.fileUrl2_3),
-          g3
-            ? processAnswerFile(dto.file_3_1, existingAnswer.fileUrl3_1)
-            : clearFile(existingAnswer.fileUrl3_1),
-          g3
-            ? processAnswerFile(dto.file_3_2, existingAnswer.fileUrl3_2)
-            : clearFile(existingAnswer.fileUrl3_2),
-          g3
-            ? processAnswerFile(dto.file_3_3, existingAnswer.fileUrl3_3)
-            : clearFile(existingAnswer.fileUrl3_3),
-        ]);
-      } else {
-        [
-          fileUrl1_1,
-          fileUrl1_2,
-          fileUrl1_3,
-          fileUrl2_1,
-          fileUrl2_2,
-          fileUrl2_3,
-          fileUrl3_1,
-          fileUrl3_2,
-          fileUrl3_3,
-        ] = await Promise.all([
-          processAnswerFile(dto.file_1_1, existingAnswer.fileUrl1_1),
-          processAnswerFile(dto.file_1_2, existingAnswer.fileUrl1_2),
-          processAnswerFile(dto.file_1_3, existingAnswer.fileUrl1_3),
-          processAnswerFile(dto.file_2_1, existingAnswer.fileUrl2_1),
-          processAnswerFile(dto.file_2_2, existingAnswer.fileUrl2_2),
-          processAnswerFile(dto.file_2_3, existingAnswer.fileUrl2_3),
-          processAnswerFile(dto.file_3_1, existingAnswer.fileUrl3_1),
-          processAnswerFile(dto.file_3_2, existingAnswer.fileUrl3_2),
-          processAnswerFile(dto.file_3_3, existingAnswer.fileUrl3_3),
-        ]);
       }
+
+      try {
+        await Promise.all(
+          filePlan
+            .filter((entry) => entry.action === "delete_explicit" && entry.existing)
+            .map((entry) => utilities().deleteFileStrict(entry.existing)),
+        );
+      } catch {
+        return status(500, { message: "failed to delete answer files; update aborted" });
+      }
+
+      // 8. Process file updates outside the transaction so DB connection is not held during I/O
+      const processedEntries = await Promise.all(
+        filePlan.map(async (entry) => {
+          if (entry.action === "keep") return [entry.column, entry.existing] as const;
+          if (entry.action === "delete_explicit") return [entry.column, null] as const;
+          if (entry.action === "delete_implicit") {
+            if (entry.existing) await utilities().deleteFile(entry.existing);
+            return [entry.column, null] as const;
+          }
+          if (entry.existing) await utilities().deleteFile(entry.existing);
+          if (!entry.upload) throw new Error("replacement file missing from answer file plan");
+          return [entry.column, await utilities().uploadFile(entry.upload)] as const;
+        }),
+      );
+      const nextFiles = Object.fromEntries(processedEntries);
 
       // 9. Update answer + log atomically
       await database.transaction(async (tx) => {
         await tx
           .update(answers)
-          .set({
-            selectedChoice: effectiveChoice,
-            fileUrl1_1,
-            fileUrl1_2,
-            fileUrl1_3,
-            fileUrl2_1,
-            fileUrl2_2,
-            fileUrl2_3,
-            fileUrl3_1,
-            fileUrl3_2,
-            fileUrl3_3,
-          })
+          .set({ selectedChoice: effectiveChoice, ...nextFiles })
           .where(eq(answers.id, existingAnswer.id));
 
         await tx.insert(answerLogs).values({ answerId: existingAnswer.id, status: "in_review" });
