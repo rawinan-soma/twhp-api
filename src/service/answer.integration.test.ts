@@ -282,10 +282,11 @@ describe("getAnswerByFactoryId — verdict enrichment", () => {
 
   it("AC: existing answer fields are preserved (backward compatible)", async () => {
     const rows = (await answerService.getAnswerByFactoryId(FACTORY)) as Row[];
-    const r = rows[0];
-    expect(r.selectedChoice).toBe("2");
-    expect(typeof r.questionId).toBe("number");
-    expect("fileUrl1_1" in r).toBe(true);
+    const r = rows.find((row) => row.questionId === Q.inReview);
+    expect(r).toBeDefined();
+    expect(r?.selectedChoice).toBe("2");
+    expect(typeof r?.questionId).toBe("number");
+    expect(r ? "fileUrl1_1" in r : false).toBe(true);
   });
 
   it("AC: factory with no answers → 404", async () => {
@@ -316,19 +317,22 @@ describe("answerService.update — explicit evidence deletion", () => {
       },
     }));
 
-    const result = await answerService.update(FACTORY, {
-      questionId: Q.deleteOptional,
-      delete_file_1_2: true,
-    });
-    utilitySpy.mockRestore();
+    try {
+      const result = await answerService.update(FACTORY, {
+        questionId: Q.deleteOptional,
+        delete_file_1_2: true,
+      });
 
-    expect(responseCode(result)).toBe(200);
-    expect(deleted).toEqual(["optional-delete.pdf"]);
-    const row = await answerForQuestion(Q.deleteOptional);
-    expect(row.fileUrl1_2).toBeNull();
-    expect(row.fileUrl1_1).toBe("optional-anchor-1.pdf");
-    expect(row.fileUrl2_1).toBe("optional-anchor-2.pdf");
-    expect(row.fileUrl3_1).toBe("optional-anchor-3.pdf");
+      expect(responseCode(result)).toBe(200);
+      expect(deleted).toEqual(["optional-delete.pdf"]);
+      const row = await answerForQuestion(Q.deleteOptional);
+      expect(row.fileUrl1_2).toBeNull();
+      expect(row.fileUrl1_1).toBe("optional-anchor-1.pdf");
+      expect(row.fileUrl2_1).toBe("optional-anchor-2.pdf");
+      expect(row.fileUrl3_1).toBe("optional-anchor-3.pdf");
+    } finally {
+      utilitySpy.mockRestore();
+    }
   });
 
   it("rejects deletion of evidence required by choice 3 before MinIO I/O", async () => {
@@ -339,15 +343,18 @@ describe("answerService.update — explicit evidence deletion", () => {
         calls += 1;
       },
     }));
-    const result = await answerService.update(FACTORY, {
-      questionId: Q.deleteRequired,
-      delete_file_2_1: true,
-    });
-    utilitySpy.mockRestore();
+    try {
+      const result = await answerService.update(FACTORY, {
+        questionId: Q.deleteRequired,
+        delete_file_2_1: true,
+      });
 
-    expect(responseCode(result)).toBe(400);
-    expect(calls).toBe(0);
-    expect((await answerForQuestion(Q.deleteRequired)).fileUrl2_1).toBe("required-anchor-2.pdf");
+      expect(responseCode(result)).toBe(400);
+      expect(calls).toBe(0);
+      expect((await answerForQuestion(Q.deleteRequired)).fileUrl2_1).toBe("required-anchor-2.pdf");
+    } finally {
+      utilitySpy.mockRestore();
+    }
   });
 
   it("rejects upload and delete on the same slot before any file I/O", async () => {
@@ -365,16 +372,19 @@ describe("answerService.update — explicit evidence deletion", () => {
         return "replacement-object.pdf";
       },
     }));
-    const replacement = new File(["pdf"], "replacement.pdf", { type: "application/pdf" });
-    const result = await answerService.update(FACTORY, {
-      questionId: Q.deleteRequired,
-      file_1_2: replacement,
-      delete_file_1_2: true,
-    });
-    utilitySpy.mockRestore();
+    try {
+      const replacement = new File(["pdf"], "replacement.pdf", { type: "application/pdf" });
+      const result = await answerService.update(FACTORY, {
+        questionId: Q.deleteRequired,
+        file_1_2: replacement,
+        delete_file_1_2: true,
+      });
 
-    expect(responseCode(result)).toBe(400);
-    expect(calls).toEqual({ strictDelete: 0, delete: 0, upload: 0 });
+      expect(responseCode(result)).toBe(400);
+      expect(calls).toEqual({ strictDelete: 0, delete: 0, upload: 0 });
+    } finally {
+      utilitySpy.mockRestore();
+    }
   });
 
   it("rejects explicit deletion unless the latest status is in_review", async () => {
@@ -394,15 +404,18 @@ describe("answerService.update — explicit evidence deletion", () => {
         if (name) deleted.push(name);
       },
     }));
-    const result = await answerService.update(FACTORY, {
-      questionId: Q.deleteSpecial,
-      delete_file_3_2: true,
-    });
-    utilitySpy.mockRestore();
+    try {
+      const result = await answerService.update(FACTORY, {
+        questionId: Q.deleteSpecial,
+        delete_file_3_2: true,
+      });
 
-    expect(responseCode(result)).toBe(200);
-    expect(deleted).toContain("special-optional.pdf");
-    expect((await answerForQuestion(Q.deleteSpecial)).fileUrl3_2).toBeNull();
+      expect(responseCode(result)).toBe(200);
+      expect(deleted).toContain("special-optional.pdf");
+      expect((await answerForQuestion(Q.deleteSpecial)).fileUrl3_2).toBeNull();
+    } finally {
+      utilitySpy.mockRestore();
+    }
   });
 
   it("returns 500 and leaves DB state/log count unchanged when strict MinIO deletion fails", async () => {
@@ -417,18 +430,21 @@ describe("answerService.update — explicit evidence deletion", () => {
         throw new Error("simulated MinIO failure");
       },
     }));
-    const result = await answerService.update(FACTORY, {
-      questionId: Q.deleteFailure,
-      delete_file_1_2: true,
-    });
-    utilitySpy.mockRestore();
+    try {
+      const result = await answerService.update(FACTORY, {
+        questionId: Q.deleteFailure,
+        delete_file_1_2: true,
+      });
 
-    expect(responseCode(result)).toBe(500);
-    expect((await answerForQuestion(Q.deleteFailure)).fileUrl1_2).toBe("failure-optional.pdf");
-    const [{ value: logsAfter }] = await db
-      .select({ value: count() })
-      .from(answerLogs)
-      .where(eq(answerLogs.answerId, before.id));
-    expect(logsAfter).toBe(logsBefore);
+      expect(responseCode(result)).toBe(500);
+      expect((await answerForQuestion(Q.deleteFailure)).fileUrl1_2).toBe("failure-optional.pdf");
+      const [{ value: logsAfter }] = await db
+        .select({ value: count() })
+        .from(answerLogs)
+        .where(eq(answerLogs.answerId, before.id));
+      expect(logsAfter).toBe(logsBefore);
+    } finally {
+      utilitySpy.mockRestore();
+    }
   });
 });
