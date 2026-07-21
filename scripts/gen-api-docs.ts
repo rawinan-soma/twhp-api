@@ -39,6 +39,7 @@ function resolveRef(ref: string): Json {
 function typeOf(schema: Json | undefined): string {
   if (!schema) return "any";
   if (schema.$ref) return typeOf(resolveRef(schema.$ref));
+  if ("const" in schema) return JSON.stringify(schema.const);
   if (schema.enum) return schema.enum.map((e: unknown) => JSON.stringify(e)).join(" | ");
   if (schema.anyOf) return schema.anyOf.map(typeOf).join(" | ");
   if (schema.oneOf) return schema.oneOf.map(typeOf).join(" | ");

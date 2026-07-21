@@ -1,7 +1,7 @@
 # Factory Answer Evidence Deletion Design
 
 **Date:** 2026-07-21
-**Status:** Implementation complete; PostgreSQL and physical MinIO verification pending
+**Status:** Implementation and API artifact generation complete; PostgreSQL and physical MinIO verification pending
 
 ## Problem
 
@@ -168,6 +168,7 @@ Biome check and report baseline diagnostics separately from introduced diagnosti
 
 ## Documentation
 
-Implementation aligned `docs/api-conventions.md` and the PATCH response schema. Generated API and
-OpenAPI artifacts were intentionally not regenerated because that action requires separate approval
-under the repository change-control rules.
+Implementation aligned `docs/api-conventions.md` and the PATCH response schema. After separate
+approval, the live Elysia document was captured into `docs/api/openapi.json` and the repository
+generator refreshed `docs/api/API.md` and `docs/api/index.html`. The generated PATCH contract now
+contains all nine optional deletion fields and the declared 500 response.

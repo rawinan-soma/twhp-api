@@ -520,7 +520,7 @@ docker exec twhp-api-dev getent hosts postgres redis minio
 **Likely causes**
 
 - Elysia mounts live OpenAPI at `/twhp/api/document`. Template nginx has an exact deny-all location for that path; development nginx does not.
-- `docs/api/openapi.json` and `docs/api/API.md` are static snapshots without source-commit metadata or a repository generation/check command. `API.md` records generation on 2026-07-03 and spec version `0.0.0`.
+- `docs/api/openapi.json` and `docs/api/API.md` are static snapshots without source-commit metadata or a repository check command. They were refreshed from the live Elysia document on 2026-07-21 and retain spec version `0.0.0`; later route/schema edits can make them stale again.
 - Snapshot components have no cookie security scheme and protected operations generally omit middleware-generated 401/403/common errors.
 - Known drift includes 200/201 creation statuses, root validation 400 versus route-test 422, finalize’s required empty OpenAPI body, file URL lifetime prose (five minutes) versus code (five seconds), and incomplete error variants.
 

@@ -104,8 +104,10 @@ operations from the presence of a command in these documents.
   before changing either side.
 - `CONTEXT.md` remains useful for vocabulary and historical intent but contains known conflicts with
   current code and newer ADRs.
-- `docs/api/openapi.json`, `docs/api/API.md`, and `docs/api/index.html` are snapshots and have known
-  contract drift. Verify route, schema, middleware, and service behavior directly.
+- `docs/api/openapi.json`, `docs/api/API.md`, and `docs/api/index.html` are snapshots refreshed from
+  the live Elysia document on 2026-07-21. They can drift after later route/schema changes; verify
+  middleware and service behavior directly because generated schemas are not the complete runtime
+  authorization or failure contract.
 - `docs/dev-otp-bypass.html`, `docs/evaluation-flow.html`, and `docs/evaluation-features-th.html` are
   focused historical/operator references, not the primary maintained handover set.
 - When behavior changes, update the affected maintained guide and ADR where required. Verify local

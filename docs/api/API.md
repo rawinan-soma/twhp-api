@@ -1,6 +1,6 @@
 # Elysia Documentation
 
-> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-07-03
+> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-07-21
 
 51 operations across 8 groups.
 
@@ -423,7 +423,7 @@ update ข้อมูลของ สปก. ตาม id ของสปก.
   | --- | --- | --- | --- |
   | `message` | `string` | yes |  |
   | `coverStatus` | `string` | yes |  |
-  | `grade` | `string \| string \| string \| string \| null` | yes |  |
+  | `grade` | `"gold" \| "silver" \| "certificate" \| "joined" \| null` | yes |  |
 
 - `400` — Response for status 400
 
@@ -1083,7 +1083,7 @@ logout
   | --- | --- | --- | --- |
   | `message` | `string` | yes |  |
   | `coverStatus` | `string` | yes |  |
-  | `grade` | `string \| string \| string \| string \| null` | yes |  |
+  | `grade` | `"gold" \| "silver" \| "certificate" \| "joined" \| null` | yes |  |
 
 - `400` — Response for status 400
 
@@ -1391,17 +1391,17 @@ logout
 | `employeeJpF` | `string<numeric> \| number` | yes |  |
 | `employeeInF` | `string<numeric> \| number` | yes |  |
 | `employeeOtherF` | `string<numeric> \| number` | yes |  |
-| `standardHc` | `boolean \| string \| string` | yes |  |
-| `standardSan` | `boolean \| string \| string` | yes |  |
-| `standardSanPlus` | `boolean \| string \| string` | yes |  |
-| `standardWellness` | `boolean \| string \| string` | yes |  |
-| `standardSafety` | `boolean \| string \| string` | yes |  |
-| `standardTis18001` | `boolean \| string \| string` | yes |  |
-| `standardIso45001` | `boolean \| string \| string` | yes |  |
-| `standardIso14001` | `boolean \| string \| string` | yes |  |
-| `standardZero` | `boolean \| string \| string` | yes |  |
-| `standard5S` | `boolean \| string \| string` | yes |  |
-| `standardHas` | `boolean \| string \| string` | yes |  |
+| `standardHc` | `boolean \| "true" \| "false"` | yes |  |
+| `standardSan` | `boolean \| "true" \| "false"` | yes |  |
+| `standardSanPlus` | `boolean \| "true" \| "false"` | yes |  |
+| `standardWellness` | `boolean \| "true" \| "false"` | yes |  |
+| `standardSafety` | `boolean \| "true" \| "false"` | yes |  |
+| `standardTis18001` | `boolean \| "true" \| "false"` | yes |  |
+| `standardIso45001` | `boolean \| "true" \| "false"` | yes |  |
+| `standardIso14001` | `boolean \| "true" \| "false"` | yes |  |
+| `standardZero` | `boolean \| "true" \| "false"` | yes |  |
+| `standard5S` | `boolean \| "true" \| "false"` | yes |  |
+| `standardHas` | `boolean \| "true" \| "false"` | yes |  |
 | `safetyOfficerPrefix` | `string` | yes |  |
 | `safetyOfficerFirstName` | `string` | yes |  |
 | `safetyOfficerLastName` | `string` | yes |  |
@@ -1462,17 +1462,17 @@ logout
 | `employeeJpF` | `string<numeric> \| number` | — |  |
 | `employeeInF` | `string<numeric> \| number` | — |  |
 | `employeeOtherF` | `string<numeric> \| number` | — |  |
-| `standardHc` | `boolean \| string \| string` | — |  |
-| `standardSan` | `boolean \| string \| string` | — |  |
-| `standardSanPlus` | `boolean \| string \| string` | — |  |
-| `standardWellness` | `boolean \| string \| string` | — |  |
-| `standardSafety` | `boolean \| string \| string` | — |  |
-| `standardTis18001` | `boolean \| string \| string` | — |  |
-| `standardIso45001` | `boolean \| string \| string` | — |  |
-| `standardIso14001` | `boolean \| string \| string` | — |  |
-| `standardZero` | `boolean \| string \| string` | — |  |
-| `standard5S` | `boolean \| string \| string` | — |  |
-| `standardHas` | `boolean \| string \| string` | — |  |
+| `standardHc` | `boolean \| "true" \| "false"` | — |  |
+| `standardSan` | `boolean \| "true" \| "false"` | — |  |
+| `standardSanPlus` | `boolean \| "true" \| "false"` | — |  |
+| `standardWellness` | `boolean \| "true" \| "false"` | — |  |
+| `standardSafety` | `boolean \| "true" \| "false"` | — |  |
+| `standardTis18001` | `boolean \| "true" \| "false"` | — |  |
+| `standardIso45001` | `boolean \| "true" \| "false"` | — |  |
+| `standardIso14001` | `boolean \| "true" \| "false"` | — |  |
+| `standardZero` | `boolean \| "true" \| "false"` | — |  |
+| `standard5S` | `boolean \| "true" \| "false"` | — |  |
+| `standardHas` | `boolean \| "true" \| "false"` | — |  |
 | `safetyOfficerPrefix` | `string` | — |  |
 | `safetyOfficerFirstName` | `string` | — |  |
 | `safetyOfficerLastName` | `string` | — |  |
@@ -1651,6 +1651,15 @@ logout
 | `file_3_1` | `string<binary>` | — |  |
 | `file_3_2` | `string<binary>` | — |  |
 | `file_3_3` | `string<binary>` | — |  |
+| `delete_file_1_1` | `boolean \| "true" \| "false"` | — |  |
+| `delete_file_1_2` | `boolean \| "true" \| "false"` | — |  |
+| `delete_file_1_3` | `boolean \| "true" \| "false"` | — |  |
+| `delete_file_2_1` | `boolean \| "true" \| "false"` | — |  |
+| `delete_file_2_2` | `boolean \| "true" \| "false"` | — |  |
+| `delete_file_2_3` | `boolean \| "true" \| "false"` | — |  |
+| `delete_file_3_1` | `boolean \| "true" \| "false"` | — |  |
+| `delete_file_3_2` | `boolean \| "true" \| "false"` | — |  |
+| `delete_file_3_3` | `boolean \| "true" \| "false"` | — |  |
 
 **Responses**
 
@@ -1662,6 +1671,12 @@ logout
 
 - `400` — Response for status 400
 - `404` — Response for status 404
+- `500` — Response for status 500
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
 
 ---
 
@@ -1739,7 +1754,7 @@ logout
   | `coverId` | `number` | yes |  |
   | `coverStatus` | `string` | yes |  |
   | `enrollId` | `number` | yes |  |
-  | `grade` | `string \| string \| string \| string \| null` | — |  |
+  | `grade` | `"gold" \| "silver" \| "certificate" \| "joined" \| null` | — |  |
   | `scoring` | `object` | yes |  |
 
 - `400` — Response for status 400
