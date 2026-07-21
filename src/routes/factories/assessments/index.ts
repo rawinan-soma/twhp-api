@@ -199,6 +199,17 @@ export default (app: App) =>
               }),
               t.Object({
                 message: t.String({
+                  default: "answer files can only be deleted while answer is in_review",
+                }),
+              }),
+              t.Object({
+                message: t.String({
+                  default: "file_1_2 cannot be uploaded and deleted in the same request",
+                  description: "The slot name varies with the conflicting multipart fields",
+                }),
+              }),
+              t.Object({
+                message: t.String({
                   default: "standard question does not accept files",
                 }),
               }),
@@ -230,6 +241,9 @@ export default (app: App) =>
                 }),
               }),
             ]),
+            500: t.Object({
+              message: t.String({ default: "failed to delete answer files; update aborted" }),
+            }),
           },
         },
       )

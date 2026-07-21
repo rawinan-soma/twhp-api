@@ -147,7 +147,7 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Implementation:** `answer.ts:124-210,525-670,782-817,893-1035`; answer DTOs.
 - **Inputs/conditions:** effective choice, Question `special`, new/existing PDF files.
 - **Result:** validated filenames stored.
-- **Edges/failure:** on initial `0`/`n/a`, supplied files pass DTO validation but are silently ignored. `special=3` edit/redo clears non-selected groups. Other specials preserve all old groups even on lowering and offer no explicit delete operation. For non-special `0`/`n/a`, update/redo may preserve or upload evidence although initial create ignores it. MinIO changes happen before DB commit.
+- **Edges/failure:** on initial `0`/`n/a`, supplied files pass DTO validation but are silently ignored. `special=3` edit/redo clears non-selected groups. Other specials preserve all old groups even on lowering. For non-special `0`/`n/a`, update/redo may preserve or upload evidence although initial create ignores it. MinIO changes happen before DB commit. PATCH supports optional `delete_file_<row>_<slot>` flags while the latest Answer status is `in_review`. Deletion eligibility is independent of `Question.special`; the projected evidence must still satisfy the existing choice matrix. Omission preserves a stored file. Explicit deletion uses strict MinIO removal before the Answer columns are updated, so MinIO success followed by database failure can leave a dangling filename.
 - **Failure behavior:** missing required evidence 400.
 - **Risk of change:** High—evidence retention and client uploads.
 - **Confidence:** **Verified.**

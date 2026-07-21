@@ -108,6 +108,14 @@ Each uploaded file must be a PDF no larger than 10 MiB. Enrollment bodies suppor
 
 Multipart numeric fields use `t.Numeric()` and decode numeric strings to numbers. Enrollment standard booleans accept actual booleans or the exact strings `"true"` and `"false"`. Answer choices are strings: `"0"`, `"1"`, `"2"`, `"3"`, or `"n/a"`.
 
+Answer PATCH requests may explicitly remove an existing evidence object with the matching optional
+`delete_file_<row>_<slot>=true` multipart field. Omission or `false` keeps the existing object;
+supplying a PDF replaces it. Explicit deletion is available only while the Answer's latest status is
+`in_review`, deletes the exact MinIO object, and persists `null` in the matching Answer column.
+Uploading and deleting the same slot returns 400, as does deleting evidence required by the effective
+choice. Evaluator rejection remains separate: files stay on verdict save and all files for rejected
+Answers are removed when ODPC/admin finalizes.
+
 ### DTO and serialization style
 
 Domain schemas normally compose Drizzle-derived base schemas from [`src/schema/index.ts`](../src/schema/index.ts). Request DTOs generally use camelCase.
