@@ -57,7 +57,7 @@ The full response object returned by the score endpoints. Contains:
 - Per-category scores: `collaborate`, `disease`, `safety`, `mental`, `outcome`
 - `grade` — the [[Grade]] (`gold`/`silver`/`certificate`/`joined`), present **only when `coverStatus` is `finished`** (otherwise `null`). Recomputed on-demand like the score — this is the retrieval path for a Grade after the finalize email.
 
-For list endpoints (Evaluator, Provincial Officer, Admin), the response is an array of Score Reports, each carrying `grade` for its `finished` Covers.
+For list endpoints (Evaluator, Provincial Officer, Admin), the response is a **page** of Score Reports — `{ items, meta }`, default 20 per page — each carrying `grade` for its `finished` Covers. The Factory endpoint returns a single Score Report and is not paginated. See [API conventions](docs/api-conventions.md#pagination).
 
 ### Grade
 The award tier derived from a `finished` Cover's scores. One of `gold`, `silver`, `certificate`, `joined`. Derived on-demand (never persisted), evaluated **strictly top-down — the first tier whose conditions all pass** (the lower tiers are *floors*, not bands, so the ordering is load-bearing):
@@ -243,6 +243,8 @@ Evaluator-facing, under `evalGuard`; the same shape is mirrored for the DOED adm
 ## Score Endpoints
 
 Every Score Report carries `grade` (populated for `finished` Covers, `null` otherwise) — this is the on-demand retrieval path for a Grade after finalize.
+
+The three staff list endpoints below are paginated (`?page=`, `?limit=`, default 20, max 100) and return `{ items, meta }`. The Factory endpoint returns one Score Report directly.
 
 | Role | Path | Scope |
 |------|------|-------|

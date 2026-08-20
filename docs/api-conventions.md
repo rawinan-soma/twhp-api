@@ -124,15 +124,68 @@ Clients must follow each endpoint schema and must not apply a global case conver
 
 Path identifiers are numeric. Current routes mix `t.Number()` and `t.Numeric()`; clients should send plain decimal path segments.
 
-There is no pagination contract. List routes return complete arrays and do not accept `page`, `limit`, or cursor parameters. There is also no general client-selected sorting.
+#### Pagination
 
-Current explicit ordering is limited to:
+Nine staff list endpoints accept offset pagination and return a `{ items, meta }` envelope. Every other route is unpaginated and returns its bare shape; this is a deliberate scoped exception, not a global wrapper ([ADR-0007](adr/0007-pagination-envelope-scoped-exception.md)). An endpoint gets the envelope if and only if its result set grows with the data — bounded collections such as the question set, per-cover answers, and location lookups stay bare arrays.
 
-- factory lists: account ID ascending;
-- enrollment lists: enrollment date descending;
-- provinces: Thai name ascending.
+```
+GET /twhp/api/admins/factories?page=2&limit=50
+```
 
-Other list ordering is not guaranteed.
+| Parameter | Type | Default | Range | Notes |
+|-----------|------|---------|-------|-------|
+| `page` | integer | `1` | `>= 1` | 1-indexed; the first page is `1`. |
+| `limit` | integer | `20` | `1..100` | The `100` ceiling is a resource-exhaustion control, enforced before any query runs. |
+
+Both are optional. `page=0`, `limit=0`, `limit=101`, and fractional or non-numeric values are rejected with HTTP 400 by the global handler.
+
+The response is:
+
+```json
+{
+  "items": [],
+  "meta": { "page": 1, "limit": 20, "total": 0, "totalPages": 0 }
+}
+```
+
+`total` is the number of rows matching the complete filter predicate, not the number of items returned. `totalPages` is `ceil(total / limit)`, and `0` when `total` is `0`. A page past the last page is a successful, empty result — HTTP 200 with accurate `meta`, not a 404.
+
+Existing `404` responses on these routes are **not** wrapped. `{ "message": "invalid evaluator" }` and `{ "message": "officer not found" }` keep their bare shape, so a missing staff record stays distinguishable from an empty page.
+
+There is no cursor pagination, no `hasNext`/`hasPrev`, and no general client-selected sorting.
+
+#### Breaking change
+
+All nine endpoints below changed from a bare JSON array to the `{ items, meta }` envelope, and now return at most `limit` rows per request (20 by default) instead of the complete set:
+
+- `GET /twhp/api/admins/factories`
+- `GET /twhp/api/admins/enrolls`
+- `GET /twhp/api/admins/score`
+- `GET /twhp/api/evaluators/factories`
+- `GET /twhp/api/evaluators/enrolls`
+- `GET /twhp/api/evaluators/score`
+- `GET /twhp/api/provincialOfficers/factories`
+- `GET /twhp/api/provincialOfficers/enrolls`
+- `GET /twhp/api/provincialOfficers/score`
+
+Item field names, casing, filters, role guards, region and province scoping, and fiscal-year scoping are unchanged. A client that read the array directly must now read `items` and page through `meta.totalPages`.
+
+**A consumer that needs the complete data set is not served by these endpoints.** Without paging through every page it now receives the first 20 rows and no error. A dedicated bulk-export path is planned as a separate intent and does not exist yet.
+
+#### Ordering
+
+Every paginated query imposes a *total order* — an ordering whose final sort column is unique. Without one, `OFFSET` has no defined meaning and rows can repeat or vanish between pages ([ADR-0009](adr/0009-offset-pagination-for-staff-lists.md)).
+
+| List | Order |
+|------|-------|
+| factory lists (all three roles) | `accountId` ascending (unique) |
+| enrollment lists (all three roles) | `enrollDate` descending, then `id` descending |
+| score report lists (all three roles) | factory `accountId` ascending, then cover `id` ascending |
+| provinces | Thai name ascending (unpaginated) |
+
+Enrollment lists kept their existing primary direction and gained the `id` tiebreaker, because `enrollDate` is not unique. Score report lists previously had **no** `ORDER BY` at all. Ordering outside this table is not guaranteed.
+
+#### Filters
 
 Supported filters include:
 
@@ -140,7 +193,9 @@ Supported filters include:
 - staff enrollment lists: optional `coverStatus=finished|in_progress|in_review|none`;
 - admin score list: optional `region` and `provinceId`.
 
-Current `enrolled=false` behavior does not mean “only unenrolled factories.” It disables the current-fiscal-year enrollment-date filter; evaluator and provincial variants still inner-join enrollment rows. Treat this as current implementation behavior, not a stable semantic contract.
+Filters are applied in SQL and are reflected in `meta.total`: the count and the page are built from the same predicate.
+
+Current `enrolled=false` behavior does not mean “only unenrolled factories.” It disables the current-fiscal-year enrollment-date filter. The evaluator and provincial variants still require at least one enrollment row to exist, but this is now expressed as a correlated `EXISTS` predicate rather than an inner join ([ADR-0008](adr/0008-exists-subquery-for-enrolled-filter.md)) — so a factory with several enrollments appears once, not once per enrollment. Treat the `enrolled=false` semantics as current implementation behavior, not a stable semantic contract.
 
 ### Validation status
 
@@ -161,9 +216,9 @@ Input strength is not uniform. For example, admin password updates require 12 ch
 
 ## Responses and errors
 
-Successful reads normally return an object or array directly, without a `{data, meta}` envelope. Mutations normally return `{ "message": "..." }`; verdict and finalize operations add identifiers or state.
+Successful reads normally return an object or array directly, without an envelope. The nine paginated staff list endpoints are the one exception and return `{ items, meta }` — see [Pagination](#pagination) and [ADR-0007](adr/0007-pagination-envelope-scoped-exception.md). Mutations normally return `{ "message": "..." }`; verdict and finalize operations add identifiers or state.
 
-Empty lists normally return `[]`. One important exception is `GET /factories/enrolls`, which returns HTTP 200 with `{ "message": "no enrollment found" }` when no current enrollment exists.
+Empty lists normally return `[]`; the nine paginated staff lists return `{ "items": [], "meta": { ... } }` instead. One important exception is `GET /factories/enrolls`, which returns HTTP 200 with `{ "message": "no enrollment found" }` when no current enrollment exists.
 
 Expected service failures usually use:
 
