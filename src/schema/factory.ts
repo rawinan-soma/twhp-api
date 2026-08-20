@@ -37,3 +37,46 @@ export const AllFactoriesResponseSchema = t.Array(
 export type CreateFactoryDto = Static<typeof CreateFactorySchema>;
 export type UpdateFactoryDto = Static<typeof UpdateFactorySchema>;
 export type AllFactoriesQueryParams = Static<typeof AllFactoriesQueryParamsSchema>;
+
+/**
+ * Factory list item, extracted verbatim from the three route files so they stop repeating a
+ * sixteen-field inline object. Field names, casing, and nullability are unchanged.
+ *
+ * Note: the Provincial Officer route declares the three joined location names as non-nullable while
+ * the Admin and Evaluator routes declare them nullable. All three queries innerJoin those tables so
+ * a null cannot occur in practice, but the declarations differ. That inconsistency is preserved
+ * here rather than silently unified — see ProvincialFactoryListItemSchema below.
+ */
+export const FactoryListItemSchema = t.Object({
+  province_name_th: t.Nullable(t.String()),
+  district_name_th: t.Nullable(t.String()),
+  subdistrict_name_th: t.Nullable(t.String()),
+  account_id: t.Number(),
+  factory_type: t.Number(),
+  name_th: t.String(),
+  name_en: t.String(),
+  tsic_code: t.String(),
+  address_no: t.String(),
+  soi: t.Nullable(t.String()),
+  road: t.Nullable(t.String()),
+  zipcode: t.String(),
+  phone_number: t.String(),
+  fax_number: t.Nullable(t.String()),
+  is_validate: t.Boolean(),
+});
+
+/** Admin variant adds `username` from the accounts join. */
+export const AdminFactoryListItemSchema = t.Composite([
+  t.Object({ username: t.String() }),
+  FactoryListItemSchema,
+]);
+
+/** Provincial Officer variant — location names declared non-nullable, as they are today. */
+export const ProvincialFactoryListItemSchema = t.Composite([
+  t.Omit(FactoryListItemSchema, ["province_name_th", "district_name_th", "subdistrict_name_th"]),
+  t.Object({
+    province_name_th: t.String(),
+    district_name_th: t.String(),
+    subdistrict_name_th: t.String(),
+  }),
+]);

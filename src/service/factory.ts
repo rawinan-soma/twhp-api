@@ -1,5 +1,5 @@
 import * as bcrypt from "bcrypt";
-import { and, asc, eq, gte, lt, or, type SQL } from "drizzle-orm";
+import { and, asc, count, eq, exists, gte, lt, or, type SQL, sql } from "drizzle-orm";
 import { status } from "elysia";
 import { db } from "../drizzle";
 import {
@@ -11,7 +11,78 @@ import {
   subdistricts,
 } from "../drizzle/schema";
 import type { CreateFactoryDto, UpdateFactoryDto } from "../schema/factory";
+import { buildPage, type PaginationQueryDto, resolvePage } from "../schema/pagination";
 import { utilities } from "../utils";
+
+/** Shared projection for every factory list variant. The Admin variant prepends `username`. */
+const factoryListColumns = {
+  province_name_th: provinces.nameTh,
+  district_name_th: districts.nameTh,
+  subdistrict_name_th: subdistricts.nameTh,
+  account_id: factories.accountId,
+  factory_type: factories.factoryType,
+  name_th: factories.nameTh,
+  name_en: factories.nameEn,
+  tsic_code: factories.tsicCode,
+  address_no: factories.addressNo,
+  soi: factories.soi,
+  road: factories.road,
+  zipcode: factories.zipcode,
+  phone_number: factories.phoneNumber,
+  fax_number: factories.faxNumber,
+  is_validate: factories.isValidate,
+};
+
+type FactoryListParams = { validated: boolean; enrolled?: boolean } & PaginationQueryDto;
+
+/**
+ * The `enrolled` filter as a correlated EXISTS rather than a join, so a factory with several
+ * enrollments produces one row instead of one row per enrollment. Under pagination the old join
+ * made `total` count join rows and let one factory straddle a page boundary.
+ * See docs/adr/0008-exists-subquery-for-enrolled-filter.md.
+ *
+ * `withFiscalYear` narrows to the current fiscal year. When false the predicate asserts only that
+ * at least one enrollment exists, which is what the previous innerJoin did on the region and
+ * province variants.
+ */
+const enrollExists = (database: typeof db, withFiscalYear: boolean) => {
+  const conditions: (SQL | undefined)[] = [eq(enrolls.factoryId, factories.accountId)];
+  if (withFiscalYear) {
+    const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+    conditions.push(gte(enrolls.enrollDate, fiscalYearStart.toISOString()));
+    conditions.push(lt(enrolls.enrollDate, fiscalYearEnd.toISOString()));
+  }
+  return exists(
+    database
+      .select({ n: sql`1` })
+      .from(enrolls)
+      .where(and(...conditions)),
+  );
+};
+
+/**
+ * Counts under the SAME predicate as the page query and replicates its joins, so inner-join
+ * exclusions apply identically. `total` and `items` must never be built from different predicates —
+ * that is the one pagination invariant spanning two separate queries.
+ */
+const countFactories = async (
+  database: typeof db,
+  predicate: SQL | undefined,
+  withAccounts = false,
+) => {
+  let query = database
+    .select({ value: count() })
+    .from(factories)
+    .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
+    .innerJoin(districts, eq(factories.districtId, districts.districtId))
+    .innerJoin(subdistricts, eq(factories.subdistrictId, subdistricts.subdistrictId))
+    .$dynamic();
+  if (withAccounts) {
+    query = query.innerJoin(accounts, eq(factories.accountId, accounts.id));
+  }
+  const rows = await query.where(predicate);
+  return rows[0]?.value ?? 0;
+};
 
 const createFactoryHelper = (database: typeof db) => {
   return {
@@ -125,135 +196,95 @@ export const createFactoryService = (database: typeof db) => {
       validated,
       enrolled = true,
       provinceId,
-    }: {
-      validated: boolean;
-      enrolled?: boolean;
-      provinceId: number;
-    }) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
-      const filters: (SQL | undefined)[] = [];
-      if (enrolled && fiscalYearStart && fiscalYearEnd) {
-        filters.push(gte(enrolls.enrollDate, fiscalYearStart.toISOString()));
-        filters.push(lt(enrolls.enrollDate, fiscalYearEnd.toISOString()));
-      }
-      return await database
-        .select({
-          province_name_th: provinces.nameTh,
-          district_name_th: districts.nameTh,
-          subdistrict_name_th: subdistricts.nameTh,
-          account_id: factories.accountId,
-          factory_type: factories.factoryType,
-          name_th: factories.nameTh,
-          name_en: factories.nameEn,
-          tsic_code: factories.tsicCode,
-          address_no: factories.addressNo,
-          soi: factories.soi,
-          road: factories.road,
-          zipcode: factories.zipcode,
-          phone_number: factories.phoneNumber,
-          fax_number: factories.faxNumber,
-          is_validate: factories.isValidate,
-        })
-        .from(factories)
-        .innerJoin(enrolls, eq(factories.accountId, enrolls.factoryId))
-        .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
-        .innerJoin(districts, eq(factories.districtId, districts.districtId))
-        .innerJoin(subdistricts, eq(factories.subdistrictId, subdistricts.subdistrictId))
-        .where(
-          and(
-            ...filters,
-            eq(factories.isValidate, validated),
-            eq(factories.provinceId, provinceId),
-          ),
-        )
-        .orderBy(asc(factories.accountId));
+      page,
+      limit,
+    }: FactoryListParams & { provinceId: number }) => {
+      const resolved = resolvePage({ page, limit });
+      // Province variant previously used innerJoin(enrolls), so a factory with no enrollment was
+      // excluded regardless of `enrolled`. EXISTS is therefore unconditional here; only the
+      // fiscal-year window is conditional. See docs/adr/0008.
+      const predicate = and(
+        eq(factories.isValidate, validated),
+        eq(factories.provinceId, provinceId),
+        enrollExists(database, enrolled),
+      );
+
+      const [total, items] = await Promise.all([
+        countFactories(database, predicate),
+        database
+          .select(factoryListColumns)
+          .from(factories)
+          .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
+          .innerJoin(districts, eq(factories.districtId, districts.districtId))
+          .innerJoin(subdistricts, eq(factories.subdistrictId, subdistricts.subdistrictId))
+          .where(predicate)
+          .orderBy(asc(factories.accountId))
+          .limit(resolved.limit)
+          .offset(resolved.offset),
+      ]);
+
+      return buildPage(items, total, resolved.page, resolved.limit);
     },
 
     getAllFactoriesByRegion: async ({
       validated,
       enrolled = true,
       region,
-    }: {
-      validated: boolean;
-      enrolled?: boolean;
-      region: number;
-    }) => {
-      const filters: (SQL | undefined)[] = [];
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
-      if (enrolled && fiscalYearStart && fiscalYearEnd) {
-        filters.push(gte(enrolls.enrollDate, fiscalYearStart.toISOString()));
-        filters.push(lt(enrolls.enrollDate, fiscalYearEnd.toISOString()));
-      }
-      return await database
-        .select({
-          province_name_th: provinces.nameTh,
-          district_name_th: districts.nameTh,
-          subdistrict_name_th: subdistricts.nameTh,
-          account_id: factories.accountId,
-          factory_type: factories.factoryType,
-          name_th: factories.nameTh,
-          name_en: factories.nameEn,
-          tsic_code: factories.tsicCode,
-          address_no: factories.addressNo,
-          soi: factories.soi,
-          road: factories.road,
-          zipcode: factories.zipcode,
-          phone_number: factories.phoneNumber,
-          fax_number: factories.faxNumber,
-          is_validate: factories.isValidate,
-        })
-        .from(factories)
-        .innerJoin(enrolls, eq(factories.accountId, enrolls.factoryId))
-        .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
-        .innerJoin(districts, eq(factories.districtId, districts.districtId))
-        .innerJoin(subdistricts, eq(factories.subdistrictId, subdistricts.subdistrictId))
-        .where(
-          and(...filters, eq(factories.isValidate, validated), eq(provinces.healthRegion, region)),
-        )
-        .orderBy(asc(factories.accountId));
+      page,
+      limit,
+    }: FactoryListParams & { region: number }) => {
+      const resolved = resolvePage({ page, limit });
+      // Region variant previously used innerJoin(enrolls) — same reasoning as the province variant.
+      const predicate = and(
+        eq(factories.isValidate, validated),
+        eq(provinces.healthRegion, region),
+        enrollExists(database, enrolled),
+      );
+
+      const [total, items] = await Promise.all([
+        countFactories(database, predicate),
+        database
+          .select(factoryListColumns)
+          .from(factories)
+          .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
+          .innerJoin(districts, eq(factories.districtId, districts.districtId))
+          .innerJoin(subdistricts, eq(factories.subdistrictId, subdistricts.subdistrictId))
+          .where(predicate)
+          .orderBy(asc(factories.accountId))
+          .limit(resolved.limit)
+          .offset(resolved.offset),
+      ]);
+
+      return buildPage(items, total, resolved.page, resolved.limit);
     },
 
-    getAllFactories: async ({
-      validated,
-      enrolled,
-    }: {
-      validated: boolean;
-      enrolled?: boolean;
-    }) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
-      const filters: (SQL | undefined)[] = [];
-      if (enrolled && fiscalYearStart && fiscalYearEnd) {
-        filters.push(gte(enrolls.enrollDate, fiscalYearStart.toISOString()));
-        filters.push(lt(enrolls.enrollDate, fiscalYearEnd.toISOString()));
-      }
+    getAllFactories: async ({ validated, enrolled, page, limit }: FactoryListParams) => {
+      const resolved = resolvePage({ page, limit });
+      // Admin variant previously used leftJoin(enrolls) with the fiscal-year predicate applied only
+      // when `enrolled` is true — so an unfiltered call returned every factory, duplicated once per
+      // enrollment row. EXISTS is applied only when `enrolled` is true, preserving which factories
+      // are selected while removing the duplicates. See docs/adr/0008.
+      const predicate = and(
+        eq(factories.isValidate, validated),
+        enrolled ? enrollExists(database, true) : undefined,
+      );
 
-      return await database
-        .select({
-          username: accounts.username,
-          province_name_th: provinces.nameTh,
-          district_name_th: districts.nameTh,
-          subdistrict_name_th: subdistricts.nameTh,
-          account_id: factories.accountId,
-          factory_type: factories.factoryType,
-          name_th: factories.nameTh,
-          name_en: factories.nameEn,
-          tsic_code: factories.tsicCode,
-          address_no: factories.addressNo,
-          soi: factories.soi,
-          road: factories.road,
-          zipcode: factories.zipcode,
-          phone_number: factories.phoneNumber,
-          fax_number: factories.faxNumber,
-          is_validate: factories.isValidate,
-        })
-        .from(factories)
-        .leftJoin(enrolls, eq(factories.accountId, enrolls.factoryId))
-        .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
-        .innerJoin(districts, eq(factories.districtId, districts.districtId))
-        .innerJoin(subdistricts, eq(factories.subdistrictId, subdistricts.subdistrictId))
-        .innerJoin(accounts, eq(factories.accountId, accounts.id))
-        .where(and(...filters, eq(factories.isValidate, validated)))
-        .orderBy(asc(factories.accountId));
+      const [total, items] = await Promise.all([
+        countFactories(database, predicate, true),
+        database
+          .select({ username: accounts.username, ...factoryListColumns })
+          .from(factories)
+          .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
+          .innerJoin(districts, eq(factories.districtId, districts.districtId))
+          .innerJoin(subdistricts, eq(factories.subdistrictId, subdistricts.subdistrictId))
+          .innerJoin(accounts, eq(factories.accountId, accounts.id))
+          .where(predicate)
+          .orderBy(asc(factories.accountId))
+          .limit(resolved.limit)
+          .offset(resolved.offset),
+      ]);
+
+      return buildPage(items, total, resolved.page, resolved.limit);
     },
 
     update: async (accountId: number, dto: UpdateFactoryDto) => {
