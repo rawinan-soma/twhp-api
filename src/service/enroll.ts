@@ -1,8 +1,8 @@
-import { and, desc, eq, getTableColumns, gte, inArray, lt, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, gte, isNull, lt, type SQL, sql } from "drizzle-orm";
+import type { PgSelectQueryBuilder } from "drizzle-orm/pg-core";
 import { status } from "elysia";
 import { db } from "../drizzle";
 import {
-  coverLogs,
   covers,
   districts,
   enrolls,
@@ -12,147 +12,121 @@ import {
   subdistricts,
 } from "../drizzle/schema";
 import type { CreateEnrollWithFilesDto, UpdateEnrollWithFilesDto } from "../schema/enroll";
+import { buildPage, type PaginationQueryDto, resolvePage } from "../schema/pagination";
 import { utilities } from "../utils";
+import { latestCoverLogLateral } from "./coverStatus";
 
 /** Cover-status filter value. `none` = enroll has no cover yet. */
 export type CoverStatusFilter = "finished" | "in_progress" | "in_review" | "none";
 
 export const createEnrollService = (database: typeof db) => {
   /**
-   * Enrich enroll rows with their cover projection (coverId + coverStatus) via
-   * latest-log-wins, then optionally filter by cover status. ≤2 bounded queries,
-   * no N+1 (mirrors score.ts buildScoreReports). Order is preserved.
+   * Shared join chain for every enrollment list read.
+   *
+   * Both the count query and the page query are built from this one function, so they cannot drift
+   * apart. That pairing is what makes `meta.total` describe the same population as `items` — the
+   * invariant the previous JavaScript-side filter could not satisfy, because it had no count query
+   * at all.
+   *
+   * `covers` is a plain LEFT JOIN and cannot multiply rows: an enrollment has at most one cover.
+   * `coverLogs` IS one-to-many, which is why it arrives through the shared lateral (whose `LIMIT 1`
+   * collapses it) rather than as a join. See docs/adr/0010.
    */
-  const enrichAndFilterCovers = async <T extends { id: number }>(
-    rows: T[],
+  const withEnrollJoins = <Q extends PgSelectQueryBuilder>(
+    query: Q,
+    latest: ReturnType<typeof latestCoverLogLateral>,
+  ) =>
+    query
+      .innerJoin(factories, eq(enrolls.factoryId, factories.accountId))
+      .innerJoin(provinces, eq(provinces.provinceId, factories.provinceId))
+      .leftJoin(covers, eq(covers.enrollId, enrolls.id))
+      .leftJoinLateral(latest, sql`true`);
+
+  /** Item projection — unchanged from the pre-pagination shape, field for field. */
+  const enrollListColumns = (latest: ReturnType<typeof latestCoverLogLateral>) => ({
+    ...getTableColumns(enrolls),
+    factory_name_th: factories.nameTh,
+    region: provinces.healthRegion,
+    provinceId: provinces.provinceId,
+    coverId: covers.id,
+    coverStatus: latest.status,
+  });
+
+  /**
+   * The four filter values are NOT four comparisons.
+   *
+   * `none` means "this enrollment has no cover at all" and is an ABSENCE test on the cover join.
+   * It must never be written as `latest.status IS NULL`, which would also match an enrollment whose
+   * cover exists but has no log yet — a different population.
+   */
+  const coverStatusPredicate = (
+    latest: ReturnType<typeof latestCoverLogLateral>,
     coverStatus?: CoverStatusFilter,
-  ): Promise<
-    (T & {
-      coverId: number | null;
-      coverStatus: "finished" | "in_progress" | "in_review" | null;
-    })[]
-  > => {
-    if (rows.length === 0) return [];
+  ): SQL | undefined => {
+    if (!coverStatus) return undefined;
+    if (coverStatus === "none") return isNull(covers.id);
+    return eq(latest.status, coverStatus);
+  };
 
-    const enrollIds = rows.map((r) => r.id);
+  /**
+   * Total order: enrollDate DESC then id DESC.
+   *
+   * The primary direction is unchanged so staff see the same order as before. The `id` tiebreaker is
+   * required, not cosmetic: `enrollDate` is not unique, and OFFSET over a non-total order can repeat
+   * or skip rows between pages (docs/adr/0009).
+   */
+  const enrollListOrder = [desc(enrolls.enrollDate), desc(enrolls.id)] as const;
 
-    // Query A: covers for these enrolls (≤1 cover per enroll) → enrollId → coverId
-    const coverRows = await database
-      .select({ id: covers.id, enrollId: covers.enrollId })
-      .from(covers)
-      .where(inArray(covers.enrollId, enrollIds));
-    const coverByEnroll = new Map(coverRows.map((c) => [c.enrollId, c.id]));
+  const listEnrolls = async ({
+    region,
+    provinceId,
+    coverStatus,
+    page,
+    limit,
+  }: {
+    region?: number;
+    provinceId?: number;
+    coverStatus?: CoverStatusFilter;
+  } & PaginationQueryDto) => {
+    const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+    const resolved = resolvePage({ page, limit });
+    const latest = latestCoverLogLateral(database);
 
-    // Query B: latest coverLog per cover (latest-log-wins) → coverId → status
-    const coverIds = coverRows.map((c) => c.id);
-    const statusByCover =
-      coverIds.length === 0
-        ? new Map<number, "finished" | "in_progress" | "in_review">()
-        : new Map(
-            (
-              await database
-                .selectDistinctOn([coverLogs.coverId], {
-                  coverId: coverLogs.coverId,
-                  status: coverLogs.status,
-                })
-                .from(coverLogs)
-                .where(inArray(coverLogs.coverId, coverIds))
-                .orderBy(coverLogs.coverId, desc(coverLogs.id))
-            ).map((l) => [l.coverId, l.status] as const),
-          );
+    const predicate = and(
+      gte(enrolls.enrollDate, fiscalYearStart.toISOString()),
+      lt(enrolls.enrollDate, fiscalYearEnd.toISOString()),
+      region === undefined ? undefined : eq(provinces.healthRegion, region),
+      provinceId === undefined ? undefined : eq(provinces.provinceId, provinceId),
+      coverStatusPredicate(latest, coverStatus),
+    );
 
-    const enriched = rows.map((r) => {
-      const coverId = coverByEnroll.get(r.id) ?? null;
-      const coverStatusVal = coverId === null ? null : (statusByCover.get(coverId) ?? null);
-      return { ...r, coverId, coverStatus: coverStatusVal };
-    });
+    const [total, items] = await Promise.all([
+      withEnrollJoins(database.select({ value: count() }).from(enrolls).$dynamic(), latest)
+        .where(predicate)
+        .then((rows) => rows[0]?.value ?? 0),
+      withEnrollJoins(database.select(enrollListColumns(latest)).from(enrolls).$dynamic(), latest)
+        .where(predicate)
+        .orderBy(...enrollListOrder)
+        .limit(resolved.limit)
+        .offset(resolved.offset),
+    ]);
 
-    // AND-combined with the scope already applied by the caller's WHERE clause.
-    if (coverStatus === "none") return enriched.filter((r) => r.coverId === null);
-    if (coverStatus) return enriched.filter((r) => r.coverStatus === coverStatus);
-    return enriched;
+    return buildPage(items, total, resolved.page, resolved.limit);
   };
 
   return {
-    getAllEnrollsByRegion: async (region: number) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
-      const results = await database
-        .select({
-          ...getTableColumns(enrolls),
-          factory_name_th: factories.nameTh,
-          region: provinces.healthRegion,
-          provinceId: provinces.provinceId,
-        })
-        .from(enrolls)
-        .innerJoin(factories, eq(enrolls.factoryId, factories.accountId))
-        .innerJoin(provinces, eq(provinces.provinceId, factories.provinceId))
-        .where(
-          and(
-            gte(enrolls.enrollDate, fiscalYearStart.toISOString()),
-            lt(enrolls.enrollDate, fiscalYearEnd.toISOString()),
-            eq(provinces.healthRegion, region),
-          ),
-        )
-        .orderBy(desc(enrolls.enrollDate));
+    getAllEnrollsByProvince: async (
+      provinceId: number,
+      coverStatus?: CoverStatusFilter,
+      pagination?: PaginationQueryDto,
+    ) => listEnrolls({ provinceId, coverStatus, ...pagination }),
 
-      return results;
-    },
-    getAllEnrollsByProvince: async (provinceId: number, coverStatus?: CoverStatusFilter) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
-      const results = await database
-        .select({
-          ...getTableColumns(enrolls),
-          factory_name_th: factories.nameTh,
-          region: provinces.healthRegion,
-          provinceId: provinces.provinceId,
-        })
-        .from(enrolls)
-        .innerJoin(factories, eq(enrolls.factoryId, factories.accountId))
-        .innerJoin(provinces, eq(provinces.provinceId, factories.provinceId))
-        .where(
-          and(
-            gte(enrolls.enrollDate, fiscalYearStart.toISOString()),
-            lt(enrolls.enrollDate, fiscalYearEnd.toISOString()),
-            eq(provinces.provinceId, provinceId),
-          ),
-        )
-        .orderBy(desc(enrolls.enrollDate));
-
-      return enrichAndFilterCovers(results, coverStatus);
-    },
     getAllEnrolls: async (
       region?: number,
       provinceId?: number,
       coverStatus?: CoverStatusFilter,
-    ) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
-      const filters: (SQL | undefined)[] = [
-        gte(enrolls.enrollDate, fiscalYearStart.toISOString()),
-        lt(enrolls.enrollDate, fiscalYearEnd.toISOString()),
-      ];
-
-      if (region !== undefined) {
-        filters.push(eq(provinces.healthRegion, region));
-      }
-
-      if (provinceId !== undefined) {
-        filters.push(eq(provinces.provinceId, provinceId));
-      }
-      const results = await database
-        .select({
-          ...getTableColumns(enrolls),
-          factory_name_th: factories.nameTh,
-          region: provinces.healthRegion,
-          provinceId: provinces.provinceId,
-        })
-        .from(enrolls)
-        .innerJoin(factories, eq(enrolls.factoryId, factories.accountId))
-        .innerJoin(provinces, eq(provinces.provinceId, factories.provinceId))
-        .where(and(...filters))
-        .orderBy(desc(enrolls.enrollDate));
-
-      return enrichAndFilterCovers(results, coverStatus);
-    },
+      pagination?: PaginationQueryDto,
+    ) => listEnrolls({ region, provinceId, coverStatus, ...pagination }),
 
     getEnrollById: async (enrollId: number) => {
       const result = await database

@@ -1,6 +1,7 @@
 import { type Static, t } from "elysia";
 import type { FileOptions } from "elysia/type-system/types";
 import { BaseEnrollInsert, BaseEnrollSelect, BaseEnrollUpdate } from ".";
+import { Paginated } from "./pagination";
 
 export const fileOption: FileOptions = {
   type: "application/pdf",
@@ -162,3 +163,10 @@ export const EnrollWithCoverSelect = t.Composite([
   }),
 ]);
 export const EnrollWithCoverListSchema = t.Array(EnrollWithCoverSelect);
+
+/**
+ * Paginated response for the staff enroll-list endpoints (intent 012).
+ * The item schema above is unchanged; only the wrapper is new.
+ * See docs/adr/0007-pagination-envelope-scoped-exception.md.
+ */
+export const EnrollWithCoverPageSchema = Paginated(EnrollWithCoverSelect);
