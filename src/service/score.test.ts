@@ -179,6 +179,7 @@ describe("Story 008/009 — Score Report Shape (nested scoring)", () => {
     coverId: 10,
     coverStatus: "in_review",
     enrollId: 5,
+    grade: null,
     scoring: {
       total: group,
       collaborate: group,
@@ -191,6 +192,33 @@ describe("Story 008/009 — Score Report Shape (nested scoring)", () => {
 
   it("AC: ScoreReportSchema validates a well-formed nested report", () => {
     expect(Value.Check(ScoreReportSchema, validReport)).toBe(true);
+  });
+
+  it("AC: the existing contract accepts null Grade for an in-review Cover", () => {
+    expect(Value.Check(ScoreReportSchema, validReport)).toBe(true);
+    expect(validReport.grade).toBeNull();
+  });
+
+  it("AC: the existing contract accepts every Grade for a finished Cover", () => {
+    for (const grade of ["gold", "silver", "certificate", "joined"] as const) {
+      expect(
+        Value.Check(ScoreReportSchema, {
+          ...validReport,
+          coverStatus: "finished",
+          grade,
+        }),
+      ).toBe(true);
+    }
+  });
+
+  it("AC: values outside the Grade enum are rejected", () => {
+    expect(
+      Value.Check(ScoreReportSchema, {
+        ...validReport,
+        coverStatus: "finished",
+        grade: "platinum",
+      }),
+    ).toBe(false);
   });
 
   it("AC: flat score fields are no longer part of the schema (breaking)", () => {

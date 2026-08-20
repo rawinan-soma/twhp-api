@@ -1,4 +1,5 @@
 import { t } from "elysia";
+import { Paginated } from "./pagination";
 
 export const ScoreGroupSchema = t.Object({
   scoredCount: t.Integer({ minimum: 0 }),
@@ -32,3 +33,12 @@ export const ScoreReportSchema = t.Object({
 });
 
 export const ScoreReportListSchema = t.Array(ScoreReportSchema);
+
+/**
+ * Paginated response for the three staff Score Report list endpoints (intent 012).
+ * `ScoreReportSchema` above is unchanged; only the wrapper is new.
+ * See docs/adr/0007-pagination-envelope-scoped-exception.md.
+ *
+ * The Factory single-report endpoint keeps `ScoreReportSchema` bare — one Cover, one report.
+ */
+export const ScoreReportPageSchema = Paginated(ScoreReportSchema);

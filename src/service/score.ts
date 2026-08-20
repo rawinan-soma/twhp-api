@@ -1,16 +1,11 @@
-import { and, desc, eq, gte, inArray, lt, type SQL } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, lt, sql } from "drizzle-orm";
+import type { PgSelectQueryBuilder } from "drizzle-orm/pg-core";
 import { status } from "elysia";
 import { db } from "../drizzle";
-import {
-  answers,
-  coverLogs,
-  covers,
-  enrolls,
-  factories,
-  provinces,
-  questions,
-} from "../drizzle/schema";
+import { answers, covers, enrolls, factories, provinces, questions } from "../drizzle/schema";
+import { buildPage, type PaginationQueryDto, resolvePage } from "../schema/pagination";
 import { utilities } from "../utils";
+import { latestCoverLogFor, latestCoverLogLateral } from "./coverStatus";
 import {
   type AnswerWithCategory,
   type CategoryKey,
@@ -27,29 +22,53 @@ type CoverWithFactoryInfo = {
   factoryNameTh: string;
 };
 
+/** A Cover is scorable once it leaves `in_progress`. See docs/adr/0011. */
+const SCORABLE_STATUSES = ["in_review", "finished"] as const;
+
 export const createScoreService = (database: typeof db) => {
-  const buildScoreReports = async (coverList: CoverWithFactoryInfo[]) => {
-    const coverIds = coverList.map((c) => c.coverId);
+  /**
+   * Shared join chain for the Score Report list reads. Both the count query and the page query are
+   * built from it, so their predicates cannot drift and `meta.total` always describes the same
+   * population as `items`.
+   *
+   * Cover status arrives through the shared lateral (docs/adr/0010) — this service must never
+   * derive it itself.
+   */
+  const withScoreJoins = <Q extends PgSelectQueryBuilder>(
+    query: Q,
+    latest: ReturnType<typeof latestCoverLogLateral>,
+  ) =>
+    query
+      .innerJoin(enrolls, eq(enrolls.id, covers.enrollId))
+      .innerJoin(factories, eq(factories.accountId, enrolls.factoryId))
+      .innerJoin(provinces, eq(provinces.provinceId, factories.provinceId))
+      .leftJoinLateral(latest, sql`true`);
 
-    const latestStatuses = await database
-      .selectDistinctOn([coverLogs.coverId], {
-        coverId: coverLogs.coverId,
-        status: coverLogs.status,
-      })
-      .from(coverLogs)
-      .where(inArray(coverLogs.coverId, coverIds))
-      .orderBy(coverLogs.coverId, desc(coverLogs.id));
+  /**
+   * Total order for the Score Report lists.
+   *
+   * These queries previously had NO `ORDER BY` at all, so their row order was undefined — offset
+   * pagination over that is meaningless rather than merely unstable. `accountId` matches the
+   * ordering the factory lists use; `covers.id` is a defensive tiebreaker, because `accountId`'s
+   * uniqueness here follows from business rules rather than a database constraint.
+   */
+  const scoreListOrder = [asc(factories.accountId), asc(covers.id)] as const;
 
-    const statusMap = new Map(latestStatuses.map((s) => [s.coverId, s.status]));
-    const readyCovers = coverList.filter((c) => {
-      const s = statusMap.get(c.coverId);
-      return s === "in_review" || s === "finished";
-    });
+  /**
+   * Phase 2 of the two-phase read (docs/adr/0011).
+   *
+   * A LOOKUP, never a filter. It may not add or remove an item that phase 1 already chose — which
+   * is why the result is a Map with an empty-array default at the call site rather than a join.
+   * A scorable Cover with zero Answers must still produce a report with an empty breakdown.
+   *
+   * `coverIds` is the PAGE's ids only. Passing the unpaginated population here would reinstate the
+   * ~123,000-row fan-out this bolt exists to remove.
+   */
+  const hydrateAnswers = async (coverIds: number[]) => {
+    const byCover = new Map<number, AnswerWithCategory[]>();
+    if (coverIds.length === 0) return byCover;
 
-    if (readyCovers.length === 0) return [];
-
-    const readyCoverIds = readyCovers.map((c) => c.coverId);
-    const allAnswers = await database
+    const rows = await database
       .select({
         coverId: answers.coverId,
         selectedChoice: answers.selectedChoice,
@@ -58,34 +77,99 @@ export const createScoreService = (database: typeof db) => {
       })
       .from(answers)
       .innerJoin(questions, eq(questions.id, answers.questionId))
-      .where(inArray(answers.coverId, readyCoverIds));
+      .where(inArray(answers.coverId, coverIds));
 
-    const answersByCover = new Map<number, AnswerWithCategory[]>();
-    for (const a of allAnswers) {
-      const arr = answersByCover.get(a.coverId) ?? [];
-      arr.push({
-        selectedChoice: a.selectedChoice,
-        category: a.category as CategoryKey,
-        special: a.special,
+    for (const row of rows) {
+      const bucket = byCover.get(row.coverId) ?? [];
+      bucket.push({
+        selectedChoice: row.selectedChoice,
+        category: row.category as CategoryKey,
+        special: row.special,
       });
-      answersByCover.set(a.coverId, arr);
+      byCover.set(row.coverId, bucket);
     }
+    return byCover;
+  };
 
-    return readyCovers.map((c) => {
-      const coverAnswers = answersByCover.get(c.coverId) ?? [];
-      const coverStatus = statusMap.get(c.coverId) as string;
-      const scoring = calculateBreakdown(coverAnswers);
-      const grade = coverStatus === "finished" ? computeGrade(scoring, coverAnswers) : null;
-      return {
-        factoryId: c.factoryId,
-        factoryNameTh: c.factoryNameTh,
-        coverId: c.coverId,
-        coverStatus,
-        enrollId: c.enrollId,
-        grade,
-        scoring,
-      };
-    });
+  /**
+   * Compute one Score Report. The scoring rules themselves are untouched by this bolt — only the
+   * size of their input changed.
+   *
+   * `grade` is non-null only for a `finished` Cover, per intent 011-finished-cover-reward-guard.
+   */
+  const toScoreReport = (
+    cover: CoverWithFactoryInfo & { coverStatus: string },
+    coverAnswers: AnswerWithCategory[],
+  ) => {
+    const scoring = calculateBreakdown(coverAnswers);
+    return {
+      factoryId: cover.factoryId,
+      factoryNameTh: cover.factoryNameTh,
+      coverId: cover.coverId,
+      coverStatus: cover.coverStatus,
+      enrollId: cover.enrollId,
+      grade: cover.coverStatus === "finished" ? computeGrade(scoring, coverAnswers) : null,
+      scoring,
+    };
+  };
+
+  /**
+   * Shared implementation behind the three staff Score Report lists. They differ only in scope, so
+   * a single implementation is what keeps their count and page predicates identical.
+   */
+  const listScoreReports = async ({
+    region,
+    provinceId,
+    page,
+    limit,
+  }: { region?: number; provinceId?: number } & PaginationQueryDto) => {
+    const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+    const resolved = resolvePage({ page, limit });
+    const latest = latestCoverLogLateral(database);
+
+    const predicate = and(
+      gte(enrolls.enrollDate, fiscalYearStart.toISOString()),
+      lt(enrolls.enrollDate, fiscalYearEnd.toISOString()),
+      region === undefined ? undefined : eq(provinces.healthRegion, region),
+      provinceId === undefined ? undefined : eq(provinces.provinceId, provinceId),
+      // Scorable filter in SQL, not JavaScript — this is what makes `total` correct.
+      inArray(latest.status, [...SCORABLE_STATUSES]),
+    );
+
+    // Phase 1 — paginate the aggregate root.
+    const [total, coverPage] = await Promise.all([
+      withScoreJoins(database.select({ value: count() }).from(covers).$dynamic(), latest)
+        .where(predicate)
+        .then((rows) => rows[0]?.value ?? 0),
+      withScoreJoins(
+        database
+          .select({
+            coverId: covers.id,
+            enrollId: covers.enrollId,
+            factoryId: factories.accountId,
+            factoryNameTh: factories.nameTh,
+            coverStatus: latest.status,
+          })
+          .from(covers)
+          .$dynamic(),
+        latest,
+      )
+        .where(predicate)
+        .orderBy(...scoreListOrder)
+        .limit(resolved.limit)
+        .offset(resolved.offset),
+    ]);
+
+    // Phase 2 — hydrate ONLY the page, then compute.
+    const answersByCover = await hydrateAnswers(coverPage.map((c) => c.coverId));
+    const items = coverPage.map((c) =>
+      toScoreReport(
+        { ...c, coverStatus: c.coverStatus as string },
+        answersByCover.get(c.coverId) ?? [],
+      ),
+    );
+
+    return buildPage(items, total, resolved.page, resolved.limit);
   };
 
   return {
@@ -114,15 +198,9 @@ export const createScoreService = (database: typeof db) => {
 
       if (!coverRow) return status(404, { message: "cover not found" });
 
-      const latestLog = await database
-        .select({ status: coverLogs.status })
-        .from(coverLogs)
-        .where(eq(coverLogs.coverId, coverRow.coverId))
-        .orderBy(desc(coverLogs.id))
-        .limit(1)
-        .then((res) => res[0]);
-
-      const coverStatus = latestLog?.status ?? "in_progress";
+      // Shape B of the shared latest-log-wins resolution. This service must not derive current
+      // status itself — see the Amendment section of docs/adr/0010.
+      const coverStatus = (await latestCoverLogFor(database, coverRow.coverId)) ?? "in_progress";
       if (coverStatus === "in_progress") {
         return status(400, { message: "cover is not ready for scoring" });
       }
@@ -156,86 +234,16 @@ export const createScoreService = (database: typeof db) => {
       };
     },
 
-    getScoresByRegion: async (region: number) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+    getScoresByRegion: async (region: number, pagination?: PaginationQueryDto) =>
+      listScoreReports({ region, ...pagination }),
 
-      const coverList = await database
-        .select({
-          coverId: covers.id,
-          enrollId: covers.enrollId,
-          factoryId: factories.accountId,
-          factoryNameTh: factories.nameTh,
-        })
-        .from(covers)
-        .innerJoin(enrolls, eq(enrolls.id, covers.enrollId))
-        .innerJoin(factories, eq(factories.accountId, enrolls.factoryId))
-        .innerJoin(provinces, eq(provinces.provinceId, factories.provinceId))
-        .where(
-          and(
-            eq(provinces.healthRegion, region),
-            gte(enrolls.enrollDate, fiscalYearStart.toISOString()),
-            lt(enrolls.enrollDate, fiscalYearEnd.toISOString()),
-          ),
-        );
+    getScoresByProvince: async (provinceId: number, pagination?: PaginationQueryDto) =>
+      listScoreReports({ provinceId, ...pagination }),
 
-      if (coverList.length === 0) return [];
-      return buildScoreReports(coverList);
-    },
-
-    getScoresByProvince: async (provinceId: number) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
-
-      const coverList = await database
-        .select({
-          coverId: covers.id,
-          enrollId: covers.enrollId,
-          factoryId: factories.accountId,
-          factoryNameTh: factories.nameTh,
-        })
-        .from(covers)
-        .innerJoin(enrolls, eq(enrolls.id, covers.enrollId))
-        .innerJoin(factories, eq(factories.accountId, enrolls.factoryId))
-        .innerJoin(provinces, eq(provinces.provinceId, factories.provinceId))
-        .where(
-          and(
-            eq(provinces.provinceId, provinceId),
-            gte(enrolls.enrollDate, fiscalYearStart.toISOString()),
-            lt(enrolls.enrollDate, fiscalYearEnd.toISOString()),
-          ),
-        );
-
-      if (coverList.length === 0) return [];
-      return buildScoreReports(coverList);
-    },
-
-    getAllScores: async (filters?: { region?: number; provinceId?: number }) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
-
-      const conditions: (SQL | undefined)[] = [
-        gte(enrolls.enrollDate, fiscalYearStart.toISOString()),
-        lt(enrolls.enrollDate, fiscalYearEnd.toISOString()),
-      ];
-      if (filters?.region !== undefined)
-        conditions.push(eq(provinces.healthRegion, filters.region));
-      if (filters?.provinceId !== undefined)
-        conditions.push(eq(provinces.provinceId, filters.provinceId));
-
-      const coverList = await database
-        .select({
-          coverId: covers.id,
-          enrollId: covers.enrollId,
-          factoryId: factories.accountId,
-          factoryNameTh: factories.nameTh,
-        })
-        .from(covers)
-        .innerJoin(enrolls, eq(enrolls.id, covers.enrollId))
-        .innerJoin(factories, eq(factories.accountId, enrolls.factoryId))
-        .innerJoin(provinces, eq(provinces.provinceId, factories.provinceId))
-        .where(and(...conditions));
-
-      if (coverList.length === 0) return [];
-      return buildScoreReports(coverList);
-    },
+    getAllScores: async (
+      filters?: { region?: number; provinceId?: number },
+      pagination?: PaginationQueryDto,
+    ) => listScoreReports({ ...filters, ...pagination }),
   };
 };
 
