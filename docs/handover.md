@@ -78,7 +78,7 @@ Immediate receiving-team actions:
 ## Known limitations
 
 - Response status and shape conventions are inconsistent; some OpenAPI `201` responses execute as `200`, middleware errors are not uniformly documented, and the static API snapshot can drift.
-- Lists are unpaginated and some ordering is incidental.
+- The nine staff list endpoints are paginated with a total order and a `{ items, meta }` envelope (see [API conventions](api-conventions.md#pagination)); all other lists remain unpaginated and some of their ordering is still incidental. No bulk-export path exists, so a consumer needing a complete staff list must page through it.
 - Email queue retry/idempotency policies vary, and a successful API request does not prove delivery.
 - SMTP security flags are required but unused by the Nodemailer transport.
 - Exact Bun runtime is not pinned; several images/dependencies float.
@@ -163,7 +163,7 @@ Every item below is **Unknown / Requires Organizational Knowledge**:
 - Is evaluator detail access strictly regional, and what exact ownership/category rules must apply to every evidence file?
 - What are the canonical intended rules for accepted change scores, Standard Question acceptance, `n/a`, Gold `special` values, post-submit edits, and evidence retention?
 - What timezone is authoritative for fiscal-year queries and stored timestamps?
-- What are the maximum data volumes, pagination/order contracts, email delivery SLOs, and acceptable presigned URL lifetime?
+- What are the maximum data volumes, email delivery SLOs, and acceptable presigned URL lifetime? _(The pagination and ordering contract is answered for the nine staff lists — see [API conventions](api-conventions.md#pagination). The data-volume question remains open.)_
 - Which environment may contain the seeded DOED credential, and has every non-disposable copy been rotated or removed?
 - Where are logs/metrics/alerts retained, who receives them, and what constitutes readiness versus liveness?
 

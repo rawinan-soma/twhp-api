@@ -1,24 +1,31 @@
 import { ElysiaCustomStatusResponse, status, t } from "elysia";
 import type { App } from "../../..";
 import { officerGuard } from "../../../middleware/guards";
-import { ScoreReportListSchema } from "../../../schema/score";
-import { scoreService } from "../../../service/score";
+import { PaginationQuery } from "../../../schema/pagination";
+import { ScoreReportPageSchema } from "../../../schema/score";
 import { provincialOfficerService } from "../../../service/provincialOfficer";
+import { scoreService } from "../../../service/score";
 
 export default (app: App) =>
   app.group("", { detail: { tags: ["provincialOfficers"] } }, (group) =>
     group.use(officerGuard).get(
       "",
-      async ({ jwtPayload }) => {
+      async ({ jwtPayload, query }) => {
         const po = await provincialOfficerService.getOfficerDataById(Number(jwtPayload.sub));
         if (po instanceof ElysiaCustomStatusResponse)
           return status(404, { message: "provincial officer not found" });
-        return await scoreService.getScoresByProvince(po.provinceId);
+        return await scoreService.getScoresByProvince(po.provinceId, {
+          page: query.page,
+          limit: query.limit,
+        });
       },
       {
-        detail: { description: "ดูคะแนนประเมินโรงงานทั้งหมดในจังหวัด" },
+        detail: {
+          description: "ดูคะแนนประเมินโรงงานทั้งหมดในจังหวัด (แบ่งหน้าด้วย ?page= ?limit=)",
+        },
+        query: PaginationQuery,
         response: {
-          200: ScoreReportListSchema,
+          200: ScoreReportPageSchema,
           404: t.Object({ message: t.String({ default: "provincial officer not found" }) }),
         },
       },

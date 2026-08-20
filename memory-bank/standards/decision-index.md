@@ -1,6 +1,6 @@
 ---
-last_updated: 2026-07-07T00:00:00Z
-total_decisions: 5
+last_updated: 2026-08-20T04:31:23Z
+total_decisions: 10
 ---
 
 # Decision Index
@@ -17,6 +17,46 @@ Use this to find relevant prior decisions when working on related features.
 ---
 
 ## Decisions
+
+### ADR-10: Paginate the Aggregate Root, Then Hydrate the Page
+- **Status**: accepted
+- **Date**: 2026-08-20
+- **Bolt**: 027-list-pagination (list-pagination)
+- **Path**: `docs/adr/0011-two-phase-read-for-computed-list-items.md`
+- **Summary**: A Score Report is computed from ~40 Answer rows rather than projected from one row, so pagination and data-loading are separate concerns. The read splits into two phases: phase 1 paginates the aggregate root (Cover) in SQL; phase 2 hydrates only the page's roots with their children. Fan-out drops from ~123,000 answer rows to ~820. Two rules govern the boundary, both because breaking them fails silently: the unit of pagination is the root and never the child, and hydration is a lookup that may never add or remove an item.
+- **Read when**: Paginating any list whose items are computed or aggregated rather than projected from a single row; building a dashboard, summary, or export list; reviewing a list that loads all children and slices afterwards; tempted to put `LIMIT` on a child query; deciding how to handle a parent row with no children
+
+### ADR-9: Resolve a Cover's Current Status with a Correlated `LEFT JOIN LATERAL`
+- **Status**: accepted, **amended 2026-08-20 (bolt 027)** — `coverStatus.ts` now exports two shapes: `latestCoverLogLateral` (list queries) and `latestCoverLogFor` (one known Cover). Review gate reworded to name the source of the rule rather than ban a SQL fragment.
+- **Date**: 2026-08-20
+- **Bolt**: 026-list-pagination (list-pagination)
+- **Path**: `docs/adr/0010-lateral-latest-cover-log-resolution.md`
+- **Summary**: Latest-log-wins has until now existed only in application code, but pagination requires Cover status to be testable in a `WHERE` clause so the count and the page share one predicate. A correlated `LEFT JOIN LATERAL ... ORDER BY id DESC LIMIT 1` is chosen over an uncorrelated `DISTINCT ON` subquery, which is correct but resolves every Cover in the database on every request. The resolution is extracted to `src/service/coverStatus.ts` and every caller must import it; `LIMIT 1` is a correctness control preventing one-to-many row multiplication, not an optimisation.
+- **Read when**: Writing any query that filters, counts, or paginates on Cover status; working on the enrollment or score report list read paths; tempted to write an `ORDER BY` over `cover_logs`; considering denormalising a status column onto Covers; reviewing a bolt that touches latest-log-wins
+
+### ADR-8: Offset Pagination, Not Cursor Pagination, for Staff List Endpoints
+- **Status**: accepted
+- **Date**: 2026-08-19
+- **Bolt**: 025-list-pagination (list-pagination)
+- **Path**: `docs/adr/0009-offset-pagination-for-staff-lists.md`
+- **Summary**: Two pagination strategies were available for the nine staff list endpoints; cursor pagination is the stronger default for large public APIs. Offset pagination is chosen because staff list views require `total` and jump-to-page, which cursors cannot supply cheaply, and because result sets are small enough that deep-offset scan cost does not bite. Every paginated query carries a permanent total-order obligation as a result.
+- **Read when**: Adding or modifying any paginated list endpoint; writing a list query and choosing its `ORDER BY`; reconsidering cursor pagination; investigating a report of a row appearing twice or being skipped while paging
+
+### ADR-7: Replace the `enrolls` Join with an `EXISTS` Subquery in the Factory List Filter
+- **Status**: accepted
+- **Date**: 2026-08-19
+- **Bolt**: 025-list-pagination (list-pagination)
+- **Path**: `docs/adr/0008-exists-subquery-for-enrolled-filter.md`
+- **Summary**: The `enrolls` join multiplies factory rows when `enrolled` is false or omitted, because the fiscal-year date predicate is applied only when `enrolled` is true — so a factory with three enrollments yields three rows. Harmless in an unpaginated list, this makes `meta.total` wrong and breaks page stability under pagination. The join is replaced by a correlated `EXISTS` predicate, removing the multiplication at source. Amends FR-6 of intent `012` for one observable behaviour: duplicate rows disappear.
+- **Read when**: Working on factory list queries or the `enrolled`/`validated` filters; investigating a factory-count discrepancy between old and new API responses; adding a join to any paginated read path; reconsidering the `enrolled=false` semantics, which this ADR deliberately did **not** repair
+
+### ADR-6: The `{ items, meta }` Pagination Envelope Is a Scoped Exception, Not a Global Wrapper
+- **Status**: accepted
+- **Date**: 2026-08-19
+- **Bolt**: 025-list-pagination (list-pagination)
+- **Path**: `docs/adr/0007-pagination-envelope-scoped-exception.md`
+- **Summary**: `memory-bank/standards/api-conventions.md` states the API uses no envelope wrapper, but it also specifies offset pagination, which cannot work without returning `total`. Nine staff list endpoints therefore return `{ items, meta }` while every other route keeps its bare shape. The exception is enumerated by name and governed by one rule: an endpoint gets the envelope if and only if its result set grows with the data.
+- **Read when**: Adding a new list endpoint and deciding whether to wrap it; wondering why nine endpoints differ from the rest of the API; considering wrapping or unwrapping any response; working on the location, question, or per-Cover answer reads, which deliberately stay bare arrays
 
 ### ADR-5: Delete Evidence Files on `change_score`, Not Just Hard Reject
 - **Status**: accepted

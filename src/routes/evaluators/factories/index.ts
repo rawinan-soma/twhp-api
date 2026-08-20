@@ -1,6 +1,8 @@
 import { ElysiaCustomStatusResponse, t } from "elysia";
 import type { App } from "../../..";
 import { evalGuard } from "../../../middleware/guards";
+import { FactoryListItemSchema } from "../../../schema/factory";
+import { Paginated, PaginationQuery } from "../../../schema/pagination";
 import { evaluatorService } from "../../../service/evaluator";
 import { factoryService } from "../../../service/factory";
 
@@ -17,36 +19,25 @@ export default (app: App) =>
         return await factoryService.getAllFactoriesByRegion({
           validated: query.validated,
           enrolled: query.enrolled,
+          page: query.page,
+          limit: query.limit,
           // biome-ignore lint/style/noNonNullAssertion: evaluator is guaranteed non-null after getEvaluatorData succeeds
           region: region.evaluator!.region,
         });
       },
       {
-        detail: { description: "ดึงข้อมูลสปก. ทั้งหมดตามเขตสุขภาพ" },
-        query: t.Object({
-          validated: t.Boolean(),
-          enrolled: t.Optional(t.Boolean()),
-        }),
+        detail: {
+          description: "ดึงข้อมูลสปก. ทั้งหมดตามเขตสุขภาพ (แบ่งหน้าด้วย ?page= และ ?limit=)",
+        },
+        query: t.Composite([
+          t.Object({
+            validated: t.Boolean(),
+            enrolled: t.Optional(t.Boolean()),
+          }),
+          PaginationQuery,
+        ]),
         response: {
-          200: t.Array(
-            t.Object({
-              province_name_th: t.Nullable(t.String()),
-              district_name_th: t.Nullable(t.String()),
-              subdistrict_name_th: t.Nullable(t.String()),
-              account_id: t.Number(),
-              factory_type: t.Number(),
-              name_th: t.String(),
-              name_en: t.String(),
-              tsic_code: t.String(),
-              address_no: t.String(),
-              soi: t.Nullable(t.String()),
-              road: t.Nullable(t.String()),
-              zipcode: t.String(),
-              phone_number: t.String(),
-              fax_number: t.Nullable(t.String()),
-              is_validate: t.Boolean(),
-            }),
-          ),
+          200: Paginated(FactoryListItemSchema),
           404: t.Object({
             message: t.String({ default: "invalid evaluator" }),
           }),

@@ -113,6 +113,7 @@ const GRADE_LABEL: Record<string, string> = {
 
 const sendVerdictResultFinishedEmail = async (data: {
   email: string;
+  cc?: string;
   grade: string | null;
   factoryNameTh: string;
 }) => {
@@ -121,6 +122,7 @@ const sendVerdictResultFinishedEmail = async (data: {
     await transporter.sendMail({
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
+      cc: data.cc,
       subject: "ผลการประเมินโครงการ พัฒนาสถานประกอบการปลอดโรค ปลอดภัย กายใจเป็นสุข",
       text: `เรียน คุณผู้รับผิดชอบ ${data.factoryNameTh}\n\nขอแจ้งให้ทราบว่าโรงงานของท่านผ่านการประเมินโครงการ พัฒนาสถานประกอบการปลอดโรค ปลอดภัย กายใจเป็นสุข เรียบร้อยแล้ว\nผลการประเมิน: ${gradeLabel}\n\nกรุณาเข้าสู่ระบบเพื่อดูผลการประเมินอย่างละเอียด`,
       html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
@@ -144,11 +146,16 @@ const sendVerdictResultFinishedEmail = async (data: {
   }
 };
 
-const sendVerdictResultInProgressEmail = async (data: { email: string; factoryNameTh: string }) => {
+const sendVerdictResultInProgressEmail = async (data: {
+  email: string;
+  cc?: string;
+  factoryNameTh: string;
+}) => {
   try {
     await transporter.sendMail({
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
+      cc: data.cc,
       subject: "แจ้งผลการพิจารณา — โปรดดำเนินการปรับปรุงคำตอบ",
       text: `เรียน คุณผู้รับผิดชอบ ${data.factoryNameTh}\n\nขอแจ้งให้ทราบว่าผู้ประเมินได้ส่งคืนผลการประเมินของท่านเพื่อให้ดำเนินการปรับปรุงแก้ไข\nกรุณาเข้าสู่ระบบและตรวจสอบคำตอบที่ต้องแก้ไข จากนั้นส่งคำตอบกลับมาใหม่`,
       html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">

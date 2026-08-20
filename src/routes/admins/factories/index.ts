@@ -1,6 +1,8 @@
 import { t } from "elysia";
 import type { App } from "../../..";
 import { adminGuard } from "../../../middleware/guards";
+import { AdminFactoryListItemSchema } from "../../../schema/factory";
+import { Paginated, PaginationQuery } from "../../../schema/pagination";
 import { adminService } from "../../../service/admin";
 import { factoryService } from "../../../service/factory";
 
@@ -14,31 +16,17 @@ export default (app: App) =>
           return await factoryService.getAllFactories(query);
         },
         {
-          detail: { description: "ดึงข้อมูล สปก. ทั้งหมด" },
-          query: t.Object({
-            validated: t.Boolean(),
-            enrolled: t.Optional(t.Boolean()),
-          }),
-          response: t.Array(
+          detail: {
+            description: "ดึงข้อมูล สปก. ทั้งหมด (แบ่งหน้าด้วย ?page= และ ?limit=)",
+          },
+          query: t.Composite([
             t.Object({
-              province_name_th: t.Nullable(t.String()),
-              district_name_th: t.Nullable(t.String()),
-              subdistrict_name_th: t.Nullable(t.String()),
-              username: t.String(),
-              account_id: t.Number(),
-              factory_type: t.Number(),
-              name_th: t.String(),
-              name_en: t.String(),
-              tsic_code: t.String(),
-              address_no: t.String(),
-              soi: t.Nullable(t.String()),
-              road: t.Nullable(t.String()),
-              zipcode: t.String(),
-              phone_number: t.String(),
-              fax_number: t.Nullable(t.String()),
-              is_validate: t.Boolean(),
+              validated: t.Boolean(),
+              enrolled: t.Optional(t.Boolean()),
             }),
-          ),
+            PaginationQuery,
+          ]),
+          response: Paginated(AdminFactoryListItemSchema),
         },
       )
       .patch(

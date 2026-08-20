@@ -1,7 +1,8 @@
 import { ElysiaCustomStatusResponse, status, t } from "elysia";
 import type { App } from "../../..";
 import { officerGuard } from "../../../middleware/guards";
-import { CoverStatusQuery, EnrollWithCoverListSchema } from "../../../schema/enroll";
+import { CoverStatusQuery, EnrollWithCoverPageSchema } from "../../../schema/enroll";
+import { PaginationQuery } from "../../../schema/pagination";
 import { enrollService } from "../../../service/enroll";
 import { provincialOfficerService } from "../../../service/provincialOfficer";
 
@@ -17,18 +18,19 @@ export default (app: App) =>
         const result = await enrollService.getAllEnrollsByProvince(
           po.provinceId,
           query.coverStatus,
+          { page: query.page, limit: query.limit },
         );
         return result;
       },
       {
         detail: {
           description:
-            "ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดของจังหวัด (กรองตามสถานะ cover ได้ด้วย ?coverStatus=)",
+            "ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดของจังหวัด (กรองตามสถานะ cover ได้ด้วย ?coverStatus= และแบ่งหน้าด้วย ?page= ?limit=)",
         },
-        query: t.Object({ coverStatus: CoverStatusQuery }),
+        query: t.Composite([t.Object({ coverStatus: CoverStatusQuery }), PaginationQuery]),
         response: {
           404: t.Object({ message: t.String({ default: "officer not found" }) }),
-          200: EnrollWithCoverListSchema,
+          200: EnrollWithCoverPageSchema,
         },
       },
     ),

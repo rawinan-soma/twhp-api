@@ -374,9 +374,10 @@ describe("Story 004 — finished outcome (AC: all finished → coverLog finished
     expect(addSpy).toHaveBeenCalledTimes(1);
     const [jobName, payload] = addSpy.mock.calls[0] as [string, Record<string, unknown>];
     expect(jobName).toBe("verdict-result-finished");
-    expect(payload.email).toBe("safety_finalize@test.com");
+    expect(payload.email).toBe("test_factory_finalize@test.com");
+    expect(payload.cc).toBe("safety_finalize@test.com");
     expect(payload.factoryNameTh).toBe("โรงงานทดสอบไฟนอลไลซ์");
-    expect(payload.grade).toBeDefined();
+    expect(["gold", "silver", "certificate", "joined"]).toContain(payload.grade);
   });
 
   it("AC: a DOED admin (region null, existence-only access) may also finalize", async () => {
@@ -384,6 +385,19 @@ describe("Story 004 — finished outcome (AC: all finished → coverLog finished
     const res = await reviewService.finalize(coverId, adminCtx(9999));
     expect(code(res)).toBe(200);
     expect(body(res).coverStatus).toBe("finished");
+    expect(["gold", "silver", "certificate", "joined"]).toContain(body(res).grade);
+  });
+
+  it("AC: a DOED admin receives null Grade when finalize returns the Cover for revision", async () => {
+    const { coverId } = await seedCover([
+      { cat: "Mental", status: "rejected", verdictChoice: null, evalId: ODPC_A },
+    ]);
+    const res = await reviewService.finalize(coverId, adminCtx(9999));
+    expect(code(res)).toBe(200);
+    expect(body(res)).toMatchObject({ coverStatus: "in_progress", grade: null });
+    const [jobName, payload] = addSpy.mock.calls[0] as [string, Record<string, unknown>];
+    expect(jobName).toBe("verdict-result-in-progress");
+    expect(payload.grade).toBeUndefined();
   });
 });
 
@@ -418,7 +432,8 @@ describe("Story 004 — in_progress outcome (AC: ≥1 rejected → coverLog in_p
     expect(addSpy).toHaveBeenCalledTimes(1);
     const [jobName, payload] = addSpy.mock.calls[0] as [string, Record<string, unknown>];
     expect(jobName).toBe("verdict-result-in-progress");
-    expect(payload.email).toBe("safety_finalize@test.com");
+    expect(payload.email).toBe("test_factory_finalize@test.com");
+    expect(payload.cc).toBe("safety_finalize@test.com");
     expect(payload.factoryNameTh).toBe("โรงงานทดสอบไฟนอลไลซ์");
     expect(payload.grade).toBeUndefined(); // no grade in the in_progress payload
   });
@@ -519,6 +534,7 @@ describe("Story 004 — deferred file deletion (AC: rejected-at-finalize files d
     expect((await latestOf(answerIds[0])).status).toBe("recommended");
     expect(await fileOf(answerIds[1])).toBe("will-fail.pdf");
     expect(addSpy).not.toHaveBeenCalled();
+    expect(body(res).grade).toBeUndefined();
   });
 });
 

@@ -1,7 +1,8 @@
 import { t } from "elysia";
 import type { App } from "../../../index";
 import { adminGuard } from "../../../middleware/guards";
-import { CoverStatusQuery, EnrollWithCoverListSchema } from "../../../schema/enroll";
+import { CoverStatusQuery, EnrollWithCoverPageSchema } from "../../../schema/enroll";
+import { PaginationQuery } from "../../../schema/pagination";
 import { enrollService } from "../../../service/enroll";
 
 export default (app: App) =>
@@ -9,14 +10,18 @@ export default (app: App) =>
     group.use(adminGuard).get(
       "",
       async ({ query }) => {
-        return await enrollService.getAllEnrolls(undefined, undefined, query.coverStatus);
+        return await enrollService.getAllEnrolls(undefined, undefined, query.coverStatus, {
+          page: query.page,
+          limit: query.limit,
+        });
       },
       {
         detail: {
-          description: "ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมด (กรองตามสถานะ cover ได้ด้วย ?coverStatus=)",
+          description:
+            "ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมด (กรองตามสถานะ cover ได้ด้วย ?coverStatus= และแบ่งหน้าด้วย ?page= ?limit=)",
         },
-        query: t.Object({ coverStatus: CoverStatusQuery }),
-        response: EnrollWithCoverListSchema,
+        query: t.Composite([t.Object({ coverStatus: CoverStatusQuery }), PaginationQuery]),
+        response: EnrollWithCoverPageSchema,
       },
     ),
   );
