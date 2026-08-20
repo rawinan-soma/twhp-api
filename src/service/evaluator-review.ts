@@ -2,6 +2,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { ElysiaCustomStatusResponse, status } from "elysia";
 import { db } from "../drizzle";
 import {
+  accounts,
   answerLogs,
   answers,
   coverLogs,
@@ -337,15 +338,20 @@ export const createEvaluatorReviewService = (database: typeof db) => {
       const coverCheck = await helper.assertCoverAccess(coverId, region);
       if (coverCheck instanceof ElysiaCustomStatusResponse) return coverCheck;
 
-      // Factory contact for the verdict email (before txn so it's always available)
+      // Factory contact for the verdict email (before txn so it's always available).
+      // Primary recipient is the factory's login address (`Accounts.email`, NOT NULL + unique)
+      // so delivery is guaranteed; `Enrolls.safety_officer_email` is nullable/optional on the
+      // enroll DTO and silently skipped the email when blank, so it rides along as a cc.
       const enrollData = await database
         .select({
-          email: enrolls.safetyOfficerEmail,
+          email: accounts.email,
+          ccEmail: enrolls.safetyOfficerEmail,
           factoryNameTh: factories.nameTh,
         })
         .from(covers)
         .innerJoin(enrolls, eq(enrolls.id, covers.enrollId))
         .innerJoin(factories, eq(factories.accountId, enrolls.factoryId))
+        .innerJoin(accounts, eq(accounts.id, factories.accountId))
         .where(eq(covers.id, coverId))
         .limit(1)
         .then((r) => r[0]);
@@ -492,16 +498,24 @@ export const createEvaluatorReviewService = (database: typeof db) => {
 
       // Enqueue exactly one factory email after the committed txn; swallow queue failures.
       if (enrollData?.email) {
+        // cc the safety officer when they have an address of their own — omitted when blank
+        // or identical to the account address, so nobody is addressed twice.
+        const cc =
+          enrollData.ccEmail && enrollData.ccEmail !== enrollData.email
+            ? enrollData.ccEmail
+            : undefined;
         try {
           if (newCoverStatus === "finished") {
             await emailQueue.add("verdict-result-finished", {
               email: enrollData.email,
+              cc,
               grade,
               factoryNameTh: enrollData.factoryNameTh,
             });
           } else {
             await emailQueue.add("verdict-result-in-progress", {
               email: enrollData.email,
+              cc,
               factoryNameTh: enrollData.factoryNameTh,
             });
           }
