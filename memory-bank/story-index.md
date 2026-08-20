@@ -2,10 +2,11 @@
 
 ## Overview
 
-- **Total stories**: 50
-- **Completed**: 24
+- **Total stories**: 64
+- **Completed**: 33
 - **Planned**: 26
-- **Last updated**: 2026-07-07
+- **Generated**: 5
+- **Last updated**: 2026-08-20
 
 ---
 
@@ -106,11 +107,35 @@ Unit: `001-change-score-file-deletion` — depends on `008-per-answer-verdict-sa
 - [ ] **001-widen-finalize-file-deletion** ⏳ PLANNED — Drop the `verdictChoice === null` condition so `change_score` deletes files like hard-reject — Must — bolt `023-change-score-file-deletion`
 - [ ] **002-regression-coverstatus-and-surface-parity** ⏳ PLANNED — Verify coverStatus/grade/email + evaluator/admin surface parity unaffected — Must — bolt `023-change-score-file-deletion`
 
+### 011-finished-cover-reward-guard
+
+Unit: `001-finished-cover-reward-guard`
+
+- [x] **001-score-report-finished-grade-guard** ✅ GENERATED — Gate Score Report Grade by latest finished CoverLog — Must — bolt `024-finished-cover-reward-guard`
+- [x] **002-finalize-finished-grade-publication** ✅ GENERATED — Publish Grade only after a finished finalize transition — Must — bolt `024-finished-cover-reward-guard`
+- [x] **003-finished-grade-contract-regression** ✅ GENERATED — Prove reward-surface parity and preserve existing contracts — Must — bolt `024-finished-cover-reward-guard`
+
+### 012-list-pagination
+
+Unit: `001-list-pagination` — depends on `001-score-calculator-and-report`, `007-cover-status-filter`, `011-finished-cover-reward-guard`
+
+- [x] **001-pagination-query-contract** ✅ COMPLETE — Shared `page`/`limit` query schema: 1-indexed, default 20, max 100 — Must — bolt `025-list-pagination`
+- [x] **002-pagination-response-envelope** ✅ COMPLETE — Shared `{ items, meta }` envelope + page builder (`total`, `totalPages`) — Must — bolt `025-list-pagination`
+- [x] **003-deterministic-list-ordering** ✅ COMPLETE — Total order on every paginated query; score queries currently have no `ORDER BY` — Must — bolt `025-list-pagination`
+- [x] **004-factory-list-pagination** ✅ COMPLETE — Paginate the 3 factory list endpoints (no pushdown needed) — Must — bolt `025-list-pagination`
+- [x] **005-cover-status-sql-pushdown** ✅ COMPLETE — Move `enrichAndFilterCovers` coverStatus filter from JS into SQL (latest-log-wins) — Must — bolt `026-list-pagination`
+- [x] **006-enrollment-list-pagination** ✅ COMPLETE — Paginate the 3 enrollment list endpoints — Must — bolt `026-list-pagination`
+- [x] **007-score-status-sql-pushdown** ✅ COMPLETE — Move `buildScoreReports` in_review/finished filter from JS into SQL — Must — bolt `027-list-pagination`
+- [x] **008-page-scoped-answer-fanout** ✅ COMPLETE — Read answers for the page's cover IDs only (~123k rows → ~800) — Must — bolt `027-list-pagination`
+- [x] **009-score-list-pagination** ✅ COMPLETE — Paginate the 3 score report list endpoints — Must — bolt `027-list-pagination`
+- [x] **010-pagination-contract-documentation** ✅ COMPLETE — Correct `docs/api-conventions.md` "no pagination contract" + OpenAPI — Must — bolt `028-list-pagination`
+- [x] **011-pagination-regression-coverage** ✅ COMPLETE — Contract regression coverage: route composition, unwrapped 404s, cross-role envelope parity, OpenAPI — Must — bolt `028-list-pagination`
+
 ---
 
 ## Stories by Status
 
-- **Planned**: 24
-- **Generated**: 0
+- **Planned**: 26
+- **Generated**: 5
 - **In Progress**: 0
-- **Completed**: 24
+- **Completed**: 33
