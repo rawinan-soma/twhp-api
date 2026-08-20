@@ -1,6 +1,6 @@
-flow: aidlc
+flow: fire
 version: 0.1.74
-installed_at: '2026-07-10T11:09:31.803Z'
+installed_at: '2026-08-19T02:36:46.828Z'
 tools:
   - claude
   - codex
