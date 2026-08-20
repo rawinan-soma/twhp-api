@@ -11,7 +11,11 @@ const fakeEnv: { DEV_SKIP_OTP: boolean; COOKIE_SECURE: boolean; DEV_BYPASS_SECRE
 // Prevent the real service's eager Redis/BullMQ/PG construction during import.
 mock.module("../config", () => ({ env: fakeEnv }));
 mock.module("../utils", () => ({ redisConnector: {}, utilities: () => ({}) }));
-mock.module("../queue/email", () => ({ emailQueue: { add: async () => {} } }));
+// Process-global and never restored — see the note in authentication.2fa.test.ts. `close` is
+// required by the evaluator-review integration suites' afterAll hooks.
+mock.module("../queue/email", () => ({
+  emailQueue: { add: async () => {}, close: async () => {} },
+}));
 mock.module("../drizzle", () => ({ db: {} }));
 
 const { authenticationService } = await import("./authentication");

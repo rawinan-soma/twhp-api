@@ -17,8 +17,14 @@ const redisMock = {
   ttl: mock(async (_key: string) => 250),
 };
 
+// `mock.module` in Bun is PROCESS-GLOBAL and is never restored between test files, so this stub
+// replaces the real BullMQ queue for every file that runs after this one in the same `bun test`
+// run. It must therefore expose every member those later files use — not just the ones used here.
+// `close()` is called in the afterAll hooks of the evaluator-review integration suites; omitting it
+// made three of them fail with "emailQueue.close is not a function".
 const queueMock = {
   add: mock(async (..._args: unknown[]) => ({ id: "mock-job-id" })),
+  close: mock(async () => {}),
 };
 
 mock.module("../utils", () => ({ redisConnector: redisMock }));
@@ -284,8 +290,8 @@ describe("Story 001/003/005 — createChallenge", () => {
   it("003-AC3: reuses existing challengeId when resend throttle is still live (no new email)", async () => {
     const existingId = "existing-challenge-abc";
     redisMock.get
-      .mockResolvedValueOnce(null)         // failKey: not locked
-      .mockResolvedValueOnce(existingId);  // activeKey: existing challenge
+      .mockResolvedValueOnce(null) // failKey: not locked
+      .mockResolvedValueOnce(existingId); // activeKey: existing challenge
     redisMock.exists.mockResolvedValueOnce(1); // resend throttle active
 
     const result = await service.createChallenge(ACCOUNT_ID, EMAIL);
@@ -297,8 +303,8 @@ describe("Story 001/003/005 — createChallenge", () => {
   it("003-AC3: replaces stale challenge when throttle has lapsed", async () => {
     const staleId = "stale-challenge-id";
     redisMock.get
-      .mockResolvedValueOnce(null)      // failKey: not locked
-      .mockResolvedValueOnce(staleId);  // activeKey: stale challenge
+      .mockResolvedValueOnce(null) // failKey: not locked
+      .mockResolvedValueOnce(staleId); // activeKey: stale challenge
     redisMock.exists.mockResolvedValueOnce(0); // throttle lapsed
 
     const result = await service.createChallenge(ACCOUNT_ID, EMAIL);
@@ -340,9 +346,7 @@ describe("Story 001/002/003 — verifyChallenge", () => {
 
   it("002-AC3 / 003-AC1: wrong code returns 401 and increments both attempt counters", async () => {
     const realHash = Bun.SHA256.hash("111111", "hex");
-    redisMock.get
-      .mockResolvedValueOnce(challengePayload(realHash, 0))
-      .mockResolvedValueOnce(null); // failCount: not locked
+    redisMock.get.mockResolvedValueOnce(challengePayload(realHash, 0)).mockResolvedValueOnce(null); // failCount: not locked
 
     const result = await service.verifyChallenge(CHALLENGE_ID, "000000"); // wrong code
 
@@ -399,11 +403,17 @@ describe("Story 001/002/003 — verifyChallenge", () => {
   it("002-AC4: correct code cannot be replayed (single-use — challenge deleted on success)", async () => {
     const code = "123456";
     const codeHash = Bun.SHA256.hash(code, "hex");
-    const mockAccount = { id: 1, username: "u", role: "DOED", change_pw: false, eval_level: null, firstName: "A", lastName: "B" };
+    const mockAccount = {
+      id: 1,
+      username: "u",
+      role: "DOED",
+      change_pw: false,
+      eval_level: null,
+      firstName: "A",
+      lastName: "B",
+    };
 
-    redisMock.get
-      .mockResolvedValueOnce(challengePayload(codeHash))
-      .mockResolvedValueOnce(null);
+    redisMock.get.mockResolvedValueOnce(challengePayload(codeHash)).mockResolvedValueOnce(null);
 
     const svc = createAuthenticationUsecase(makeDb([mockAccount]));
     await svc.verifyChallenge(CHALLENGE_ID, code); // first use
@@ -435,8 +445,8 @@ describe("Story 003/005 — resendOtp", () => {
 
   it("003-AC4: returns 429 when account is locked out", async () => {
     redisMock.get
-      .mockResolvedValueOnce(STORED())  // challenge exists
-      .mockResolvedValueOnce("10");     // failCount = 10
+      .mockResolvedValueOnce(STORED()) // challenge exists
+      .mockResolvedValueOnce("10"); // failCount = 10
 
     const result = await service.resendOtp(CHALLENGE_ID);
 
@@ -446,7 +456,7 @@ describe("Story 003/005 — resendOtp", () => {
   it("003-AC3: returns 429 when 60s resend throttle is active", async () => {
     redisMock.get
       .mockResolvedValueOnce(STORED()) // challenge
-      .mockResolvedValueOnce(null);    // failCount: not locked
+      .mockResolvedValueOnce(null); // failCount: not locked
     redisMock.exists.mockResolvedValueOnce(1); // throttle active
 
     const result = await service.resendOtp(CHALLENGE_ID);
@@ -457,7 +467,7 @@ describe("Story 003/005 — resendOtp", () => {
   it("003-AC3 / 005-AC1: success issues fresh code, resets attempts to 0, sets throttle, enqueues job", async () => {
     redisMock.get
       .mockResolvedValueOnce(STORED()) // challenge
-      .mockResolvedValueOnce(null);    // failCount: not locked
+      .mockResolvedValueOnce(null); // failCount: not locked
     redisMock.exists.mockResolvedValueOnce(0); // throttle not active
 
     const svc = createAuthenticationUsecase(makeDb([{ email: EMAIL }]));
