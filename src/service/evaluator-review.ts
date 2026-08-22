@@ -101,7 +101,61 @@ const createEvaluatorReviewHelper = (database: typeof db) => {
   const assertCoverAccess = async (coverId: number, region: number | null) =>
     region === null ? assertCoverExists(coverId) : assertCoverInRegion(coverId, region);
 
-  return { assertCoverInRegion, assertCoverExists, assertCoverAccess };
+  /**
+   * The Common Era fiscal year a Cover belongs to, resolved through its Enrollment.
+   * Null when the Cover does not exist.
+   *
+   * Resolution goes through `utilities().getFiscalYearOf()` — the same helper every read path uses —
+   * so a closed year cannot be judged by one rule for reads and another for writes.
+   */
+  const fiscalYearOfCover = async (coverId: number) => {
+    const row = await database
+      .select({ enrollDate: enrolls.enrollDate })
+      .from(covers)
+      .innerJoin(enrolls, eq(enrolls.id, covers.enrollId))
+      .where(eq(covers.id, coverId))
+      .limit(1)
+      .then((r) => r[0]);
+
+    return row ? utilities().getFiscalYearOf(new Date(row.enrollDate)) : null;
+  };
+
+  /**
+   * Gate on the fiscal year of the target Cover.
+   *
+   * A closed year is writable only by ODPC — natively, or by a DOED admin, which
+   * `adminReviewerContext` already models as a national ODPC.
+   *
+   * The target year comes from the Cover, never from the request. If a write could nominate its own
+   * year, a caller could relabel which year it is editing and bypass this gate entirely.
+   *
+   * This cannot live in middleware: middleware runs before the Cover is read, so it cannot know
+   * which year the target belongs to.
+   */
+  const assertYearWritable = async (coverId: number, reviewer: ReviewerContext) => {
+    const targetYear = await fiscalYearOfCover(coverId);
+    if (targetYear === null) return status(404, { message: "cover not found" });
+
+    // Unchanged for every level while the year is open. A blanket ODPC-only rule here would strip
+    // Mental and DOH of their legitimate current-year review work.
+    if (targetYear === utilities().getFiscalYear().fiscalYear) return null;
+
+    if (reviewer.level !== "ODPC") {
+      return status(403, {
+        message: `fiscal year ${targetYear} is closed; only ODPC may write to it`,
+      });
+    }
+
+    return null;
+  };
+
+  return {
+    assertCoverInRegion,
+    assertCoverExists,
+    assertCoverAccess,
+    fiscalYearOfCover,
+    assertYearWritable,
+  };
 };
 
 export const createEvaluatorReviewService = (database: typeof db) => {
@@ -248,6 +302,11 @@ export const createEvaluatorReviewService = (database: typeof db) => {
       const coverCheck = await helper.assertCoverAccess(coverId, region);
       if (coverCheck instanceof ElysiaCustomStatusResponse) return coverCheck;
 
+      // Runs AFTER the region check on purpose: an out-of-region caller must keep receiving the
+      // existing 404 rather than a message revealing that a Cover exists in a particular year.
+      const yearCheck = await helper.assertYearWritable(coverId, reviewer);
+      if (yearCheck instanceof ElysiaCustomStatusResponse) return yearCheck;
+
       // Answer must exist within this Cover
       const answerRow = await database
         .select({
@@ -337,6 +396,9 @@ export const createEvaluatorReviewService = (database: typeof db) => {
 
       const coverCheck = await helper.assertCoverAccess(coverId, region);
       if (coverCheck instanceof ElysiaCustomStatusResponse) return coverCheck;
+
+      const yearCheck = await helper.assertYearWritable(coverId, reviewer);
+      if (yearCheck instanceof ElysiaCustomStatusResponse) return yearCheck;
 
       // Factory contact for the verdict email (before txn so it's always available).
       // Primary recipient is the factory's login address (`Accounts.email`, NOT NULL + unique)

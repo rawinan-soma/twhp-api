@@ -81,14 +81,20 @@ export const createEnrollService = (database: typeof db) => {
     region,
     provinceId,
     coverStatus,
+    fiscalYear,
     page,
     limit,
   }: {
     region?: number;
     provinceId?: number;
     coverStatus?: CoverStatusFilter;
+    fiscalYear?: number;
   } & PaginationQueryDto) => {
-    const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+    const {
+      fiscalYear: resolvedFiscalYear,
+      fiscalYearStart,
+      fiscalYearEnd,
+    } = utilities().getFiscalYear(fiscalYear);
     const resolved = resolvePage({ page, limit });
     const latest = latestCoverLogLateral(database);
 
@@ -111,21 +117,25 @@ export const createEnrollService = (database: typeof db) => {
         .offset(resolved.offset),
     ]);
 
-    return buildPage(items, total, resolved.page, resolved.limit);
+    // Every row was selected by the resolved window, so its fiscal year is that year by
+    // construction — no need to re-derive it per row from `enroll_date`.
+    const withFiscalYear = items.map((item) => ({ ...item, fiscalYear: resolvedFiscalYear }));
+
+    return buildPage(withFiscalYear, total, resolved.page, resolved.limit);
   };
 
   return {
     getAllEnrollsByProvince: async (
       provinceId: number,
       coverStatus?: CoverStatusFilter,
-      pagination?: PaginationQueryDto,
+      pagination?: PaginationQueryDto & { fiscalYear?: number },
     ) => listEnrolls({ provinceId, coverStatus, ...pagination }),
 
     getAllEnrolls: async (
       region?: number,
       provinceId?: number,
       coverStatus?: CoverStatusFilter,
-      pagination?: PaginationQueryDto,
+      pagination?: PaginationQueryDto & { fiscalYear?: number },
     ) => listEnrolls({ region, provinceId, coverStatus, ...pagination }),
 
     getEnrollById: async (enrollId: number) => {
@@ -514,8 +524,12 @@ export const createEnrollService = (database: typeof db) => {
       };
     },
 
-    getEnrollByFactoryId: async (factoryId: number) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+    getEnrollByFactoryId: async (factoryId: number, fiscalYear?: number) => {
+      const {
+        fiscalYear: resolvedFiscalYear,
+        fiscalYearStart,
+        fiscalYearEnd,
+      } = utilities().getFiscalYear(fiscalYear);
 
       const selectedEnroll = await database
         .select()
@@ -536,7 +550,7 @@ export const createEnrollService = (database: typeof db) => {
         return { message: "no enrollment found" };
       }
 
-      return selectedEnroll;
+      return { ...selectedEnroll, fiscalYear: resolvedFiscalYear };
     },
   };
 };

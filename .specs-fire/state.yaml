@@ -1,0 +1,123 @@
+project:
+  name: twhp-elysia
+  description: Thai Workplace Health Promotion API — Bun + ElysiaJS + Drizzle/PostgreSQL
+  created: 2026-08-20T09:10:00Z
+  fire_version: 0.1.8
+workspace:
+  type: brownfield
+  structure: monolith
+  autonomy_bias: balanced
+  run_scope_preference: single
+  run_scope_history: []
+  scanned_at: 2026-08-20T09:10:00Z
+  parts: []
+intents:
+  - id: fiscal-year-addressing
+    title: Fiscal Year Addressing
+    status: completed
+    work_items:
+      - id: fiscal-year-resolver
+        title: Parameterised, deterministic fiscal-year resolver
+        status: completed
+        complexity: high
+        mode: validate
+        depends_on: []
+        design_doc: fiscal-year-resolver-design.md
+        checkpoint_1: approved
+        checkpoint_1_at: 2026-08-21T12:20:00Z
+        run_id: run-twhp-elysia-001
+        completed_at: 2026-08-21T12:37:49.551Z
+      - id: fiscal-year-read-addressing
+        title: Fiscal-year addressing across all read paths
+        status: completed
+        complexity: medium
+        mode: confirm
+        depends_on:
+          - fiscal-year-resolver
+        run_id: run-twhp-elysia-002
+        completed_at: 2026-08-21T13:14:46.459Z
+      - id: fiscal-year-boundary-tests
+        title: Boundary, timezone, scoping, and parity coverage
+        status: completed
+        complexity: medium
+        mode: confirm
+        depends_on:
+          - fiscal-year-resolver
+          - fiscal-year-read-addressing
+        run_id: run-twhp-elysia-002
+        completed_at: 2026-08-21T13:14:46.459Z
+      - id: past-year-write-authority
+        title: Past-fiscal-year write authority for DOED and ODPC
+        status: completed
+        complexity: high
+        mode: validate
+        depends_on:
+          - fiscal-year-resolver
+        design_doc: past-year-write-authority-design.md
+        checkpoint_1: approved
+        checkpoint_1_at: 2026-08-22T00:00:00Z
+        run_id: run-twhp-elysia-003
+        completed_at: 2026-08-22T15:18:47.204Z
+      - id: factory-grace-window
+        title: 31-day Factory grace window for unfinished prior-year Covers
+        status: completed
+        complexity: high
+        mode: validate
+        depends_on:
+          - past-year-write-authority
+        design_doc: factory-grace-window-design.md
+        checkpoint_1: approved
+        checkpoint_1_at: 2026-08-22T16:00:00Z
+        run_id: run-twhp-elysia-004
+        completed_at: 2026-08-22T15:50:03.853Z
+      - id: concurrent-years-and-audit
+        title: Concurrent open years, out-of-year audit, and expiry disposition
+        status: completed
+        complexity: medium
+        mode: confirm
+        depends_on:
+          - fiscal-year-read-addressing
+          - factory-grace-window
+        run_id: run-twhp-elysia-004
+        completed_at: 2026-08-22T15:50:03.853Z
+runs:
+  active: []
+  completed:
+    - id: run-twhp-elysia-001
+      scope: single
+      work_items:
+        - id: fiscal-year-resolver
+          intent: fiscal-year-addressing
+          mode: validate
+      started: 2026-08-21T12:25:38.651Z
+      completed: 2026-08-21T12:37:49.551Z
+    - id: run-twhp-elysia-002
+      scope: batch
+      work_items:
+        - id: fiscal-year-read-addressing
+          intent: fiscal-year-addressing
+          mode: confirm
+        - id: fiscal-year-boundary-tests
+          intent: fiscal-year-addressing
+          mode: confirm
+      started: 2026-08-21T12:43:56.244Z
+      completed: 2026-08-21T13:14:46.459Z
+    - id: run-twhp-elysia-003
+      scope: single
+      work_items:
+        - id: past-year-write-authority
+          intent: fiscal-year-addressing
+          mode: validate
+      started: 2026-08-22T15:09:16.557Z
+      completed: 2026-08-22T15:18:47.204Z
+    - id: run-twhp-elysia-004
+      scope: batch
+      work_items:
+        - id: factory-grace-window
+          intent: fiscal-year-addressing
+          mode: validate
+        - id: concurrent-years-and-audit
+          intent: fiscal-year-addressing
+          mode: confirm
+      started: 2026-08-22T15:34:38.670Z
+      completed: 2026-08-22T15:50:03.853Z

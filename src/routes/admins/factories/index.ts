@@ -2,6 +2,7 @@ import { t } from "elysia";
 import type { App } from "../../..";
 import { adminGuard } from "../../../middleware/guards";
 import { AdminFactoryListItemSchema } from "../../../schema/factory";
+import { FiscalYearQuery } from "../../../schema/fiscal-year";
 import { Paginated, PaginationQuery } from "../../../schema/pagination";
 import { adminService } from "../../../service/admin";
 import { factoryService } from "../../../service/factory";
@@ -25,6 +26,7 @@ export default (app: App) =>
               enrolled: t.Optional(t.Boolean()),
             }),
             PaginationQuery,
+            FiscalYearQuery,
           ]),
           response: Paginated(AdminFactoryListItemSchema),
         },

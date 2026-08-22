@@ -1,5 +1,5 @@
 import { and, count, desc, eq, getTableColumns, gte, inArray, lt } from "drizzle-orm";
-import { status } from "elysia";
+import { ElysiaCustomStatusResponse, status } from "elysia";
 import { db } from "../drizzle";
 import { answerLogs, answers, coverLogs, covers, enrolls, questions } from "../drizzle/schema";
 import type {
@@ -9,10 +9,37 @@ import type {
 } from "../schema/answer";
 import { utilities } from "../utils";
 
+/**
+ * Resolves which fiscal year a Factory write targets, or refuses.
+ *
+ * Grace WIDENS the selection window rather than gating an existing target: these paths take no
+ * coverId, they FIND the Cover using the year window. The year must therefore be resolved before the
+ * lookup, not after it — the reverse of `assertYearWritable` on the evaluator paths, where the
+ * target already exists.
+ *
+ * An explicit year is safe here because `factoryId` comes from the JWT subject, so the query is
+ * already confined to the caller's own records. Naming a year selects among its OWN Covers.
+ * Widening the window while keeping `.limit(1)` would instead pick arbitrarily between two
+ * legitimately open years during grace.
+ */
+const resolveWritableYear = (fiscalYear?: number) => {
+  const currentYear = utilities().getFiscalYearOf(new Date());
+  const targetYear = fiscalYear ?? currentYear;
+
+  if (targetYear !== currentYear && !utilities().factoryGraceApplies(targetYear)) {
+    return status(403, { message: `fiscal year ${targetYear} is closed to factories` });
+  }
+
+  return targetYear;
+};
+
 export const createAnswerService = (database: typeof db) => {
   return {
-    saveAnswer: async (factoryId: number, dto: CreateAnswerWithFilesDto) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+    saveAnswer: async (factoryId: number, dto: CreateAnswerWithFilesDto, fiscalYear?: number) => {
+      const targetYear = resolveWritableYear(fiscalYear);
+      if (targetYear instanceof ElysiaCustomStatusResponse) return targetYear;
+
+      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear(targetYear);
 
       const cover = await database
         .select({ coverId: covers.id, enrollId: covers.enrollId })
@@ -212,8 +239,11 @@ export const createAnswerService = (database: typeof db) => {
       return status(201, { message: "answer save!" });
     },
 
-    submit: async (factoryId: number) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+    submit: async (factoryId: number, fiscalYear?: number) => {
+      const targetYear = resolveWritableYear(fiscalYear);
+      if (targetYear instanceof ElysiaCustomStatusResponse) return targetYear;
+
+      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear(targetYear);
 
       const cover = await database
         .select({ coverId: covers.id, enrollId: covers.enrollId })
@@ -346,8 +376,8 @@ export const createAnswerService = (database: typeof db) => {
       return status(200, { message: "answers submit" });
     },
 
-    getAnswerByFactoryId: async (factoryId: number) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+    getAnswerByFactoryId: async (factoryId: number, fiscalYear?: number) => {
+      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear(fiscalYear);
       const result = await database
         .select({ ...getTableColumns(answers) })
         .from(answers)
@@ -393,8 +423,11 @@ export const createAnswerService = (database: typeof db) => {
       });
     },
 
-    update: async (factoryId: number, dto: UpdateAnswerWithFilesDto) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+    update: async (factoryId: number, dto: UpdateAnswerWithFilesDto, fiscalYear?: number) => {
+      const targetYear = resolveWritableYear(fiscalYear);
+      if (targetYear instanceof ElysiaCustomStatusResponse) return targetYear;
+
+      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear(targetYear);
 
       // 1. Find current fiscal year's cover
       const cover = await database
@@ -672,8 +705,11 @@ export const createAnswerService = (database: typeof db) => {
       return { message: "answer update" };
     },
 
-    negotiate: async (factoryId: number, dto: NegotiateAnswerDto) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+    negotiate: async (factoryId: number, dto: NegotiateAnswerDto, fiscalYear?: number) => {
+      const targetYear = resolveWritableYear(fiscalYear);
+      if (targetYear instanceof ElysiaCustomStatusResponse) return targetYear;
+
+      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear(targetYear);
 
       const cover = await database
         .select({ coverId: covers.id, enrollId: covers.enrollId })

@@ -63,6 +63,12 @@ export const FactoryListItemSchema = t.Object({
   phone_number: t.String(),
   fax_number: t.Nullable(t.String()),
   is_validate: t.Boolean(),
+  /**
+   * Common Era fiscal year of this record. Optional because the Factory list with
+   * `enrolled=false` disables fiscal-year filtering entirely, so its rows may span years and no
+   * single value would be truthful. See docs/api-conventions.md.
+   */
+  fiscalYear: t.Optional(t.Number()),
 });
 
 /** Admin variant adds `username` from the accounts join. */

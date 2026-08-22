@@ -55,7 +55,8 @@ The prioritized evidence and remediation sequence are in [Technical debt](techni
 
 ## Critical business rules
 
-- The fiscal year begins October 1 and ends at the next October 1 boundary. Use `utilities().getFiscalYear()`; timezone correctness at deployment remains unresolved.
+- The fiscal year begins October 1 and ends at the next October 1 boundary, in Asia/Bangkok, and is labelled by its **ending** Common Era year (FY2026 = Oct 2025 – Sep 2026). Use `utilities().getFiscalYear()` — never hand-roll boundaries. Timezone correctness was verified on 2026-08-21: the boundary is pinned to UTC+7 in code and no longer depends on the host or container timezone (BR-06). Fiscal-year identity is still derived per read rather than stored.
+- Writes are current-fiscal-year only, with two exceptions: DOED and ODPC-level Evaluators may write a closed year without deadline, and a Factory may complete an unfinished prior-year Cover for 31 days after the boundary. Grace covers Cover completion only — closed-year enrollment stays immutable. A Cover unfinished when the window closes simply remains `in_progress`; there is no sweep and no terminal status.
 - Intended cardinalities are one enrollment per Factory/fiscal year, one Cover per Enrollment, and one Answer per Cover/Question. They are not currently durable database constraints.
 - Evaluator scope combines health region and level/category ownership: Mental → Mental; DOH → Disease/Safety; ODPC → all categories and finalization.
 - A save verdict is `approve`, `change_score`, or `reject`. Per-answer saves do not move the Cover; finalize is the sole evaluator/admin Cover transition and sole writer of `finished`. Cover creation and Factory submission also append Cover transitions.
