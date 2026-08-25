@@ -1,6 +1,12 @@
 # ADR 0004: Verdict scores resolved by an unbounded consensus loop
 
-**Status:** Accepted (2026-06-16)
+**Status:** Accepted (2026-06-16) — **partially superseded by [ADR-0012](0012-score-changes-are-terminal.md) (2026-08-25)**
+
+> The **unbounded consensus loop** below no longer applies to score changes: a `change_score` is
+> terminal, and the Factory can neither accept nor object to it. The option this ADR rejected —
+> "ODPC force-sets the final score" — was adopted in ADR-0012. Everything else here still stands:
+> the [[Verdict Score]], the four-value `answerStatus`, ODPC as sole finalizer, and the Grade rules.
+> The loop survives for **hard rejects**.
 
 ## Context
 
