@@ -715,3 +715,207 @@ describe("Story 004 — only finalize writes finished (AC/FR-5)", () => {
     expect(await coverLogsOf(coverId)).toHaveLength(1);
   });
 });
+
+// ─── Standard certificates deleted on hard reject ────────────────────────────
+//
+// Question → standards (seed_data/questions.json):
+//   q22, q25 → Wellness, Safety, TIS18001, ISO45001
+//   q23      → Wellness, Safety, TIS18001, ISO45001, Zero
+//   q26      → Safety, 5S
+// All four are category `Safety`.
+
+const Q_STD = { q22: 22, q23: 23, q25: 25, q26: 26 };
+
+/** Claim every standard the tests care about, each with a certificate file. */
+async function claimStandards() {
+  await db
+    .update(enrolls)
+    .set({
+      standardWellness: true,
+      fileStandardWellnessUrl: "cert-wellness.pdf",
+      standardSafety: true,
+      fileStandardSafetyUrl: "cert-safety.pdf",
+      standardTis18001: true,
+      fileStandardTis18001Url: "cert-tis.pdf",
+      standardIso45001: true,
+      fileStandardIso45001Url: "cert-iso45001.pdf",
+      standardZero: true,
+      fileStandardZeroUrl: "cert-zero.pdf",
+      standard5S: true,
+      fileStandard5SUrl: "cert-5s.pdf",
+    })
+    .where(eq(enrolls.id, enrollId));
+}
+
+async function enrollStandards() {
+  return db
+    .select({
+      wellness: enrolls.standardWellness,
+      wellnessUrl: enrolls.fileStandardWellnessUrl,
+      safety: enrolls.standardSafety,
+      safetyUrl: enrolls.fileStandardSafetyUrl,
+      zero: enrolls.standardZero,
+      zeroUrl: enrolls.fileStandardZeroUrl,
+      fiveS: enrolls.standard5S,
+      fiveSUrl: enrolls.fileStandard5SUrl,
+    })
+    .from(enrolls)
+    .where(eq(enrolls.id, enrollId))
+    .limit(1)
+    .then((r) => r[0]);
+}
+
+describe("Hard reject deletes the standard certificates behind the question", () => {
+  it("AC: every standard the rejected question names and the factory claims is deleted", async () => {
+    await claimStandards();
+    const { coverId } = await seedCover([
+      { cat: "Safety", questionId: Q_STD.q23, status: "rejected", verdictChoice: null },
+    ]);
+
+    const deleted: (string | null)[] = [];
+    const utilSpy = mockDeleteStrict(async (f) => {
+      deleted.push(f);
+    });
+    const res = await reviewService.finalize(coverId, odpcCtx(ODPC_A));
+    utilSpy.mockRestore();
+
+    expect(code(res)).toBe(200);
+    // q23's five standards — and NOT 5S, which it does not name.
+    expect(deleted.slice().sort()).toEqual([
+      "cert-iso45001.pdf",
+      "cert-safety.pdf",
+      "cert-tis.pdf",
+      "cert-wellness.pdf",
+      "cert-zero.pdf",
+    ]);
+
+    const std = await enrollStandards();
+    expect(std.safety).toBe(false);
+    expect(std.safetyUrl).toBeNull();
+    expect(std.zero).toBe(false);
+    expect(std.zeroUrl).toBeNull();
+    // 5S is untouched — no rejected question named it.
+    expect(std.fiveS).toBe(true);
+    expect(std.fiveSUrl).toBe("cert-5s.pdf");
+  });
+
+  it("AC: an unclaimed standard is not deleted", async () => {
+    await claimStandards();
+    await db
+      .update(enrolls)
+      .set({ standardZero: false, fileStandardZeroUrl: null })
+      .where(eq(enrolls.id, enrollId));
+
+    const { coverId } = await seedCover([
+      { cat: "Safety", questionId: Q_STD.q23, status: "rejected", verdictChoice: null },
+    ]);
+    const deleted: (string | null)[] = [];
+    const utilSpy = mockDeleteStrict(async (f) => {
+      deleted.push(f);
+    });
+    await reviewService.finalize(coverId, odpcCtx(ODPC_A));
+    utilSpy.mockRestore();
+
+    expect(deleted).not.toContain("cert-zero.pdf");
+    expect(deleted).toHaveLength(4);
+  });
+
+  it("AC: a certificate shared by two rejected questions is deleted once", async () => {
+    await claimStandards();
+    const { coverId } = await seedCover([
+      { cat: "Safety", questionId: Q_STD.q23, status: "rejected", verdictChoice: null },
+      { cat: "Safety", questionId: Q_STD.q26, status: "rejected", verdictChoice: null },
+    ]);
+    const deleted: (string | null)[] = [];
+    const utilSpy = mockDeleteStrict(async (f) => {
+      deleted.push(f);
+    });
+    await reviewService.finalize(coverId, odpcCtx(ODPC_A));
+    utilSpy.mockRestore();
+
+    // standardSafety backs both questions — deleted exactly once.
+    expect(deleted.filter((f) => f === "cert-safety.pdf")).toHaveLength(1);
+    expect(deleted).toContain("cert-5s.pdf"); // q26's own standard
+  });
+
+  it("AC: a settled score change on a standard-backed question deletes nothing", async () => {
+    await claimStandards();
+    const { coverId } = await seedCover([
+      { cat: "Safety", questionId: Q_STD.q23, status: "recommended", verdictChoice: "1" },
+    ]);
+    const deleted: (string | null)[] = [];
+    const utilSpy = mockDeleteStrict(async (f) => {
+      deleted.push(f);
+    });
+    const res = await reviewService.finalize(coverId, odpcCtx(ODPC_A));
+    utilSpy.mockRestore();
+
+    expect(body(res).coverStatus).toBe("finished");
+    expect(deleted).toEqual([]);
+    const std = await enrollStandards();
+    expect(std.safety).toBe(true);
+    expect(std.safetyUrl).toBe("cert-safety.pdf");
+  });
+});
+
+describe("Collateral answers scored from a deleted certificate", () => {
+  it("AC: not-yet-finished collateral returns to in_review instead of being promoted", async () => {
+    await claimStandards();
+    const { coverId, answerIds } = await seedCover([
+      { cat: "Safety", questionId: Q_STD.q23, status: "rejected", verdictChoice: null },
+      { cat: "Safety", questionId: Q_STD.q22, status: "recommended", evalId: ODPC_A },
+    ]);
+
+    const utilSpy = mockDeleteStrict(async () => {});
+    const res = await reviewService.finalize(coverId, odpcCtx(ODPC_A));
+    utilSpy.mockRestore();
+
+    expect(body(res).coverStatus).toBe("in_progress");
+    // q22 shares standardSafety with q23 — its basis is gone, so it must be re-answered.
+    const collateral = await latestOf(answerIds[1]);
+    expect(collateral.status).toBe("in_review");
+  });
+
+  it("AC: already-finished collateral is left untouched", async () => {
+    await claimStandards();
+    const { coverId, answerIds } = await seedCover([
+      { cat: "Safety", questionId: Q_STD.q23, status: "rejected", verdictChoice: null },
+      { cat: "Safety", questionId: Q_STD.q25, status: "finished", evalId: ODPC_A },
+    ]);
+
+    const logsBefore = await db
+      .select({ id: answerLogs.id })
+      .from(answerLogs)
+      .where(eq(answerLogs.answerId, answerIds[1]))
+      .then((r) => r.length);
+
+    const utilSpy = mockDeleteStrict(async () => {});
+    await reviewService.finalize(coverId, odpcCtx(ODPC_A));
+    utilSpy.mockRestore();
+
+    // `finished` is immutable to everyone — reopening it is a separate intent.
+    const collateral = await latestOf(answerIds[1]);
+    expect(collateral.status).toBe("finished");
+    const logsAfter = await db
+      .select({ id: answerLogs.id })
+      .from(answerLogs)
+      .where(eq(answerLogs.answerId, answerIds[1]))
+      .then((r) => r.length);
+    expect(logsAfter).toBe(logsBefore);
+  });
+
+  it("AC: an answer not backed by any deleted standard is promoted normally", async () => {
+    await claimStandards();
+    const { coverId, answerIds } = await seedCover([
+      { cat: "Safety", questionId: Q_STD.q26, status: "rejected", verdictChoice: null },
+      { cat: "Mental", status: "recommended", evalId: ODPC_A },
+    ]);
+
+    const utilSpy = mockDeleteStrict(async () => {});
+    await reviewService.finalize(coverId, odpcCtx(ODPC_A));
+    utilSpy.mockRestore();
+
+    // q36 (Mental) names no standard — untouched by the certificate deletion.
+    expect((await latestOf(answerIds[1])).status).toBe("finished");
+  });
+});

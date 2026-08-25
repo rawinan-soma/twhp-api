@@ -354,6 +354,32 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           email: accounts.email,
           ccEmail: enrolls.safetyOfficerEmail,
           factoryNameTh: factories.nameTh,
+          enrollId: enrolls.id,
+          // The eleven (claimed, certificate) pairs. Enumerated rather than spread from
+          // STANDARD_ENROLL_COLUMNS because a computed select object loses Drizzle's column
+          // inference; the map below still drives every *read* of these fields.
+          standardHc: enrolls.standardHc,
+          fileStandardHcUrl: enrolls.fileStandardHcUrl,
+          standardSan: enrolls.standardSan,
+          fileStandardSanUrl: enrolls.fileStandardSanUrl,
+          standardSanPlus: enrolls.standardSanPlus,
+          fileStandardSanPlusUrl: enrolls.fileStandardSanPlusUrl,
+          standardWellness: enrolls.standardWellness,
+          fileStandardWellnessUrl: enrolls.fileStandardWellnessUrl,
+          standardSafety: enrolls.standardSafety,
+          fileStandardSafetyUrl: enrolls.fileStandardSafetyUrl,
+          standardTis18001: enrolls.standardTis18001,
+          fileStandardTis18001Url: enrolls.fileStandardTis18001Url,
+          standardIso45001: enrolls.standardIso45001,
+          fileStandardIso45001Url: enrolls.fileStandardIso45001Url,
+          standardIso14001: enrolls.standardIso14001,
+          fileStandardIso14001Url: enrolls.fileStandardIso14001Url,
+          standardZero: enrolls.standardZero,
+          fileStandardZeroUrl: enrolls.fileStandardZeroUrl,
+          standard5S: enrolls.standard5S,
+          fileStandard5SUrl: enrolls.fileStandard5SUrl,
+          standardHas: enrolls.standardHas,
+          fileStandardHasUrl: enrolls.fileStandardHasUrl,
         })
         .from(covers)
         .innerJoin(enrolls, eq(enrolls.id, covers.enrollId))
@@ -370,6 +396,7 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           selectedChoice: answers.selectedChoice,
           category: questions.category,
           special: questions.special,
+          standard: questions.standard,
           fileUrl1_1: answers.fileUrl1_1,
           fileUrl1_2: answers.fileUrl1_2,
           fileUrl1_3: answers.fileUrl1_3,
@@ -444,12 +471,48 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           .map((r) => r.answerId),
       );
 
+      // Standard certificates behind a hard-rejected question. A standard-backed Answer holds
+      // no per-answer files — `selectedChoice` was forced to "3" from the certificate — so
+      // without this a hard reject deletes nothing and the redo re-derives the same "3".
+      // Every standard the rejected question NAMES and the factory actually CLAIMS is deleted,
+      // even when other questions still rely on it (decision 1, 2026-08-24).
+      const doomedStandards = new Set<string>();
+      for (const a of allCoverAnswers) {
+        if (!hardRejectIds.has(a.answerId)) continue;
+        for (const std of a.standard) {
+          const cols = STANDARD_ENROLL_COLUMNS.find((c) => c.standard === std);
+          if (!cols) continue;
+          const claimed = enrollData?.[cols.bool] === true;
+          const certificate = enrollData?.[cols.url];
+          if (claimed && typeof certificate === "string" && certificate.length > 0) {
+            doomedStandards.add(std);
+          }
+        }
+      }
+
+      // Collateral: an Answer scored from a certificate this finalize deletes has lost its
+      // basis, so it returns to `in_review` for the factory to re-answer with real evidence.
+      // Already-`finished` Answers are exempt — reopening one would break "finished is
+      // immutable to everyone" (decision 6, 2026-08-25); that is a separate intent.
+      const collateralIds = new Set(
+        doomedStandards.size === 0
+          ? []
+          : allCoverAnswers
+              .filter(
+                (a) =>
+                  !hardRejectIds.has(a.answerId) &&
+                  a.standard.some((std) => doomedStandards.has(std)),
+              )
+              .map((a) => a.answerId)
+              .filter((id) => open.some((r) => r.answerId === id)),
+      );
+
       // Promotions: every non-hard-reject Answer → finished (the ONLY write of `finished`).
       // A settled score change carries its `verdictChoice` forward rather than nulling it, so
       // the latest log still records what was corrected — the factory-facing read keys off
       // exactly this row.
       const promotionRows = open
-        .filter((r) => !hardRejectIds.has(r.answerId))
+        .filter((r) => !hardRejectIds.has(r.answerId) && !collateralIds.has(r.answerId))
         .map((r) => ({
           answerId: r.answerId,
           status: "finished" as const,
@@ -473,6 +536,14 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           a.fileUrl3_3,
         ]) {
           if (url) fileUrlsToDelete.push(url);
+        }
+      }
+
+      for (const std of doomedStandards) {
+        const cols = STANDARD_ENROLL_COLUMNS.find((c) => c.standard === std);
+        const certificate = cols ? enrollData?.[cols.url] : null;
+        if (typeof certificate === "string" && certificate.length > 0) {
+          fileUrlsToDelete.push(certificate);
         }
       }
 
@@ -520,6 +591,33 @@ export const createEvaluatorReviewService = (database: typeof db) => {
             })
             .where(inArray(answers.id, [...hardRejectIds]));
         }
+        // Un-claim each deleted standard: the certificate is gone, so the claim cannot stand.
+        // This preserves the invariant `enroll.create` enforces — a claimed standard must have
+        // a file — and lets the redo fall through to a normal file-based answer instead of
+        // erroring with "standard file not found in enroll" (decision 2, 2026-08-24).
+        if (doomedStandards.size > 0 && enrollData?.enrollId) {
+          const unclaim: Record<string, null | false> = {};
+          for (const std of doomedStandards) {
+            const cols = STANDARD_ENROLL_COLUMNS.find((c) => c.standard === std);
+            if (!cols) continue;
+            unclaim[cols.url] = null;
+            unclaim[cols.bool] = false;
+          }
+          await tx.update(enrolls).set(unclaim).where(eq(enrolls.id, enrollData.enrollId));
+        }
+
+        // Collateral returns to `in_review` INSTEAD of being promoted — it was subtracted from
+        // promotionRows above, so no Answer receives both rows in one transaction.
+        for (const answerIdToReset of collateralIds) {
+          await tx.insert(answerLogs).values({
+            answerId: answerIdToReset,
+            status: "in_review" as const,
+            verdictChoice: null,
+            description: null,
+            eval_id: accountId,
+          });
+        }
+
         await tx
           .insert(coverLogs)
           .values({ coverId, status: newCoverStatus, evaluatorId: accountId });
