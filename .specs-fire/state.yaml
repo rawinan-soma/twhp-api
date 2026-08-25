@@ -1,0 +1,240 @@
+project:
+  name: twhp-elysia
+  description: Thai Workplace Health Promotion API — Bun + ElysiaJS + Drizzle/PostgreSQL
+  created: 2026-08-20T09:10:00Z
+  fire_version: 0.1.8
+workspace:
+  type: brownfield
+  structure: monolith
+  autonomy_bias: balanced
+  run_scope_preference: single
+  run_scope_history: []
+  scanned_at: 2026-08-20T09:10:00Z
+  parts: []
+intents:
+  - id: fiscal-year-addressing
+    title: Fiscal Year Addressing
+    status: completed
+    work_items:
+      - id: fiscal-year-resolver
+        title: Parameterised, deterministic fiscal-year resolver
+        status: completed
+        complexity: high
+        mode: validate
+        depends_on: []
+        design_doc: fiscal-year-resolver-design.md
+        checkpoint_1: approved
+        checkpoint_1_at: 2026-08-21T12:20:00Z
+        run_id: run-twhp-elysia-001
+        completed_at: 2026-08-21T12:37:49.551Z
+      - id: fiscal-year-read-addressing
+        title: Fiscal-year addressing across all read paths
+        status: completed
+        complexity: medium
+        mode: confirm
+        depends_on:
+          - fiscal-year-resolver
+        run_id: run-twhp-elysia-002
+        completed_at: 2026-08-21T13:14:46.459Z
+      - id: fiscal-year-boundary-tests
+        title: Boundary, timezone, scoping, and parity coverage
+        status: completed
+        complexity: medium
+        mode: confirm
+        depends_on:
+          - fiscal-year-resolver
+          - fiscal-year-read-addressing
+        run_id: run-twhp-elysia-002
+        completed_at: 2026-08-21T13:14:46.459Z
+      - id: past-year-write-authority
+        title: Past-fiscal-year write authority for DOED and ODPC
+        status: completed
+        complexity: high
+        mode: validate
+        depends_on:
+          - fiscal-year-resolver
+        design_doc: past-year-write-authority-design.md
+        checkpoint_1: approved
+        checkpoint_1_at: 2026-08-22T00:00:00Z
+        run_id: run-twhp-elysia-003
+        completed_at: 2026-08-22T15:18:47.204Z
+      - id: factory-grace-window
+        title: 31-day Factory grace window for unfinished prior-year Covers
+        status: completed
+        complexity: high
+        mode: validate
+        depends_on:
+          - past-year-write-authority
+        design_doc: factory-grace-window-design.md
+        checkpoint_1: approved
+        checkpoint_1_at: 2026-08-22T16:00:00Z
+        run_id: run-twhp-elysia-004
+        completed_at: 2026-08-22T15:50:03.853Z
+      - id: concurrent-years-and-audit
+        title: Concurrent open years, out-of-year audit, and expiry disposition
+        status: completed
+        complexity: medium
+        mode: confirm
+        depends_on:
+          - fiscal-year-read-addressing
+          - factory-grace-window
+        run_id: run-twhp-elysia-004
+        completed_at: 2026-08-22T15:50:03.853Z
+  - id: score-change-finality
+    title: Score-Change Finality
+    status: completed
+    completed_at: 2026-08-25T02:39:54.724Z
+    priority: urgent
+    created: 2026-08-23T15:20:34Z
+    work_items:
+      - id: verdict-save-terminal-score
+        title: Score change saves as a terminal verdict
+        status: completed
+        complexity: medium
+        mode: confirm
+        depends_on: []
+        run_id: run-twhp-elysia-005
+        completed_at: 2026-08-24T04:07:02.075Z
+      - id: finalize-settles-score
+        title: Finalize settles the verdict score and spares its evidence
+        status: completed
+        complexity: high
+        mode: validate
+        design_doc: finalize-settles-score-design.md
+        checkpoint_1: approved
+        checkpoint_1_at: 2026-08-24T04:40:00Z
+        depends_on:
+          - verdict-save-terminal-score
+        run_id: run-twhp-elysia-006
+        completed_at: 2026-08-24T07:54:49.591Z
+      - id: retire-score-negotiation
+        title: Retire the negotiation path for score changes
+        status: completed
+        complexity: medium
+        mode: confirm
+        depends_on:
+          - finalize-settles-score
+        run_id: run-twhp-elysia-007
+        completed_at: 2026-08-24T08:05:36.832Z
+      - id: finalize-email-changed-answers
+        title: Finished-Cover email enumerates changed scores
+        status: completed
+        complexity: medium
+        mode: confirm
+        depends_on:
+          - finalize-settles-score
+        run_id: run-twhp-elysia-008
+        completed_at: 2026-08-24T08:34:03.564Z
+      - id: standard-file-deletion-on-hard-reject
+        title: Hard reject deletes the standard certificate too
+        status: completed
+        complexity: high
+        mode: validate
+        design_doc: standard-file-deletion-on-hard-reject-design.md
+        checkpoint_1: approved
+        checkpoint_1_at: 2026-08-25T00:00:00Z
+        depends_on:
+          - finalize-settles-score
+        run_id: run-twhp-elysia-009
+        completed_at: 2026-08-25T02:33:00.861Z
+      - id: adr-and-context-reconciliation
+        title: Record the reversal and reconcile the domain docs
+        status: completed
+        complexity: medium
+        mode: confirm
+        depends_on:
+          - finalize-settles-score
+          - retire-score-negotiation
+          - finalize-email-changed-answers
+          - standard-file-deletion-on-hard-reject
+        run_id: run-twhp-elysia-010
+        completed_at: 2026-08-25T02:39:54.724Z
+runs:
+  active: []
+  completed:
+    - id: run-twhp-elysia-001
+      scope: single
+      work_items:
+        - id: fiscal-year-resolver
+          intent: fiscal-year-addressing
+          mode: validate
+      started: 2026-08-21T12:25:38.651Z
+      completed: 2026-08-21T12:37:49.551Z
+    - id: run-twhp-elysia-002
+      scope: batch
+      work_items:
+        - id: fiscal-year-read-addressing
+          intent: fiscal-year-addressing
+          mode: confirm
+        - id: fiscal-year-boundary-tests
+          intent: fiscal-year-addressing
+          mode: confirm
+      started: 2026-08-21T12:43:56.244Z
+      completed: 2026-08-21T13:14:46.459Z
+    - id: run-twhp-elysia-003
+      scope: single
+      work_items:
+        - id: past-year-write-authority
+          intent: fiscal-year-addressing
+          mode: validate
+      started: 2026-08-22T15:09:16.557Z
+      completed: 2026-08-22T15:18:47.204Z
+    - id: run-twhp-elysia-004
+      scope: batch
+      work_items:
+        - id: factory-grace-window
+          intent: fiscal-year-addressing
+          mode: validate
+        - id: concurrent-years-and-audit
+          intent: fiscal-year-addressing
+          mode: confirm
+      started: 2026-08-22T15:34:38.670Z
+      completed: 2026-08-22T15:50:03.853Z
+    - id: run-twhp-elysia-005
+      scope: single
+      work_items:
+        - id: verdict-save-terminal-score
+          intent: score-change-finality
+          mode: confirm
+      started: 2026-08-24T03:54:58.362Z
+      completed: 2026-08-24T04:07:02.075Z
+    - id: run-twhp-elysia-006
+      scope: single
+      work_items:
+        - id: finalize-settles-score
+          intent: score-change-finality
+          mode: validate
+      started: 2026-08-24T07:09:18.650Z
+      completed: 2026-08-24T07:54:49.591Z
+    - id: run-twhp-elysia-007
+      scope: single
+      work_items:
+        - id: retire-score-negotiation
+          intent: score-change-finality
+          mode: confirm
+      started: 2026-08-24T07:57:02.367Z
+      completed: 2026-08-24T08:05:36.832Z
+    - id: run-twhp-elysia-008
+      scope: single
+      work_items:
+        - id: finalize-email-changed-answers
+          intent: score-change-finality
+          mode: confirm
+      started: 2026-08-24T08:14:23.575Z
+      completed: 2026-08-24T08:34:03.564Z
+    - id: run-twhp-elysia-009
+      scope: single
+      work_items:
+        - id: standard-file-deletion-on-hard-reject
+          intent: score-change-finality
+          mode: validate
+      started: 2026-08-25T02:29:15.727Z
+      completed: 2026-08-25T02:33:00.861Z
+    - id: run-twhp-elysia-010
+      scope: single
+      work_items:
+        - id: adr-and-context-reconciliation
+          intent: score-change-finality
+          mode: confirm
+      started: 2026-08-25T02:34:59.842Z
+      completed: 2026-08-25T02:39:54.724Z
