@@ -304,9 +304,16 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         });
       }
 
-      // approve → recommended for EVERY level (only finalize writes `finished`).
+      // approve → recommended, and change_score with it: a settled score correction is
+      // terminal and never returns to the factory (ADR supersedes 0004's consensus loop for
+      // score changes). Only a hard `reject` writes `rejected`; only finalize writes `finished`.
+      //
+      // No file check runs here, in EITHER direction. The evaluator is the authority on what the
+      // evidence supports; refusing an upgrade would leave them only the hard reject, which
+      // deletes the factory's evidence and forces a redo — a worse outcome than honouring the
+      // verdict. Decided 2026-08-24, superseding the save-time evidence guard.
       const outcomeStatus =
-        entry.decision === "approve" ? ("recommended" as const) : ("rejected" as const);
+        entry.decision === "reject" ? ("rejected" as const) : ("recommended" as const);
 
       await database.insert(answerLogs).values({
         answerId,
@@ -385,6 +392,7 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           answerId: answerLogs.answerId,
           status: answerLogs.status,
           verdictChoice: answerLogs.verdictChoice,
+          description: answerLogs.description,
         })
         .from(answerLogs)
         .where(inArray(answerLogs.answerId, allCoverAnswerIds))
@@ -399,6 +407,9 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           answerId: a.answerId,
           status: log?.status ?? "in_review",
           verdictChoice: log?.verdictChoice ?? null,
+          // Carried into the promotion row so the evaluator's reason survives finalize — it is
+          // the factory's only explanation now that a score change is never negotiated.
+          description: log?.description ?? null,
         };
       });
 
@@ -409,28 +420,47 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         });
       }
 
-      // Promotions: un-overridden recommended → finished (the ONLY write of `finished`).
-      const promotionRows = resolved
-        .filter((r) => r.status === "recommended")
+      // Classification. A settled score change is identified by its `verdictChoice`, NOT by its
+      // status, because it arrives in two shapes: `recommended` (saved after this intent) and
+      // `rejected` (rows written under the old semantics, still in production). Keying on the
+      // discriminator both shapes share is what lets legacy rows finalize correctly with no
+      // backfill. `verdictChoice` is only ever written by `change_score`, so a non-null value
+      // cannot mean anything else.
+      // `finished` Answers are excluded throughout: a Cover that bounced to `in_progress` and
+      // is finalized again still carries the rows promoted by the FIRST finalize, and they are
+      // immutable. Re-promoting them would append duplicate `finished` logs on every pass.
+      const open = resolved.filter((r) => r.status !== "finished");
+
+      const settledScores = open.filter((r) => r.verdictChoice !== null);
+      const settledChoiceById = new Map(
+        settledScores.map((r) => [r.answerId, r.verdictChoice as string]),
+      );
+
+      // A hard reject is `rejected` with NO verdict choice — the evaluator proposed no
+      // replacement. Only these lose their evidence and send the Cover back.
+      const hardRejectIds = new Set(
+        open
+          .filter((r) => r.status === "rejected" && r.verdictChoice === null)
+          .map((r) => r.answerId),
+      );
+
+      // Promotions: every non-hard-reject Answer → finished (the ONLY write of `finished`).
+      // A settled score change carries its `verdictChoice` forward rather than nulling it, so
+      // the latest log still records what was corrected — the factory-facing read keys off
+      // exactly this row.
+      const promotionRows = open
+        .filter((r) => !hardRejectIds.has(r.answerId))
         .map((r) => ({
           answerId: r.answerId,
           status: "finished" as const,
-          verdictChoice: null,
-          description: null,
+          verdictChoice: r.verdictChoice,
+          description: r.description,
           eval_id: accountId,
         }));
 
-      // Rejected-at-finalize set: any Answer whose final status is `rejected` — hard reject
-      // or change_score alike — has its files deleted + nulled (ADR-0006). An Answer
-      // re-saved to approve/recommended before finalize is excluded, since `resolved`
-      // reflects only the latest persisted answerLogs row per Answer.
-      const rejectedAnswerIds = new Set(
-        resolved.filter((r) => r.status === "rejected").map((r) => r.answerId),
-      );
-
       const fileUrlsToDelete: string[] = [];
       for (const a of allCoverAnswers) {
-        if (!rejectedAnswerIds.has(a.answerId)) continue;
+        if (!hardRejectIds.has(a.answerId)) continue;
         for (const url of [
           a.fileUrl1_1,
           a.fileUrl1_2,
@@ -458,14 +488,23 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         });
       }
 
-      const hasRejected = resolved.some((r) => r.status === "rejected");
-      const newCoverStatus = hasRejected ? ("in_progress" as const) : ("finished" as const);
+      // Only a hard reject owes the factory anything — a settled score change is closed.
+      const hasHardReject = hardRejectIds.size > 0;
+      const newCoverStatus = hasHardReject ? ("in_progress" as const) : ("finished" as const);
 
       await database.transaction(async (tx) => {
         for (const row of promotionRows) {
           await tx.insert(answerLogs).values(row);
         }
-        if (rejectedAnswerIds.size > 0) {
+        // The Verdict Score becomes the settled choice. This is the write `accept` used to
+        // perform (answer.ts) before the negotiation loop was retired for score changes.
+        for (const [answerIdToSettle, choice] of settledChoiceById) {
+          await tx
+            .update(answers)
+            .set({ selectedChoice: choice as (typeof answers.selectedChoice.enumValues)[number] })
+            .where(eq(answers.id, answerIdToSettle));
+        }
+        if (hardRejectIds.size > 0) {
           await tx
             .update(answers)
             .set({
@@ -479,17 +518,19 @@ export const createEvaluatorReviewService = (database: typeof db) => {
               fileUrl3_2: null,
               fileUrl3_3: null,
             })
-            .where(inArray(answers.id, [...rejectedAnswerIds]));
+            .where(inArray(answers.id, [...hardRejectIds]));
         }
         await tx
           .insert(coverLogs)
           .values({ coverId, status: newCoverStatus, evaluatorId: accountId });
       });
 
-      // Grade (on-demand, not persisted — ADR-0001). Computed from the factory's choices;
-      // on the finished outcome no answer is rejected, so selectedChoice is the settled value.
+      // Grade (on-demand, not persisted — ADR-0001). `allCoverAnswers` was read before the
+      // transaction, so it still holds pre-correction choices; overlay the settled Verdict
+      // Scores here. The overlay and the DB write above derive from the same map, so they
+      // cannot disagree.
       const gradeAnswers = allCoverAnswers.map((a) => ({
-        selectedChoice: a.selectedChoice,
+        selectedChoice: settledChoiceById.get(a.answerId) ?? a.selectedChoice,
         category: a.category as CategoryKey,
         special: a.special,
       }));

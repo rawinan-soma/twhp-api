@@ -56,7 +56,14 @@ const CATEGORY_QUESTION: Record<string, number> = {
 };
 const ALL_CATEGORIES = Object.keys(CATEGORY_QUESTION);
 
+// q14: category Disease, `special === 3` (one file per choice), no standard.
+const SPECIAL3_QUESTION = 14;
+// The Safety fixture Answer uses q23, which is standard-backed
+// (standardWellness/standardSafety/...) — exempt from the evidence guard, because the
+// standard rather than an upload is its evidence.
+
 let coverId: number;
+let special3AnswerId: number;
 const answerByCat: Record<string, number> = {};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -203,11 +210,33 @@ beforeAll(async () => {
   for (const cat of ALL_CATEGORIES) {
     const [ans] = await db
       .insert(answers)
-      .values({ questionId: CATEGORY_QUESTION[cat], coverId, selectedChoice: "2" })
+      .values({
+        questionId: CATEGORY_QUESTION[cat],
+        coverId,
+        selectedChoice: "2",
+        // Evidence for choices 1 and 2 only — a change_score up to "3" is therefore
+        // unsupported, which is what the evidence guard exists to catch.
+        fileUrl1_1: `${cat}-1-1.pdf`,
+        fileUrl2_1: `${cat}-2-1.pdf`,
+      })
       .returning();
     answerByCat[cat] = ans.id;
     await db.insert(answerLogs).values({ answerId: ans.id, status: "in_review" });
   }
+
+  // A `special === 3` Answer (one file per choice, not cumulative) holding evidence for
+  // choice 3 alone — so a *downgrade* to "2" has nothing behind it.
+  const [specialAns] = await db
+    .insert(answers)
+    .values({
+      questionId: SPECIAL3_QUESTION,
+      coverId,
+      selectedChoice: "3",
+      fileUrl3_1: "special-3-1.pdf",
+    })
+    .returning();
+  special3AnswerId = specialAns.id;
+  await db.insert(answerLogs).values({ answerId: specialAns.id, status: "in_review" });
 });
 
 afterAll(async () => {
@@ -291,7 +320,7 @@ describe("Story 002 — saveAnswerVerdict", () => {
     expect((await latestStatusOf(answerByCat.Collaborate))?.status).toBe("recommended");
   });
 
-  it("AC: change_score → rejected + verdict_choice + description", async () => {
+  it("AC: change_score → recommended + verdict_choice + description (terminal)", async () => {
     await baseline(answerByCat.Disease, "in_review");
     const res = await reviewService.saveAnswerVerdict(
       coverId,
@@ -304,7 +333,7 @@ describe("Story 002 — saveAnswerVerdict", () => {
       },
     );
     expect(code(res)).toBe(200);
-    expect(body(res).status).toBe("rejected");
+    expect(body(res).status).toBe("recommended");
     const log = await db
       .select({ vc: answerLogs.verdictChoice, d: answerLogs.description })
       .from(answerLogs)
@@ -442,14 +471,129 @@ describe("Story 003 — authorship-keyed edit guard", () => {
       odpcCtx(ODPC_A),
       {
         decision: "change_score",
-        verdictChoice: "3",
+        verdictChoice: "1",
         description: "odpc override",
       },
     );
     expect(code(res)).toBe(200);
-    expect(body(res).status).toBe("rejected");
+    expect(body(res).status).toBe("recommended");
   });
 
+  it("AC: a settled score change is editable by its author, not another tier-1", async () => {
+    await baseline(answerByCat.Mental, "in_review");
+    const saved = await reviewService.saveAnswerVerdict(
+      coverId,
+      answerByCat.Mental,
+      mentalCtx(MENTAL_A),
+      { decision: "change_score", verdictChoice: "1", description: "supports 1" },
+    );
+    expect(body(saved).status).toBe("recommended");
+
+    // A different Mental reviewer is now locked out — as `rejected` this was open to any
+    // category-scoped reviewer; as `recommended` it is author-or-ODPC only.
+    const other = await reviewService.saveAnswerVerdict(
+      coverId,
+      answerByCat.Mental,
+      mentalCtx(MENTAL_B),
+      { decision: "approve" },
+    );
+    expect(code(other)).toBe(403);
+
+    const author = await reviewService.saveAnswerVerdict(
+      coverId,
+      answerByCat.Mental,
+      mentalCtx(MENTAL_A),
+      { decision: "approve" },
+    );
+    expect(code(author)).toBe(200);
+  });
+});
+
+// ─── Evidence guard — a change_score may only name a supported choice ────────
+
+describe("A change_score is never evidence-checked", () => {
+  it("AC: an upgrade the files do not support still settles", async () => {
+    await baseline(answerByCat.Collaborate, "in_review");
+    // Fixture seeds file_1_1 + file_2_1 only — no file_3_1 behind this "3".
+    const res = await reviewService.saveAnswerVerdict(
+      coverId,
+      answerByCat.Collaborate,
+      odpcCtx(ODPC_A),
+      { decision: "change_score", verdictChoice: "3", description: "deserves 3" },
+    );
+    expect(code(res)).toBe(200);
+    expect(body(res).status).toBe("recommended");
+  });
+
+  it("AC: a downgrade settles the same way", async () => {
+    await baseline(answerByCat.Collaborate, "in_review");
+    const res = await reviewService.saveAnswerVerdict(
+      coverId,
+      answerByCat.Collaborate,
+      odpcCtx(ODPC_A),
+      { decision: "change_score", verdictChoice: "1", description: "supports 1" },
+    );
+    expect(code(res)).toBe(200);
+    expect(body(res).status).toBe("recommended");
+  });
+
+  it("AC: special===3 — a downgrade with no file for the target choice still settles", async () => {
+    await baseline(special3AnswerId, "in_review");
+    // Holds file_3_1 only; "2" has nothing behind it, and that is the evaluator's call.
+    const res = await reviewService.saveAnswerVerdict(coverId, special3AnswerId, odpcCtx(ODPC_A), {
+      decision: "change_score",
+      verdictChoice: "2",
+      description: "supports 2",
+    });
+    expect(code(res)).toBe(200);
+    expect(body(res).status).toBe("recommended");
+  });
+
+  it("AC: a standard-backed question settles the same way", async () => {
+    await baseline(answerByCat.Safety, "in_review");
+    // q23 is standard-backed and has no file_3_1 — allowed, like every other question.
+    const res = await reviewService.saveAnswerVerdict(coverId, answerByCat.Safety, dohCtx(DOH_A), {
+      decision: "change_score",
+      verdictChoice: "3",
+      description: "standard held",
+    });
+    expect(code(res)).toBe(200);
+    expect(body(res).status).toBe("recommended");
+  });
+
+  it("AC: a hard reject settles as rejected with no verdict choice", async () => {
+    await baseline(answerByCat.Collaborate, "in_review");
+    const res = await reviewService.saveAnswerVerdict(
+      coverId,
+      answerByCat.Collaborate,
+      odpcCtx(ODPC_A),
+      { decision: "reject", description: "no evidence at all" },
+    );
+    expect(code(res)).toBe(200);
+    expect(body(res).status).toBe("rejected");
+    const log = await db
+      .select({ vc: answerLogs.verdictChoice })
+      .from(answerLogs)
+      .where(eq(answerLogs.answerId, answerByCat.Collaborate))
+      .orderBy(desc(answerLogs.id))
+      .limit(1)
+      .then((r) => r[0]);
+    expect(log.vc).toBeNull();
+  });
+
+  it("AC: save still writes no cover transition", async () => {
+    const before = await coverLogCount();
+    await baseline(answerByCat.Disease, "in_review");
+    await reviewService.saveAnswerVerdict(coverId, answerByCat.Disease, odpcCtx(ODPC_A), {
+      decision: "change_score",
+      verdictChoice: "1",
+      description: "supports 1",
+    });
+    expect(await coverLogCount()).toBe(before);
+  });
+});
+
+describe("Story 003 — trailing", () => {
   it("AC: a rejected answer is re-editable by a scoped reviewer", async () => {
     await baseline(answerByCat.Safety, "rejected", DOH_A);
     const res = await reviewService.saveAnswerVerdict(coverId, answerByCat.Safety, dohCtx(DOH_A), {

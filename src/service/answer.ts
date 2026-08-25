@@ -8,6 +8,7 @@ import type {
   UpdateAnswerWithFilesDto,
 } from "../schema/answer";
 import { utilities } from "../utils";
+import { missingFileForChoice } from "./answerFileRules";
 
 export const createAnswerService = (database: typeof db) => {
   return {
@@ -365,10 +366,12 @@ export const createAnswerService = (database: typeof db) => {
         return status(404, { message: "answers not found" });
       }
 
-      // Enrich each answer with its latest verdict so the factory can see which
-      // questions the evaluator/ODPC acted on, the proposed score, and the reason.
-      // status="rejected" => needs action (covers both reject and change_score);
-      // verdictChoice null on a rejected answer => hard reject (redo), set => score change.
+      // Enrich each answer with its latest verdict so the factory can see which questions the
+      // evaluator/ODPC acted on, the settled score, and the reason.
+      // status="rejected" => needs action, and is now ALWAYS a hard reject (redo).
+      // verdictChoice set => a settled score change: final, nothing owed by the factory. It
+      // rides on `recommended` before finalize and on `finished` after, never on `rejected`
+      // except for rows written before this rule.
       const answerIds = result.map((a) => a.id);
       const latestLogs = await database
         .selectDistinctOn([answerLogs.answerId], {
@@ -729,6 +732,16 @@ export const createAnswerService = (database: typeof db) => {
         .limit(1)
         .then((res) => res[0]);
 
+      // A settled score change admits no factory response — accept OR redo. It is checked
+      // before the status guard because it rides on three different statuses: `recommended`
+      // pre-finalize, `finished` after, and `rejected` for rows written under the old
+      // semantics. Those legacy rows are the reason this is not merely dead code: without it
+      // a factory could still apply a score that `finalize` now owns, giving two writers of
+      // one value.
+      if (latestLog?.verdictChoice) {
+        return status(400, { message: "this score is final and needs no response" });
+      }
+
       if (!latestLog || latestLog.status !== "rejected") {
         return status(400, { message: "answer is not in a state that can be negotiated" });
       }
@@ -738,7 +751,12 @@ export const createAnswerService = (database: typeof db) => {
           return status(400, { message: "hard-rejected answer cannot be accepted; redo instead" });
         }
 
-        const effectiveChoice = latestLog.verdictChoice;
+        // Retained below the finality guard above, so TypeScript no longer narrows this from
+        // the null check — restate the invariant the guard already proved.
+        const effectiveChoice = latestLog.verdictChoice as Exclude<
+          typeof latestLog.verdictChoice,
+          null
+        >;
 
         // Standard question branch — force selectedChoice="3" and write recommended log
         if (question.standard.length > 0) {
@@ -780,28 +798,8 @@ export const createAnswerService = (database: typeof db) => {
         }
 
         // Non-standard: validate that existing files satisfy the verdict choice requirements
-        if (question.special === 3) {
-          if (effectiveChoice === "1" && !existingAnswer.fileUrl1_1)
-            return status(400, { message: "choice 1 requires file_1_1" });
-          if (effectiveChoice === "2" && !existingAnswer.fileUrl2_1)
-            return status(400, { message: "choice 2 requires file_2_1" });
-          if (effectiveChoice === "3" && !existingAnswer.fileUrl3_1)
-            return status(400, { message: "choice 3 requires file_3_1" });
-        } else {
-          if (effectiveChoice === "1" && !existingAnswer.fileUrl1_1)
-            return status(400, { message: "choice 1 requires at least file_1_1" });
-          if (effectiveChoice === "2" && (!existingAnswer.fileUrl1_1 || !existingAnswer.fileUrl2_1))
-            return status(400, {
-              message: "choice 2 requires at least file_1_1 and file_2_1",
-            });
-          if (
-            effectiveChoice === "3" &&
-            (!existingAnswer.fileUrl1_1 || !existingAnswer.fileUrl2_1 || !existingAnswer.fileUrl3_1)
-          )
-            return status(400, {
-              message: "choice 3 requires at least file_1_1, file_2_1, and file_3_1",
-            });
-        }
+        const missingFile = missingFileForChoice(effectiveChoice, question.special, existingAnswer);
+        if (missingFile) return status(400, { message: missingFile });
 
         // No MinIO changes on accept — files stay as-is
         await database.transaction(async (tx) => {

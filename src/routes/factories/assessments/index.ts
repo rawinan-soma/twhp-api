@@ -93,8 +93,9 @@ export default (app: App) =>
                     t.Literal("n/a"),
                   ]),
                   // Latest verdict for this answer (from answerLogs).
-                  // status="rejected" => needs action; verdictChoice null on a
-                  // rejected answer => hard reject (redo), set => proposed score change.
+                  // status="rejected" => needs action; always a hard reject (redo).
+                  // verdictChoice set => a settled score change: final, no factory response
+                  // required. `description` carries the evaluator's reason and survives finalize.
                   status: t.String(),
                   verdictChoice: t.Nullable(t.String()),
                   description: t.Nullable(t.String()),
