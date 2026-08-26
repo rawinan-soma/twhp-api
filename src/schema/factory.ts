@@ -65,9 +65,15 @@ export const FactoryListItemSchema = t.Object({
   is_validate: t.Boolean(),
 });
 
-/** Admin variant adds `username` from the accounts join. */
+/**
+ * Admin variant adds `username` and `email` from the accounts join.
+ *
+ * `email` is the factory account's registered login address (`accounts.email`, notNull + unique).
+ * It is exposed on the Admin list ONLY — deliberately not on `FactoryListItemSchema`, which the
+ * Evaluator and Provincial Officer routes share and whose queries do not join `accounts`.
+ */
 export const AdminFactoryListItemSchema = t.Composite([
-  t.Object({ username: t.String() }),
+  t.Object({ username: t.String(), email: t.String() }),
   FactoryListItemSchema,
 ]);
 

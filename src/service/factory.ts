@@ -272,7 +272,7 @@ export const createFactoryService = (database: typeof db) => {
       const [total, items] = await Promise.all([
         countFactories(database, predicate, true),
         database
-          .select({ username: accounts.username, ...factoryListColumns })
+          .select({ username: accounts.username, email: accounts.email, ...factoryListColumns })
           .from(factories)
           .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
           .innerJoin(districts, eq(factories.districtId, districts.districtId))
