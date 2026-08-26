@@ -149,6 +149,20 @@ intents:
           - standard-file-deletion-on-hard-reject
         run_id: run-twhp-elysia-010
         completed_at: 2026-08-25T02:39:54.724Z
+  - id: admin-factory-email
+    title: Admin Factory List Exposes Account Email
+    status: completed
+    completed_at: 2026-08-26T02:21:49.694Z
+    created: 2026-08-26T00:00:00Z
+    work_items:
+      - id: admin-list-email-field
+        title: Add account email to the Admin factory list response
+        status: completed
+        complexity: low
+        mode: autopilot
+        depends_on: []
+        run_id: run-twhp-elysia-011
+        completed_at: 2026-08-26T02:21:49.694Z
 runs:
   active: []
   completed:
@@ -238,3 +252,11 @@ runs:
           mode: confirm
       started: 2026-08-25T02:34:59.842Z
       completed: 2026-08-25T02:39:54.724Z
+    - id: run-twhp-elysia-011
+      scope: single
+      work_items:
+        - id: admin-list-email-field
+          intent: admin-factory-email
+          mode: autopilot
+      started: 2026-08-26T02:15:58.803Z
+      completed: 2026-08-26T02:21:49.694Z
