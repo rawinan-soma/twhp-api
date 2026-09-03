@@ -36,10 +36,9 @@ export const TwoFactorRequiredResponse = t.Object(
   { description: "2FA challenge created — submit OTP to /login/verify-otp" },
 );
 
-export const LoginResponseDto = t.Union(
-  [LoginSuccessResponse, TwoFactorRequiredResponse],
-  { description: "Login response — check twoFactorRequired to determine path" },
-);
+export const LoginResponseDto = t.Union([LoginSuccessResponse, TwoFactorRequiredResponse], {
+  description: "Login response — check twoFactorRequired to determine path",
+});
 
 export const VerifyOtpBody = t.Object({
   challengeId: t.String({ minLength: 1, description: "challengeId from /login step-1" }),

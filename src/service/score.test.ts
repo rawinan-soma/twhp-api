@@ -5,7 +5,10 @@ import { calculateBreakdown, scoreGroup } from "./scoreHelpers";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-type AC = { selectedChoice: string; category: "Collaborate" | "Disease" | "Safety" | "Mental" | "Outcome" };
+type AC = {
+  selectedChoice: string;
+  category: "Collaborate" | "Disease" | "Safety" | "Mental" | "Outcome";
+};
 
 const make = (choices: string[], category: AC["category"] = "Collaborate"): AC[] =>
   choices.map((selectedChoice) => ({ selectedChoice, category }));
@@ -81,7 +84,9 @@ describe("Story 002 — Category Breakdown", () => {
   });
 
   it('AC4: all "3" in Collaborate → collaborate.percentage = 100', () => {
-    expect(calculateBreakdown(make(["3", "3", "3"], "Collaborate")).collaborate.percentage).toBe(100);
+    expect(calculateBreakdown(make(["3", "3", "3"], "Collaborate")).collaborate.percentage).toBe(
+      100,
+    );
   });
 
   it("AC5: total uses all answers combined, not average of category percentages", () => {
@@ -240,14 +245,39 @@ describe("Story 008/009 — Score Report Shape (nested scoring)", () => {
   });
 
   it("AC: percentage rejects non-integer / out-of-range; counts reject negatives", () => {
-    expect(Value.Check(ScoreReportSchema, { ...validReport, scoring: { ...validReport.scoring, total: { ...group, percentage: 80.5 } } })).toBe(false);
-    expect(Value.Check(ScoreReportSchema, { ...validReport, scoring: { ...validReport.scoring, total: { ...group, percentage: 101 } } })).toBe(false);
-    expect(Value.Check(ScoreReportSchema, { ...validReport, scoring: { ...validReport.scoring, total: { ...group, scoredCount: -1 } } })).toBe(false);
+    expect(
+      Value.Check(ScoreReportSchema, {
+        ...validReport,
+        scoring: { ...validReport.scoring, total: { ...group, percentage: 80.5 } },
+      }),
+    ).toBe(false);
+    expect(
+      Value.Check(ScoreReportSchema, {
+        ...validReport,
+        scoring: { ...validReport.scoring, total: { ...group, percentage: 101 } },
+      }),
+    ).toBe(false);
+    expect(
+      Value.Check(ScoreReportSchema, {
+        ...validReport,
+        scoring: { ...validReport.scoring, total: { ...group, scoredCount: -1 } },
+      }),
+    ).toBe(false);
   });
 
   it("AC edge: percentage 0 and 100 are valid boundaries", () => {
-    expect(Value.Check(ScoreReportSchema, { ...validReport, scoring: { ...validReport.scoring, total: { ...group, percentage: 0 } } })).toBe(true);
-    expect(Value.Check(ScoreReportSchema, { ...validReport, scoring: { ...validReport.scoring, total: { ...group, percentage: 100 } } })).toBe(true);
+    expect(
+      Value.Check(ScoreReportSchema, {
+        ...validReport,
+        scoring: { ...validReport.scoring, total: { ...group, percentage: 0 } },
+      }),
+    ).toBe(true);
+    expect(
+      Value.Check(ScoreReportSchema, {
+        ...validReport,
+        scoring: { ...validReport.scoring, total: { ...group, percentage: 100 } },
+      }),
+    ).toBe(true);
   });
 
   it("AC: ScoreReportListSchema validates an array (and empty array)", () => {
