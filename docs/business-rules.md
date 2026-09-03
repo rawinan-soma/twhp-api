@@ -1,6 +1,6 @@
 # Business Rules
 
-This document records current executable behavior. Current code is authoritative when `CONTEXT.md` or an ADR disagrees; contradictions are identified in each affected rule.
+This document records current executable behavior, verified on 2026-08-25 (ADR-0012) and re-checked on 2026-09-02. Current code is authoritative when `CONTEXT.md` or an ADR disagrees; contradictions are identified in each affected rule.
 
 Confidence labels: **Verified** is directly present in code/schema/tests; **Inferred** follows from observed behavior but lacks direct runtime confirmation; **Unknown** cannot be established from the repository alone.
 

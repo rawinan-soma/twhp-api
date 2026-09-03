@@ -29,7 +29,12 @@ maintainer rather than silently choosing.
   email queue, consumer, and scheduler.
 - `docs/api/`: generated/snapshot API material. It can drift from runtime and is not by itself proof
   of status codes or authorization.
+- `src/service/coverStatus.ts`: the single latest-cover-log rule, in both query shapes.
+  `src/service/answerFileRules.ts` and `src/service/scoreHelpers.ts`: pure rule modules.
+  `src/schema/pagination.ts`: the shared offset-pagination contract.
 - `.scratch/`: local issue tracker and temporary investigation output, not runtime code.
+- `.specs-fire/` and `memory-bank/`: intent, work-item, bolt, and per-run history. Read them for the
+  reasoning behind a decision an ADR condenses; they are not runtime code.
 
 Keep routes as transport adapters, business/database work in services, and DTOs in schemas. Services
 conventionally return Elysia `status(code, body)` for expected outcomes; unexpected throws reach the
@@ -53,6 +58,20 @@ partial dependency-injection boundary.
   calculated on demand, not persisted. Workflow transitions, reviewer authority, standard
   auto-credit, N/A eligibility, evidence requirements, and grade gates are load-bearing and have
   known prose/code conflicts. Read [business rules](docs/business-rules.md) before changing them.
+- Cover status is resolved only through `src/service/coverStatus.ts`. Writing a second correlated
+  subquery over `coverLogs` is a review failure — see
+  [ADR-0010](docs/adr/0010-lateral-latest-cover-log-resolution.md).
+- An evaluator's `change_score` is **terminal**: it writes `recommended`, preserves evidence, and the
+  factory has no response to it. Only a hard reject — `status = 'rejected'` **and**
+  `verdict_choice IS NULL` — deletes files and bounces the Cover. Classify on `verdict_choice`, never
+  on status alone; legacy rows are `rejected` with a non-null `verdict_choice`. See
+  [ADR-0012](docs/adr/0012-score-changes-are-terminal.md), which supersedes ADR-0006 in full and
+  ADR-0004 in part.
+- The `{ items, meta }` pagination envelope belongs to the nine staff list endpoints only; bounded
+  collections stay bare arrays, and every paginated query must impose a total order. Compose
+  `PaginationQuery` from `src/schema/pagination.ts` with `t.Composite` rather than replacing a
+  route's query schema. See [ADR-0007](docs/adr/0007-pagination-envelope-scoped-exception.md) and
+  [ADR-0009](docs/adr/0009-offset-pagination-for-staff-lists.md).
 - Keep `standardTypes` in `src/drizzle/schema.ts`, standard flag/file mappings in services, and
   `seed_data/questions.json` synchronized.
 - Persist only MinIO object names, not presigned URLs. Use the shared upload/delete/presign helpers.
@@ -95,12 +114,11 @@ bun run start
 # Side-effecting worker: consumes Redis jobs, sends email, and registers a repeatable reminder
 bun run worker
 
-# Safe isolated tests; keep authentication files in separate invocations
-bun test src/config.test.ts
-bun test src/service/auth-dev-bypass.test.ts
-bun test src/service/authentication.2fa.test.ts
-bun test src/routes/authentication/index.test.ts
-bun test src/service/score.test.ts
+# Safe isolated tests — all eight files, one process (201 pass as of 2026-09-02)
+bun test src/config.test.ts src/routes/authentication/index.test.ts \
+  src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
+  src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
+  src/service/pagination.test.ts src/service/score.test.ts
 
 # Non-mutating static check
 bun ./node_modules/.bin/biome check src
@@ -116,8 +134,9 @@ docker compose --profile dev up --build
 
 `bun run test` is a placeholder that always exits 1. Bare `bun test` includes PostgreSQL integration
 tests through the global `src/test/setup.ts` preload. Do not run it, or any `*.integration.test.ts`,
-until `DATABASE_URL` is explicitly confirmed as a disposable, migrated, seeded test database. Run
-overlapping authentication mock suites separately. See [testing](docs/testing.md).
+until `DATABASE_URL` is explicitly confirmed as a disposable, migrated, seeded test database. If mock
+contamination reappears, fall back to one process per authentication file. See
+[testing](docs/testing.md).
 
 `bun run format`, `bun run lint`, and `bun run check` all use `--write`; do not use them for a
 read-only validation pass or let them rewrite unrelated user changes. There is no installed direct
@@ -150,8 +169,12 @@ Start with the [documentation index](docs/README.md), then read only the relevan
   [troubleshooting](docs/troubleshooting.md).
 - Cross-cutting defects and remediation: [technical debt](docs/technical-debt.md).
 
-`CONTEXT.md` preserves useful vocabulary and historical intent, but verified source conflicts exist.
-Do not use it to override current code or newer ADRs without surfacing the discrepancy.
+- Project orientation and the transfer checklist: the root [`README.md`](README.md).
+
+`CONTEXT.md` is current for verdict, score, and review vocabulary as of 2026-08-25. It deliberately
+retains superseded passages as provenance — read the supersession notes, not the struck-through text
+— and other verified source conflicts still exist. Do not use it to override current code or newer
+ADRs without surfacing the discrepancy.
 
 Local issues and PRDs use `.scratch/<feature>/`; follow `docs/agents/issue-tracker.md` and
 `docs/agents/triage-labels.md`. For domain vocabulary/ADR discovery, follow
