@@ -12,7 +12,6 @@ import {
   covers,
   enrolls,
   factories,
-  provincialOfficers,
 } from "../drizzle/schema";
 import { emailQueue } from "../queue/email";
 import { AnswerViewSchema } from "../schema/evaluator-review";
@@ -39,8 +38,6 @@ const NON_EVALUATOR_ACCOUNT_ID = 99952; // never inserted into Evaluators
 const SEEDED_EVALUATOR_ID = 78; // seeded ODPC evaluator, region 1
 const SEEDED_EVALUATOR_LEVEL = "ODPC";
 const SEEDED_EVALUATOR_REGION = 1;
-const TEST_OFFICER_ACCOUNT_ID = 99953; // Provincial Officer of TEST_PROVINCE_ID
-const WRONG_PROVINCE_ID = 11; // a different province the cover does NOT belong to
 
 // one question id per category (from seeded Questions)
 const CATEGORY_QUESTION: Record<string, number> = {
@@ -84,16 +81,8 @@ async function cleanupFactory() {
   await db.delete(accounts).where(eq(accounts.id, TEST_FACTORY_ACCOUNT_ID));
 }
 
-async function cleanupOfficer() {
-  await db
-    .delete(provincialOfficers)
-    .where(eq(provincialOfficers.accountId, TEST_OFFICER_ACCOUNT_ID));
-  await db.delete(accounts).where(eq(accounts.id, TEST_OFFICER_ACCOUNT_ID));
-}
-
 beforeAll(async () => {
   await cleanupFactory();
-  await cleanupOfficer();
 
   // borrow a valid district/subdistrict to satisfy FKs (same approach as score test)
   const ref = await db
@@ -181,27 +170,10 @@ beforeAll(async () => {
       .returning();
     await db.insert(answerLogs).values({ answerId: ans.id, status: "in_review" });
   }
-
-  // Provincial Officer of TEST_PROVINCE_ID — same province as the test factory/cover.
-  await db.insert(accounts).values({
-    id: TEST_OFFICER_ACCOUNT_ID,
-    username: "test_provincial_officer_review",
-    password: "hashed",
-    email: "test_provincial_officer_review@test.com",
-    role: "Provincial",
-  });
-  await db.insert(provincialOfficers).values({
-    accountId: TEST_OFFICER_ACCOUNT_ID,
-    firstName: "ทดสอบ",
-    lastName: "ทดสอบ",
-    phoneNumber: "0000000000",
-    provinceId: TEST_PROVINCE_ID,
-  });
 });
 
 afterAll(async () => {
   await cleanupFactory();
-  await cleanupOfficer();
   await emailQueue.close();
   await pool.end();
 });
@@ -210,24 +182,20 @@ afterAll(async () => {
 
 describe("Story 001/002 — adminReviewerContext", () => {
   it("synthesizes a national ODPC context for a DOED admin", () => {
-    expect(adminReviewerContext(42)).toEqual({
-      accountId: 42,
-      level: "ODPC",
-      scope: { kind: "national" },
-    });
+    expect(adminReviewerContext(42)).toEqual({ accountId: 42, level: "ODPC", region: null });
   });
 });
 
 // ─── Story 001 — reviewer-context seam ───────────────────────────────────────
 
 describe("Story 001 — reviewer-context seam", () => {
-  it("AC: resolveEvaluator(seeded evaluator) → {accountId, level, scope}", async () => {
+  it("AC: resolveEvaluator(seeded evaluator) → {accountId, level, region}", async () => {
     const ctx = await reviewService.resolveEvaluator(SEEDED_EVALUATOR_ID);
     expect(ctx).not.toBeInstanceOf(ElysiaCustomStatusResponse);
     expect(ctx).toEqual({
       accountId: SEEDED_EVALUATOR_ID,
       level: SEEDED_EVALUATOR_LEVEL,
-      scope: { kind: "region", region: SEEDED_EVALUATOR_REGION },
+      region: SEEDED_EVALUATOR_REGION,
     });
   });
 
@@ -237,28 +205,28 @@ describe("Story 001 — reviewer-context seam", () => {
     expect((ctx as { code: number }).code).toBe(404);
   });
 
-  it("AC: region scope + correct region → assertCoverInRegion passes (unchanged)", async () => {
+  it("AC: region non-null + correct region → assertCoverInRegion passes (unchanged)", async () => {
     const result = await reviewService.getAnswers(coverId, {
       accountId: SEEDED_EVALUATOR_ID,
       level: "ODPC",
-      scope: { kind: "region", region: COVER_REGION },
+      region: COVER_REGION,
     });
     expect(code(result)).toBe(200);
     expect(Array.isArray(body(result).answers)).toBe(true);
     expect(Array.isArray(body(result).standards)).toBe(true);
   });
 
-  it("AC: region scope + WRONG region → 404 cover not found (still gated)", async () => {
+  it("AC: region non-null + WRONG region → 404 cover not found (still gated)", async () => {
     const result = await reviewService.getAnswers(coverId, {
       accountId: SEEDED_EVALUATOR_ID,
       level: "ODPC",
-      scope: { kind: "region", region: WRONG_REGION },
+      region: WRONG_REGION,
     });
     expect(result).toBeInstanceOf(ElysiaCustomStatusResponse);
     expect((result as { code: number }).code).toBe(404);
   });
 
-  it("AC: national scope + non-existent cover → 404 cover not found (assertCoverExists)", async () => {
+  it("AC: region null + non-existent cover → 404 cover not found (assertCoverExists)", async () => {
     const result = await reviewService.getAnswers(99999999, adminReviewerContext(1));
     expect(result).toBeInstanceOf(ElysiaCustomStatusResponse);
     expect((result as { code: number }).code).toBe(404);
@@ -271,7 +239,7 @@ describe("Story 001 — reviewer-context seam", () => {
     const result = await reviewService.getAnswers(coverId, {
       accountId: SEEDED_EVALUATOR_ID,
       level: "Mental",
-      scope: { kind: "region", region: COVER_REGION },
+      region: COVER_REGION,
     });
     expect(code(result)).toBe(200);
     const rows = body(result).answers as Array<{ category: string }>;
@@ -279,54 +247,6 @@ describe("Story 001 — reviewer-context seam", () => {
     expect(rows.every((r) => r.category === "Mental")).toBe(true);
     // This fixture's enroll claims no standards → standards is empty (not-claimed excluded).
     expect(body(result).standards).toEqual([]);
-  });
-});
-
-// ─── Issue 01 — province-scoped reviewer context ─────────────────────────────
-
-describe("Issue 01 — province-scoped reviewer context", () => {
-  it("AC: resolveProvincialOfficer(seeded officer) → province-scoped ODPC context", async () => {
-    const ctx = await reviewService.resolveProvincialOfficer(TEST_OFFICER_ACCOUNT_ID);
-    expect(ctx).not.toBeInstanceOf(ElysiaCustomStatusResponse);
-    expect(ctx).toEqual({
-      accountId: TEST_OFFICER_ACCOUNT_ID,
-      level: "ODPC",
-      scope: { kind: "province", province: TEST_PROVINCE_ID },
-    });
-  });
-
-  it("AC: resolveProvincialOfficer(non-officer) → 404 officer not found", async () => {
-    const ctx = await reviewService.resolveProvincialOfficer(NON_EVALUATOR_ACCOUNT_ID);
-    expect(ctx).toBeInstanceOf(ElysiaCustomStatusResponse);
-    expect((ctx as { code: number }).code).toBe(404);
-    expect((ctx as { response: { message: string } }).response).toMatchObject({
-      message: "officer not found",
-    });
-  });
-
-  it("AC: a province-scoped reader can access a Cover whose factory is in that province", async () => {
-    const result = await reviewService.getAnswers(coverId, {
-      accountId: TEST_OFFICER_ACCOUNT_ID,
-      level: "ODPC",
-      scope: { kind: "province", province: TEST_PROVINCE_ID },
-    });
-    expect(code(result)).toBe(200);
-    // level ODPC (decision #1) → all five QuestionCategories are in scope.
-    const rows = body(result).answers as Array<{ category: string }>;
-    expect(new Set(rows.map((r) => r.category))).toEqual(new Set(ALL_CATEGORIES));
-  });
-
-  it("AC: a province-scoped reader gets 404 cover not found for a Cover in another province", async () => {
-    const result = await reviewService.getAnswers(coverId, {
-      accountId: TEST_OFFICER_ACCOUNT_ID,
-      level: "ODPC",
-      scope: { kind: "province", province: WRONG_PROVINCE_ID },
-    });
-    expect(result).toBeInstanceOf(ElysiaCustomStatusResponse);
-    expect((result as { code: number }).code).toBe(404);
-    expect((result as { response: { message: string } }).response).toMatchObject({
-      message: "cover not found",
-    });
   });
 });
 

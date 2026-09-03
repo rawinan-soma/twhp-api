@@ -42,18 +42,10 @@ const ODPC_A = 60004;
 const mentalCtx = (id: number) => ({
   accountId: id,
   level: "Mental" as const,
-  scope: { kind: "region" as const, region: COVER_REGION },
+  region: COVER_REGION,
 });
-const dohCtx = (id: number) => ({
-  accountId: id,
-  level: "DOH" as const,
-  scope: { kind: "region" as const, region: COVER_REGION },
-});
-const odpcCtx = (id: number) => ({
-  accountId: id,
-  level: "ODPC" as const,
-  scope: { kind: "region" as const, region: COVER_REGION },
-});
+const dohCtx = (id: number) => ({ accountId: id, level: "DOH" as const, region: COVER_REGION });
+const odpcCtx = (id: number) => ({ accountId: id, level: "ODPC" as const, region: COVER_REGION });
 
 const CATEGORY_QUESTION: Record<string, number> = {
   Collaborate: 1,
@@ -379,7 +371,7 @@ describe("Story 002 — saveAnswerVerdict", () => {
     const res = await reviewService.saveAnswerVerdict(
       coverId,
       answerByCat.Mental,
-      { accountId: MENTAL_A, level: "Mental", scope: { kind: "region", region: WRONG_REGION } },
+      { accountId: MENTAL_A, level: "Mental", region: WRONG_REGION },
       { decision: "approve" },
     );
     expect(code(res)).toBe(404);
