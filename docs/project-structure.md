@@ -65,7 +65,7 @@ Each module default-exports a function accepting the inferred `App` type. Route 
 | `src/routes/factories/` | Registration, profile, enrollment, assessments, evidence, score |
 | `src/routes/evaluators/` | Evaluator profile/scope, review, finalize, score |
 | `src/routes/admins/` | DOED administration and national review adapters |
-| `src/routes/provincialOfficers/` | Provincial profile and scoped views |
+| `src/routes/provincialOfficers/` | Provincial profile, scoped lists, and province-scoped enrollment/factory/cover-review detail reads |
 | `src/routes/location/` | Public geographic lookup |
 | `src/routes/file/` | Authenticated presigned file URL |
 

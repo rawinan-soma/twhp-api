@@ -26,15 +26,17 @@ Severity reflects engineering and operational impact, not code style. “Require
 - **Required before handover:** Yes
 - **Confidence:** High
 
-### TD-02 — Object-level authorization is missing on evaluator details and file presigning
+### TD-02 — Object-level authorization is missing on file presigning
 
 - **Severity:** High
 - **Category:** Observed defect
-- **Evidence:** Evaluator detail handlers pass a caller-selected numeric ID to unscoped `getEnrollById` / `getFactoryById`, although evaluator list/review paths enforce health region. The file endpoint accepts any non-empty object name from any authenticated role and signs it without checking owner, enrollment, cover, answer, region, or reviewer category. Enrollment/answer reads disclose stored object names, so the two defects compose. The generated URL lasts five seconds, while the route says five minutes; short expiry is not authorization.
-- **Path / symbol:** `src/routes/evaluators/enrolls/[id].ts`; `src/routes/evaluators/factories/[id].ts`; `src/service/enroll.ts#getEnrollById`; `src/service/factory.ts#getFactoryById`; `src/routes/file/index.ts`; `src/service/file.ts#getPresignedUrl`; `src/utils.ts#getPresignedUrl`.
-- **Engineering impact:** Authorization rules are inconsistently embedded in individual queries, making omissions easy and negative-scope tests incomplete.
-- **Operational / business impact:** An evaluator may read out-of-region factory/contact/certificate data, and any authenticated caller with a disclosed key may retrieve evidence belonging to another resource.
-- **Remediation:** Resolve evaluator identity and region for detail reads and return 404 for out-of-scope IDs if that is the chosen disclosure policy. Replace free-form filename authorization with a resource-scoped endpoint that derives the object key after checking role, ownership, region, and category. Add cross-region and cross-owner negative tests and audit presign decisions.
+- **Evidence:** The file endpoint accepts any non-empty object name from any authenticated role and signs it without checking owner, enrollment, cover, answer, region, province, or reviewer category. Enrollment/answer/cover-review reads disclose stored object names, so any authenticated caller who has seen one filename (their own or another's, if disclosed some other way) can presign it. The generated URL lasts five seconds, while the route says five minutes; short expiry is not authorization.
+
+  Evaluator enrollment/factory detail reads previously composed with this gap by returning out-of-region records to any Evaluator; that half was fixed 2026-09-03 (`.scratch/evaluator-detail-scope/` — `getEnrollById`/`getFactoryById` now take an optional region constraint) and the new Provincial Officer detail/cover-review reads shipped province-scoped from the start (`.scratch/provincial-read-only-review/`). Both efforts deliberately left this endpoint unchanged — see each ticket's "Out of scope" and `docs/authentication-authorization.md`'s Security findings.
+- **Path / symbol:** `src/routes/file/index.ts`; `src/service/file.ts#getPresignedUrl`; `src/utils.ts#getPresignedUrl`.
+- **Engineering impact:** Authorization for this one remaining path is a single non-empty-string check, with no resource-scoped seam to test against.
+- **Operational / business impact:** Any authenticated caller with a disclosed object key may retrieve evidence belonging to another resource, regardless of role, region, or province.
+- **Remediation:** Replace free-form filename authorization with a resource-scoped endpoint that derives the object key after checking role, ownership, region/province, and category. Add cross-owner negative tests and audit presign decisions.
 - **Required before handover:** Yes
 - **Confidence:** High on missing checks; confidentiality boundary still needs formal product confirmation
 
@@ -174,7 +176,7 @@ Severity reflects engineering and operational impact, not code style. “Require
 
 - **Severity:** Medium
 - **Category:** Confirmed debt
-- **Evidence:** Service factories inject a database but close over production Redis, BullMQ, MinIO, environment, clock, utilities, or other singleton services. Services return Elysia transport status objects. Import-time singletons open/construct infrastructure transitively. `utilities()` combines fiscal clock, Redis construction, upload/delete, and presigning. Large modules mix many responsibilities: `answer.ts` ~1,042 lines, `authentication.ts` ~631, `enroll.ts` ~570, `evaluator-review.ts` ~518, and the email worker ~236.
+- **Evidence:** Service factories inject a database but close over production Redis, BullMQ, MinIO, environment, clock, utilities, or other singleton services. Services return Elysia transport status objects. Import-time singletons open/construct infrastructure transitively. `utilities()` combines fiscal clock, Redis construction, upload/delete, and presigning. Large modules mix many responsibilities: `answer.ts` ~1,040 lines, `authentication.ts` ~631, `enroll.ts` ~555, `evaluator-review.ts` ~736 (grew with the 2026-09-03 three-way reviewer-scope refactor and provincial cover-review redaction), and the email worker ~243.
 - **Path / symbol:** service modules under `src/service/`; `src/utils.ts`; `src/queue/email.ts`; `src/worker/email.ts`; singleton exports at module bottoms.
 - **Engineering impact:** Unit isolation requires global mocking or live infrastructure; changing workflow, storage, or authentication touches large coupled modules. Importing narrow code can trigger unrelated config/connection requirements.
 - **Operational / business impact:** Slower, riskier changes and lower testability increase lead time for fixes in assessment and authentication workflows.
@@ -210,7 +212,7 @@ Severity reflects engineering and operational impact, not code style. “Require
 
 The receiving team should not infer answers to these from source:
 
-1. Whether evaluator health region and reviewer category are formal confidentiality boundaries for every detail and file type.
+1. Evaluator health region and Provincial Officer province are now confirmed confidentiality boundaries for enrollment/factory detail and cover-review reads (2026-09-03); whether the same boundary must extend to presigned file access — the one path that still ignores it — is unresolved (TD-02).
 2. Whether refresh sessions should be absolute or sliding, whether multiple devices are supported, and which credential changes revoke sessions.
 3. Canonical workflow semantics for cover/answer state, accepted-choice provenance, standard auto-credit, N/A, grade special values, assignment, enrollment freeze, and evidence deletion.
 4. Canonical fiscal timezone/instant model and how annual uniqueness should be represented durably.
@@ -223,7 +225,7 @@ The receiving team should not infer answers to these from source:
 
 ## Prioritized remediation sequence
 
-1. **Contain active security exposure:** fix refresh verification; confirm and enforce evaluator/file object scope; rotate/remove unsafe defaults and confirm stateful-service exposure.
+1. **Contain active security exposure:** fix refresh verification; confirm and enforce file object scope (evaluator/provincial detail scope closed 2026-09-03); rotate/remove unsafe defaults and confirm stateful-service exposure.
 2. **Freeze workflow decisions:** settle session lifetime, object authorization, state transitions, choice provenance, standards/N/A/grade, evidence retention, and fiscal-time rules. Record the authority order.
 3. **Protect integrity at write boundaries:** clean duplicates; add unique constraints and set-equality validation; make finalize state-guarded/idempotent/concurrency-safe.
 4. **Make external effects recoverable:** redesign evidence replacement/finalize deletion around durable intent and reconciliation; add notification outbox/idempotent jobs and SMTP TLS/retry policy.

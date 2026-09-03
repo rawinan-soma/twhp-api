@@ -17,7 +17,7 @@ The repository contains one bounded context. The Cover is the central aggregate-
 | Actor | Scope | Current authority | Evidence |
 |---|---|---|---|
 | Factory | Its own current-fiscal participation | Register; log in after validation; create/update Enrollment; create Cover; save/edit/negotiate/submit Answers; read own score | `factoryGuard`; `src/routes/factories/**`; `factoryService`, `enrollService`, `answerService`, `scoreService` |
-| Provincial Officer | One province | Read province-scoped Factory, Enrollment, and Score lists; first-login password/email change | `officerGuard`; `src/routes/provincialOfficers/**` |
+| Provincial Officer | One province | Read province-scoped Factory, Enrollment, and Score lists; read one Enrollment or Factory by id; read a Cover's Answers (open only while `in_review`/`finished`, verdicts redacted while `in_review`); first-login password/email change. No write path. | `officerGuard`; `src/routes/provincialOfficers/**`; `evaluator-review.ts:resolveProvincialOfficer` (province-scoped `ReviewerScope`) |
 | Mental Evaluator | One health region | Read and judge Mental-category Answers on Covers in that region; approvals are provisional | `CATEGORIES_FOR_LEVEL`; `assertCoverInRegion`; `saveAnswerVerdict` |
 | DOH Evaluator | One health region | Read and judge Disease/Safety Answers on Covers in that region; approvals are provisional | Same symbols |
 | ODPC Evaluator | One health region | Read/judge all categories, override any non-finished Answer, and finalize Covers in that region | `categoriesFor("ODPC")`; `finalize` |
