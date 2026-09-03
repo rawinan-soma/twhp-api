@@ -43,8 +43,9 @@ partial dependency-injection boundary.
 - Authentication uses HTTP-only `Authentication` and `Refresh` cookies. Staff login uses
   Redis-backed email OTP except the defined first-login path. Never log or reproduce passwords,
   JWTs, refresh hashes, OTP/reset values, credentials, or full presigned URLs.
-- Evaluator detail scoping, filename-only presigning, refresh verification, and non-idempotent
-  finalization are known high-risk areas. Do not copy an endpoint's security shape without checking
+- Filename-only presigning, refresh verification, and non-idempotent finalization are known
+  high-risk areas. (Evaluator/Provincial Officer detail-read region and province scoping closed
+  2026-09-03.) Do not copy an endpoint's security shape without checking
   [authentication and authorization](docs/authentication-authorization.md).
 - Enrollment/Cover queries are fiscal-year scoped from Oct 1 through Sep 30. Always use
   `utilities().getFiscalYear()`; do not hand-roll date boundaries or infer host timezone semantics.

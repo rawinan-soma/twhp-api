@@ -163,8 +163,8 @@ The suite includes both unit tests and PostgreSQL integration tests. Integration
 | `scripts/gen-api-docs.ts` | Generates static Markdown/HTML from OpenAPI |
 | `CONTEXT.md` | Detailed domain context and current workflow vocabulary |
 | `docs/adr/` | Architecture decisions |
-| `memory-bank/` | Intent, story, bolt, and implementation history |
-| `.scratch/` | Local issue/handover working artifacts |
+| `memory-bank/` | Intent, story, bolt, and implementation history — **legacy as of 2026-09-03**; kept as history, not extended for new work |
+| `.scratch/` | Current local issue tracker: `.scratch/<feature-slug>/PRD.md` plus `issues/NN-*.md`, each carrying a `Status:` triage line — see [issue tracker](agents/issue-tracker.md) |
 
 `drizzle.config.ts` points generated migration output at `src/core/drizzle/generated`, but that directory is absent and the current development workflow uses `db:push`. Production migration in Compose is an intentional no-op; see [Deployment](deployment.md).
 
@@ -175,8 +175,8 @@ The suite includes both unit tests and PostgreSQL integration tests. Integration
 - `docs/api/openapi.json` is a captured API contract artifact, not an API startup input.
 - `docs/api/API.md` and `docs/api/index.html` are written by `scripts/gen-api-docs.ts`.
 - `docs/adr/` records accepted design decisions.
-- `memory-bank/intents/` and `memory-bank/bolts/` preserve detailed implementation history.
-- `.specsmd/`, `.agents/`, `.codex/`, `.claude/`, and `docs/superpowers/` support agent/process workflows and are not runtime modules.
+- `memory-bank/intents/` and `memory-bank/bolts/` preserve detailed implementation history for work done under the FIRE/specsmd process. That process, and `memory-bank/`, are **legacy as of 2026-09-03**: existing content stays as history, but no new intent or bolt artifacts are created. Current work is planned and tracked in `.scratch/<feature-slug>/PRD.md` plus `issues/NN-*.md` (the mattpocock skills workflow) — see [issue tracker](agents/issue-tracker.md) and [triage labels](agents/triage-labels.md).
+- `.specsmd/`, `.agents/`, `.codex/`, and `docs/superpowers/` are artifacts of that legacy FIRE/specsmd process and are not runtime modules. `.claude/` supports the current agent tooling (skills, commands) and is likewise not a runtime module.
 
 The root `README.md` remains an Elysia starter-template README and is not authoritative for this project. Current source is authoritative; use the handover docs and `CONTEXT.md` for orientation.
 
