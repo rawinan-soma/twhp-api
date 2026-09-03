@@ -1,6 +1,6 @@
 # Domain Model
 
-This document describes the domain as the application behaves today. Where `CONTEXT.md` or an ADR disagrees with executable code, current code is authoritative and the contradiction is called out explicitly.
+This document describes the domain as the application behaves today, verified on 2026-09-02 on branch `dev`. Where `CONTEXT.md` or an ADR disagrees with executable code, current code is authoritative and the contradiction is called out explicitly.
 
 Related references: [business rules](business-rules.md), [database](database.md), [authentication and authorization](authentication-authorization.md), [API](api/API.md), [architecture](architecture.md), and [technical debt](technical-debt.md).
 
@@ -16,7 +16,7 @@ The repository contains one bounded context. The Cover is the central aggregate-
 
 | Actor | Scope | Current authority | Evidence |
 |---|---|---|---|
-| Factory | Its own current-fiscal participation | Register; log in after validation; create/update Enrollment; create Cover; save/edit/negotiate/submit Answers; read own score | `factoryGuard`; `src/routes/factories/**`; `factoryService`, `enrollService`, `answerService`, `scoreService` |
+| Factory | Its own current-fiscal participation | Register; log in after validation; create/update Enrollment; create Cover; save/edit/submit Answers; negotiate (redo) a hard-rejected Answer; read own score. It has **no** response to a settled score change (ADR-0012). | `factoryGuard`; `src/routes/factories/**`; `factoryService`, `enrollService`, `answerService`, `scoreService` |
 | Provincial Officer | One province | Read province-scoped Factory, Enrollment, and Score lists; read one Enrollment or Factory by id; read a Cover's Answers (open only while `in_review`/`finished`, verdicts redacted while `in_review`); first-login password/email change. No write path. | `officerGuard`; `src/routes/provincialOfficers/**`; `evaluator-review.ts:resolveProvincialOfficer` (province-scoped `ReviewerScope`) |
 | Mental Evaluator | One health region | Read and judge Mental-category Answers on Covers in that region; approvals are provisional | `CATEGORIES_FOR_LEVEL`; `assertCoverInRegion`; `saveAnswerVerdict` |
 | DOH Evaluator | One health region | Read and judge Disease/Safety Answers on Covers in that region; approvals are provisional | Same symbols |
@@ -35,15 +35,16 @@ The three evaluator IDs stored on an Enrollment are not authorization boundaries
 | Factory | External workplace Account subtype. It must be validated to log in. |
 | Enrollment | Annual participation data: workforce counts, declared standards and certificates, safety-officer contact, and three evaluator references. |
 | Fiscal Year | Half-open interval from October 1 00:00 to the next October 1 00:00, calculated using the application host's local timezone. |
-| Cover | One assessment instance and the unit of scoring. Its current state is the latest CoverLog. |
+| Cover | One assessment instance and the unit of scoring. Its current state is the latest CoverLog, resolved through the shared `src/service/coverStatus.ts` helpers (ADR-0010). |
 | CoverLog | Append-only Cover state event. Greatest serial `id` wins; timestamp is informational. |
 | Question | Seeded assessment item with one category, choice text, optional N/A text, standards, and integer `special`. |
 | Standard Question | Question linked to one or more standards. A matching claimed standard forces the Answer to choice `3`. |
 | Answer | Current persisted response to one Question on one Cover, including `selectedChoice` and nine evidence slots. |
 | AnswerLog | Append-only Answer state/verdict event. Greatest serial `id` wins. |
-| Verdict | Per-Answer evaluator decision: `approve`, `change_score`, or `reject`. |
-| Verdict Score | Proposed `0`–`3` replacement stored on a rejected AnswerLog. `n/a` is excluded at the verdict API boundary. |
-| Live Choice | The value used by Score and Grade. In current code this is simply `Answers.selectedChoice`. |
+| Verdict | Per-Answer evaluator decision: `approve`, `change_score`, or `reject`. `change_score` and `reject` both require a `description`. |
+| Verdict Score | A **settled** `0`–`3` correction stored on the AnswerLog as `verdict_choice`. `n/a` is excluded at the verdict API boundary. Since [ADR-0012](adr/0012-score-changes-are-terminal.md) it is terminal on save: the Factory can neither accept nor object. No evidence check runs on a verdict in either direction. |
+| Hard reject | The **normative classification**: `status = 'rejected'` **and** `verdict_choice IS NULL`. Anything carrying a non-null `verdict_choice` is a settled score change, whatever its status. Do not narrow this to a status-only test — it is what let ADR-0012 ship without a migration over rows written under the old semantics. |
+| Live Choice | The value used by Score and Grade: `Answers.selectedChoice`. Finalize writes each settled Verdict Score into that column, so the corrected value and the live choice converge at finalize. |
 | Evidence | PDF up to 10 MB stored in MinIO; the Answer or Enrollment stores only its filename. |
 | Score | Rounded, on-demand percentage calculated from current Answer choices; never persisted. |
 | Grade | On-demand finished-Cover award: `gold`, `silver`, `certificate`, or `joined`. |
@@ -78,22 +79,22 @@ See [database](database.md) and [technical debt](technical-debt.md).
 
 | State | Meaning | Current writers |
 |---|---|---|
-| `in_progress` | Factory can prepare or revise the assessment | Cover creation; finalize when at least one Answer is rejected |
+| `in_progress` | Factory can prepare or revise the assessment | Cover creation; finalize when at least one Answer is **hard-rejected** |
 | `in_review` | Submitted for evaluator review | Factory submission/re-submission |
-| `finished` | Finalized without any rejected Answer | ODPC/admin finalize |
+| `finished` | Finalized with no hard-rejected Answer | ODPC/admin finalize |
 
-Current state is always the latest CoverLog by serial ID. Code contains no transition matrix, Cover row lock, version, or already-finalized guard.
+Current state is always the latest CoverLog by serial ID, never by timestamp. Since intent 012 that rule lives in one module — `latestCoverLogLateral` and its single-cover counterpart in `src/service/coverStatus.ts` — and every filtering, counting, or paginating query must use it ([ADR-0010](adr/0010-lateral-latest-cover-log-resolution.md)). Code still contains no transition matrix, Cover row lock, version, or already-finalized guard.
 
 ### Answer states
 
 | State | Meaning | Current writers |
 |---|---|---|
-| `in_review` | Awaiting a verdict | Initial save/standard auto-fill; Factory edit/redo |
-| `recommended` | Provisionally settled and ODPC-overridable | Every reviewer approval; Factory acceptance of change-score |
-| `rejected` | Returned for Factory action | Reviewer `change_score` or hard `reject` |
-| `finished` | Final and immutable through service guards | Finalize promotion only |
+| `in_review` | Awaiting a verdict | Initial save/standard auto-fill; Factory edit/redo; a hard reject on a standard-backed question returning non-`finished` siblings |
+| `recommended` | Provisionally settled and ODPC-overridable | Every reviewer approval **and every `change_score`** (ADR-0012) |
+| `rejected` | Hard reject — returned to the Factory to redo | Reviewer `reject` only |
+| `finished` | Final and immutable to everyone, ODPC included | Finalize promotion only |
 
-A rejected Answer with non-null `verdictChoice` is a change-score proposal. A rejected Answer with null `verdictChoice` is a hard reject.
+Since ADR-0012 (2026-08-25), `change_score` writes `recommended`, not `rejected`. Only a hard reject writes `rejected`. Legacy rows written before that date may be `rejected` **with** a non-null `verdictChoice`; the classification contract above treats those as settled score changes, so they keep their evidence and their score is applied. No migration was run.
 
 ## Main workflows
 
@@ -112,13 +113,16 @@ A rejected Answer with non-null `verdictChoice` is a change-score proposal. A re
 4. Factory saves Answers. A matching standard forces choice `3`; otherwise evidence is validated by choice and Question `special`.
 5. Submit requires Cover `in_progress`, auto-fills unanswered matching-standard Questions, compares Answer count with Question count, rejects if a latest AnswerLog remains `rejected`, and appends Cover `in_review`.
 
-### Hierarchical review and negotiation
+### Hierarchical review and finalization
 
 1. Mental, DOH, and ODPC save verdicts one Answer at a time. A save appends one AnswerLog and does not transition the Cover, touch MinIO, or send email.
-2. Finalize is ODPC/admin-only and refuses if any Answer remains `in_review`.
-3. Finalize promotes `recommended` Answers to `finished`, deletes and clears evidence for every rejected Answer, and appends Cover `finished` when none are rejected or `in_progress` otherwise.
-4. On a bounced Cover, Factory accepts a change-score or redoes the Answer. A hard reject cannot be accepted.
-5. Factory re-submits after no rejected Answer remains. The loop is unbounded.
+2. `approve` and `change_score` both write `recommended`; only `reject` writes `rejected`. A `change_score` carries a `verdict_choice` of `0`–`3` and a mandatory `description`, and is **terminal** — no evidence check runs on it in either direction, and the Factory has no response to it.
+3. Finalize is ODPC/admin-only and refuses if any Answer remains `in_review`; it never invents a verdict.
+4. In one transaction, finalize promotes un-overridden `recommended` Answers to `finished` (carrying `verdict_choice` and `description` forward), writes each settled Verdict Score into `answers.selectedChoice`, and appends the single Cover transition — `finished` when no Answer is hard-rejected, `in_progress` otherwise. MinIO deletions for hard-rejected Answers run before the transaction, outside it.
+5. A hard reject on a standard-backed question also deletes the standard certificates that question names and the Factory claims, un-claims them on `Enrolls`, and returns non-`finished` sibling Answers backed by those standards to `in_review`.
+6. On a bounced Cover the Factory redoes each hard-rejected Answer with new evidence. `accept` and `redo` are both refused on a settled score change. The Factory re-submits once no Answer remains hard-rejected; that loop is unbounded.
+
+The consensus loop ADR-0004 designed survives for hard rejects only. See [ADR-0012](adr/0012-score-changes-are-terminal.md) for why the score-dispute half was withdrawn, including the six weeks in which it was already broken in production.
 
 ## Code-authority contradictions
 
@@ -126,15 +130,17 @@ These are not alternative interpretations; the left side is current behavior.
 
 | Current code authority | Contradicting prose |
 |---|---|
-| Factory acceptance overwrites `Answers.selectedChoice`; Score reads that column only (`answer.ts:769-815`, `score.ts`). | `CONTEXT.md` and ADR-0004 say the Factory claim is never overwritten and accepted verdict is reconstructed separately. |
-| Accepting an evaluator verdict on a matching Standard Question forces choice `3`, regardless of the verdict (`answer.ts:743-778`). | The negotiation prose describes accepting the proposed verdict choice. |
+| Finalize overwrites `Answers.selectedChoice` with the settled Verdict Score; Score reads that column only. The Factory's original claim is preserved nowhere. | ADR-0004 says the Factory claim is never overwritten and the accepted verdict is reconstructed separately. Superseded in part by [ADR-0012](adr/0012-score-changes-are-terminal.md), which records the reversal deliberately. |
+| `accept` and `redo` are both refused on a settled score change (`answer.ts` — "a settled score change admits no factory response"). The `accept` branch is retained but unreachable for score changes, pending confirmation that no deployed frontend still calls it. | ADR-0004's negotiation prose, and any frontend written against it, expect the Factory to be able to accept or object. |
 | Gold requires full score on every `special > 0` Question (`scoreHelpers.ts:61-63`). | `CONTEXT.md` says only `special` 1 or 3. |
 | Factory answer create/update and evaluator verdict save lack a Cover-state guard. | `CONTEXT.md` says Factory and evaluators do not hold/write the Cover concurrently and tier-1 edits only while Cover is `in_review`. |
 | Finalize has no already-finished, idempotency, version, or locking guard. | ADR/CONTEXT prose claims there is no Cover-status race. |
 | `n/a` is accepted for every Question. | Question data exposes an N/A option only selectively. |
 | Cardinalities are service pre-checks, not database guarantees. | Domain prose commonly states them as unconditional “one” relationships. |
 | Fiscal timezone behavior at the database boundary is unknown. | Domain prose treats the Oct-1 boundary as unambiguous. |
-| Finalize deletes evidence for all rejected Answers, including change-score (`evaluator-review.ts:417-448`, ADR-0006). | Older `CONTEXT.md` and ADR-0005 passages say change-score evidence is preserved. |
+| Finalize deletes evidence only for **hard-rejected** Answers; score-change evidence is preserved. A hard reject on a standard-backed question additionally deletes the named standard certificates and un-claims them for the whole fiscal year. | ADR-0006 (deletion on every change score) is fully superseded by [ADR-0012](adr/0012-score-changes-are-terminal.md); ADR-0005's preservation clause is restored. Prose written between 2026-07-07 and 2026-08-25 may still describe the ADR-0006 behavior. |
+| A finalized `finished` sibling can retain a score whose backing certificate was deleted by a later hard reject. The reset is deliberately bounded to non-`finished` Answers to keep `finished` immutable. | No prose covers this residue; it is a known consequence recorded in ADR-0012, not a bug to fix casually. |
+| A production backfill for Covers finalized under ADR-0006 remains outstanding and its exposure was never measured. | Any statement that the ADR-0012 change was fully retroactive. Evidence deleted under ADR-0006 is not recoverable by code. |
 
 Detailed inputs, failures, edge cases, and change risks are in [business rules](business-rules.md).
 

@@ -1,6 +1,6 @@
 # Authentication and authorization
 
-Audit date: 2026-07-15
+Audit date: 2026-07-15; re-checked 2026-09-02. `src/middleware/` (last changed 2026-06-11), `src/service/authentication.ts` and `src/config.ts` (both 2026-07-02) are unchanged since the audit, so every finding here — including TD-01 and TD-02 — still stands as written.
 
 This document describes the behavior visible in the current repository. Labels mean:
 
