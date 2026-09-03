@@ -128,12 +128,7 @@ export const createEnrollService = (database: typeof db) => {
       pagination?: PaginationQueryDto,
     ) => listEnrolls({ region, provinceId, coverStatus, ...pagination }),
 
-    /**
-     * `provinceId` is an optional scope constraint, not a lookup key: an out-of-province match is
-     * indistinguishable from a non-existent id, so a Provincial Officer never learns whether the id
-     * exists outside their province.
-     */
-    getEnrollById: async (enrollId: number, provinceId?: number) => {
+    getEnrollById: async (enrollId: number) => {
       const result = await database
         .select({
           ...getTableColumns(enrolls),
@@ -146,12 +141,7 @@ export const createEnrollService = (database: typeof db) => {
         .leftJoin(provinces, eq(provinces.provinceId, factories.provinceId))
         .leftJoin(districts, eq(districts.districtId, factories.districtId))
         .leftJoin(subdistricts, eq(subdistricts.subdistrictId, factories.subdistrictId))
-        .where(
-          and(
-            eq(enrolls.id, enrollId),
-            provinceId === undefined ? undefined : eq(provinces.provinceId, provinceId),
-          ),
-        )
+        .where(eq(enrolls.id, enrollId))
         .limit(1)
         .then((res) => res[0]);
 

@@ -28,17 +28,9 @@ const TEST_PROVINCE_ID = 10; // seeded province in health region 13
 const COVER_REGION = 13; // = provinces(10).health_region
 const SEEDED_ODPC_ID = 78; // seeded ODPC (for enroll FKs)
 
-const mentalCtx = {
-  accountId: 80001,
-  level: "Mental" as const,
-  scope: { kind: "region" as const, region: COVER_REGION },
-};
-const odpcCtx = {
-  accountId: 80002,
-  level: "ODPC" as const,
-  scope: { kind: "region" as const, region: COVER_REGION },
-};
-const adminCtx = { accountId: 80003, level: "ODPC" as const, scope: { kind: "national" as const } };
+const mentalCtx = { accountId: 80001, level: "Mental" as const, region: COVER_REGION };
+const odpcCtx = { accountId: 80002, level: "ODPC" as const, region: COVER_REGION };
+const adminCtx = { accountId: 80003, level: "ODPC" as const, region: null };
 
 const CATEGORY_QUESTION: Record<string, number> = {
   Collaborate: 1,
@@ -252,7 +244,7 @@ describe("Story 001–004 — standard files in the cover-review read", () => {
     const res = await reviewService.getAnswers(coverWithAnswers, {
       accountId: 80002,
       level: "ODPC",
-      scope: { kind: "region", region: 1 }, // a region the cover does NOT belong to
+      region: 1, // a region the cover does NOT belong to
     });
     expect(code(res)).toBe(404);
   });
