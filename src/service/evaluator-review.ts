@@ -18,6 +18,7 @@ import { emailQueue } from "../queue/email";
 import type { StandardFileItem, VerdictSaveBody } from "../schema/evaluator-review";
 import { utilities } from "../utils";
 import { categoriesFor, type EvaluatorLevel, evaluatorService } from "./evaluator";
+import { provincialOfficerService } from "./provincialOfficer";
 import { type CategoryKey, calculateBreakdown, computeGrade } from "./scoreHelpers";
 
 type QuestionCategory = (typeof questionCategories.enumValues)[number];
@@ -53,20 +54,27 @@ const standardFilesFromEnroll = (
   });
 
 /**
- * The resolved actor performing a review, decoupled from how it authenticated.
- * `region: null` denotes a national (admin) reviewer that bypasses the region gate.
+ * The scope a reviewer is authorized against: national (no gate, existence only),
+ * region (health-region gate), or province (single-province gate). A discriminated
+ * union so a context always carries exactly one scope — there is no "no scope" state.
  */
+export type ReviewerScope =
+  | { kind: "national" }
+  | { kind: "region"; region: number }
+  | { kind: "province"; province: number };
+
+/** The resolved actor performing a review, decoupled from how it authenticated. */
 export type ReviewerContext = {
   accountId: number;
   level: EvaluatorLevel;
-  region: number | null;
+  scope: ReviewerScope;
 };
 
 /** A DOED admin always reviews as a national ODPC. */
 export const adminReviewerContext = (accountId: number): ReviewerContext => ({
   accountId,
   level: "ODPC",
-  region: null,
+  scope: { kind: "national" },
 });
 
 const createEvaluatorReviewHelper = (database: typeof db) => {
@@ -78,6 +86,20 @@ const createEvaluatorReviewHelper = (database: typeof db) => {
       .innerJoin(factories, eq(factories.accountId, enrolls.factoryId))
       .innerJoin(provinces, eq(provinces.provinceId, factories.provinceId))
       .where(and(eq(covers.id, coverId), eq(provinces.healthRegion, region)))
+      .limit(1)
+      .then((r) => r[0]);
+
+    if (!row) return status(404, { message: "cover not found" });
+    return row;
+  };
+
+  const assertCoverInProvince = async (coverId: number, province: number) => {
+    const row = await database
+      .select({ coverId: covers.id })
+      .from(covers)
+      .innerJoin(enrolls, eq(enrolls.id, covers.enrollId))
+      .innerJoin(factories, eq(factories.accountId, enrolls.factoryId))
+      .where(and(eq(covers.id, coverId), eq(factories.provinceId, province)))
       .limit(1)
       .then((r) => r[0]);
 
@@ -97,18 +119,26 @@ const createEvaluatorReviewHelper = (database: typeof db) => {
     return row;
   };
 
-  /** Region-aware cover access: national (region null) → existence only. */
-  const assertCoverAccess = async (coverId: number, region: number | null) =>
-    region === null ? assertCoverExists(coverId) : assertCoverInRegion(coverId, region);
+  /** Scope-aware cover access: dispatches on the reviewer scope discriminator. */
+  const assertCoverAccess = async (coverId: number, scope: ReviewerScope) => {
+    switch (scope.kind) {
+      case "national":
+        return assertCoverExists(coverId);
+      case "region":
+        return assertCoverInRegion(coverId, scope.region);
+      case "province":
+        return assertCoverInProvince(coverId, scope.province);
+    }
+  };
 
-  return { assertCoverInRegion, assertCoverExists, assertCoverAccess };
+  return { assertCoverInRegion, assertCoverInProvince, assertCoverExists, assertCoverAccess };
 };
 
 export const createEvaluatorReviewService = (database: typeof db) => {
   const helper = createEvaluatorReviewHelper(database);
 
   /**
-   * Resolve an evaluator caller into a ReviewerContext (level + region).
+   * Resolve an evaluator caller into a ReviewerContext (level + region scope).
    * Returns the 404 status response from getEvaluatorData if the caller is not an evaluator.
    */
   const resolveEvaluator = async (callerId: number) => {
@@ -116,14 +146,34 @@ export const createEvaluatorReviewService = (database: typeof db) => {
     if (evaluatorData instanceof ElysiaCustomStatusResponse) return evaluatorData;
     // biome-ignore lint/style/noNonNullAssertion: guaranteed non-null after getEvaluatorData
     const evaluator = evaluatorData.evaluator!;
-    return { accountId: evaluator.accountId, level: evaluator.level, region: evaluator.region };
+    return {
+      accountId: evaluator.accountId,
+      level: evaluator.level,
+      scope: { kind: "region" as const, region: evaluator.region },
+    };
+  };
+
+  /**
+   * Resolve a Provincial Officer caller into a province-scoped ReviewerContext at level
+   * `ODPC`, so category filtering includes all five QuestionCategories (decision #1).
+   * Returns the existing `404 { message: "officer not found" }` for a non-officer caller.
+   */
+  const resolveProvincialOfficer = async (callerId: number) => {
+    const officerData = await provincialOfficerService.getOfficerDataById(callerId);
+    if (officerData instanceof ElysiaCustomStatusResponse) return officerData;
+    return {
+      accountId: callerId,
+      level: "ODPC" as const,
+      scope: { kind: "province" as const, province: officerData.provinceId },
+    };
   };
 
   return {
     resolveEvaluator,
+    resolveProvincialOfficer,
 
     getAnswers: async (coverId: number, reviewer: ReviewerContext) => {
-      const coverCheck = await helper.assertCoverAccess(coverId, reviewer.region);
+      const coverCheck = await helper.assertCoverAccess(coverId, reviewer.scope);
       if (coverCheck instanceof ElysiaCustomStatusResponse) return coverCheck;
 
       // Factory's claimed + uploaded standard certificates for this cover (intent 009).
@@ -243,9 +293,9 @@ export const createEvaluatorReviewService = (database: typeof db) => {
       reviewer: ReviewerContext,
       entry: VerdictSaveBody,
     ) => {
-      const { accountId, level, region } = reviewer;
+      const { accountId, level, scope } = reviewer;
 
-      const coverCheck = await helper.assertCoverAccess(coverId, region);
+      const coverCheck = await helper.assertCoverAccess(coverId, scope);
       if (coverCheck instanceof ElysiaCustomStatusResponse) return coverCheck;
 
       // Answer must exist within this Cover
@@ -335,14 +385,14 @@ export const createEvaluatorReviewService = (database: typeof db) => {
      * writer of `finished` and of a `coverLogs` transition.
      */
     finalize: async (coverId: number, reviewer: ReviewerContext) => {
-      const { accountId, level, region } = reviewer;
+      const { accountId, level, scope } = reviewer;
 
       // ODPC-only gate (native ODPC or DOED-admin-as-national). No DB read before the gate.
       if (level !== "ODPC") {
         return status(403, { message: "finalize is restricted to ODPC" });
       }
 
-      const coverCheck = await helper.assertCoverAccess(coverId, region);
+      const coverCheck = await helper.assertCoverAccess(coverId, scope);
       if (coverCheck instanceof ElysiaCustomStatusResponse) return coverCheck;
 
       // Factory contact for the verdict email (before txn so it's always available).
