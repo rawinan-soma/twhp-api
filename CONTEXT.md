@@ -108,6 +108,15 @@ A Staff Account scoped by `region` (which factories' Covers it sees) and `level`
 
 **Override rule:** A tier-1 Evaluator (Mental/DOH) may edit verdicts they themselves authored, but **only while the Cover is `in_review`** (before ODPC finalizes), and never on the other tier-1 level's categories. ODPC may override **any non-`finished`** Answer (`in_review`, `recommended`, or `rejected`) on **any** category (authorship-keyed guard: a `recommended` is editable by its author or ODPC — see [[Evaluator Verdict]]). **A `finished` Answer is immutable to everyone — ODPC included.** Pre-finalize, ODPC rules all; once `finished`, the Answer is locked forever. The Factory can act only on **hard-rejected** Answers (redo) and never on `recommended`, `finished`, or settled score changes.
 
+### Provincial Officer
+A Staff Account scoped by `province`, in a purely **observer** capacity: it reads every [[Cover]] in its province and writes nothing at all — no [[Evaluator Verdict]], no [[Verdict Score]], no finalize. Unlike an [[Evaluator]], it carries no tier and no authority over the review; it exists to let the province see what its factories submitted and how the review of it turned out, never to act on it.
+
+The Officer may open a Cover whose latest status is `in_review` or `finished`. A Cover still `in_progress` is **invisible to the Officer entirely** — that status means the factory hasn't submitted it, so it is the factory's private draft, on par with a Cover in a different province.
+
+**Open-review confidentiality.** While a Cover is `in_review`, the Officer reads the factory's side of the record — each Answer's selected choice and uploaded evidence, plus the factory's claimed standard certificates — but not the verdict layer: no [[Verdict Score]], no verdict description, and no per-Answer status (see [[Answer Review]]). Exposing the bare status would leak the open review as surely as the verdict itself, since a status of anything but "awaiting review" already tells the Officer a verdict exists. Standard certificates are visible at **both** statuses regardless — they are the factory's own submission, not Evaluator output, so there is nothing of the review to protect.
+
+Once the Cover reaches `finished`, this redaction lifts: Verdict Scores, verdict descriptions and per-Answer statuses all become visible. This is consistent with the [[Grade]] the Officer can already retrieve from a [[Score Report]] once a Cover is `finished` — the outcome is settled, so the detail behind it is no longer sensitive.
+
 ### Evaluator Verdict
 A verdict is recorded **per Answer, one save at a time** (not as a single batch — see ADR-0005). Each save carries one of **three outcomes**, and the resulting status depends on the caller's level:
 - **approve** → **`recommended`** for **every** caller, tier-1 *and* ODPC (no `description` required). `finished` is **never** written by a save.
@@ -254,5 +263,5 @@ The three staff list endpoints below are paginated (`?page=`, `?limit=`, default
 |------|------|-------|
 | Factory | `GET /twhp/api/factories/assessments/score` | Own Cover |
 | Evaluator | `GET /twhp/api/evaluators/score` | All Covers in evaluator's region |
-| Provincial Officer | `GET /twhp/api/provincialOfficers/score` | All Covers in officer's province |
+| Provincial Officer | `GET /twhp/api/provincialOfficers/score` | All Covers in officer's province — the Score Report itself is one facet of a broader read; see [[Provincial Officer]] for the per-Cover read and its `in_review` confidentiality rule |
 | Admin (DOED) | `GET /twhp/api/admins/score` | All Covers (optional `?region=` / `?provinceId=` filters) |
