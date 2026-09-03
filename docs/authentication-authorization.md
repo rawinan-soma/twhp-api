@@ -144,16 +144,26 @@ Factory service handlers derive the factory account ID from `jwtPayload.sub`, ra
 - `POST /evaluators/covers/:coverId/answers/:answerId/verdict`
 - `POST /evaluators/covers/:coverId/finalize`
 
-Evaluator list, score, and cover-review operations resolve the caller's evaluator region. Cover review also applies evaluator-level category rules. The two detail routes do not apply region scope; see Security findings.
+Evaluator list, score, and cover-review operations resolve the caller's evaluator region. Cover review also applies evaluator-level category rules. The two detail routes (`GET /evaluators/enrolls/:id`, `GET /evaluators/factories/:id`) now also resolve and enforce the caller's region: an out-of-region id returns the endpoint's normal not-found response, byte-identical to a non-existent id (fixed 2026-09-03; see `.scratch/evaluator-detail-scope/`). This closed the gap previously tracked in Security findings.
 
 ### Provincial only
 
 - `PATCH /provincialOfficers/password`
 - `GET /provincialOfficers/enrolls`
+- `GET /provincialOfficers/enrolls/:id`
 - `GET /provincialOfficers/factories`
+- `GET /provincialOfficers/factories/:id`
 - `GET /provincialOfficers/score`
+- `GET /provincialOfficers/covers/:coverId/answers`
 
-These list/report routes resolve the caller's province before querying (**Verified**).
+These routes resolve the caller's province before querying (**Verified**). The two detail routes reuse the same province-scoped read as the corresponding Evaluator/DOED reads and return the endpoint's normal not-found response for an out-of-province id, identical to a non-existent one.
+
+The cover-review read reuses `evaluatorReviewService.getAnswers` through a new province-scoped `ReviewerScope` (`{ kind: "province"; province }`), added alongside the pre-existing `region` and `national` scopes. Two rules apply only to this scope:
+
+- **Status gate:** the Cover's latest status must be `in_review` or `finished`; an `in_progress` Cover returns `404 { message: "cover not found" }`, the same response as an out-of-province Cover.
+- **Verdict redaction:** while `in_review`, every Answer's latest verdict choice and description are forced `null` and its per-Answer `status` is forced `in_review`, regardless of the underlying evaluator record. Once `finished`, the Officer sees the same values an Evaluator sees. Standard certificates are never redacted. The redaction lives inside `evaluator-review.ts`, keyed on the scope discriminator — Evaluator and DOED reads are unaffected.
+
+The Officer resolves to evaluator level `ODPC` for category-filtering purposes only (all five `QuestionCategory` values are in scope); it carries no write authority and cannot reach verdict-save or finalize routes.
 
 ### DOED only
 
@@ -165,7 +175,7 @@ These list/report routes resolve the caller's province before querying (**Verifi
 - `POST /admins/covers/:coverId/answers/:answerId/verdict`
 - `POST /admins/covers/:coverId/finalize`
 
-DOED review deliberately uses `adminReviewerContext` with `region=null`, representing national ODPC access (`src/service/evaluator-review.ts`).
+DOED review deliberately uses `adminReviewerContext`, which carries `scope: { kind: "national" }`, representing national ODPC access (`src/service/evaluator-review.ts`). The reviewer scope is a discriminated union (`national | region | province`) as of 2026-09-03; national and region behavior for DOED and Evaluator callers is unchanged.
 
 ## Password reset and first-password flows
 
@@ -200,10 +210,9 @@ The implementation trusts the multipart MIME type and stores the bytes unchanged
 ### Verified defects
 
 1. **Refresh token expiry/signature is not verified — Critical.** `helper.getUserFromRefreshToken` authorizes solely by the stored SHA-256 hash, and `rotateToken` only calls `decodeJwt`. Exploitation requires possession of the exact token represented by the current database hash; arbitrary forged/tampered strings do not match. That exact token nevertheless remains server-acceptable beyond JWT expiry and can obtain a new access/refresh pair, including for privileged accounts, until the hash is replaced. This defeats the promised server-side session/2FA recurrence boundary. Confidence: high.
-2. **Evaluator detail routes omit regional authorization — High if region is an authorization boundary.** `src/routes/evaluators/enrolls/[id].ts` calls `enrollService.getEnrollById(id)` and `src/routes/evaluators/factories/[id].ts` calls `factoryService.getFactoryById(id)` without caller region. The services filter only by requested ID. Evaluator lists and review routes do enforce region, directly supporting that region is intended as a boundary. Enrollment detail includes contact data and certificate object names; factory detail includes address, phone, and username. Confidence: high. Product confirmation is still required before changing semantics.
-3. **File presigning is filename-only — High confidentiality risk.** `src/routes/file/index.ts` permits every authenticated role; `fileService.getPresignedUrl` authorizes only that `fileName` is non-empty; `utilities().getPresignedUrl` signs that key for five seconds. It performs no owner, role, region, enrollment, cover, category, or answer check. UUID object names reduce guessing, but authorized API responses disclose names, and the evaluator detail defect exposes out-of-region certificate names. Confidence: high.
-4. **Direct-login `full_name` is assembled from incomplete joins — Low functional/security-adjacent defect.** `getAutheticatedAccount` joins name columns only from evaluator/provincial tables and returns string interpolation for every role. Factory and DOED direct login can return null-like names, while `helper.getAccountById` correctly joins factory/admin data. This is identity-display inconsistency, not an authorization bypass. Confidence: high.
-5. **Known seed administrator credential in dev/staging workflow — High configuration risk if staging is reachable.** `src/drizzle/seed.ts` creates a fixed DOED account with a hard-coded weak password. Compose runs `db:seed` for both `dev` and `staging` profiles. Staging Nginx also requires an API key, but that is an additional shared gate rather than a replacement for account security. Whether the staging profile is deployed or reachable is Unknown. Confidence: high on repository behavior.
+2. **File presigning is filename-only — High confidentiality risk.** `src/routes/file/index.ts` permits every authenticated role; `fileService.getPresignedUrl` authorizes only that `fileName` is non-empty; `utilities().getPresignedUrl` signs that key for five seconds. It performs no owner, role, region, province, enrollment, cover, category, or answer check. UUID object names reduce guessing, but authorized API responses disclose names. Confidence: high. Explicitly out of scope for the 2026-09-03 evaluator-detail and provincial read-only work (`.scratch/evaluator-detail-scope/`, `.scratch/provincial-read-only-review/`); tracked separately in [technical debt](technical-debt.md) (TD-02).
+3. **Direct-login `full_name` is assembled from incomplete joins — Low functional/security-adjacent defect.** `getAutheticatedAccount` joins name columns only from evaluator/provincial tables and returns string interpolation for every role. Factory and DOED direct login can return null-like names, while `helper.getAccountById` correctly joins factory/admin data. This is identity-display inconsistency, not an authorization bypass. Confidence: high.
+4. **Known seed administrator credential in dev/staging workflow — High configuration risk if staging is reachable.** `src/drizzle/seed.ts` creates a fixed DOED account with a hard-coded weak password. Compose runs `db:seed` for both `dev` and `staging` profiles. Staging Nginx also requires an API key, but that is an additional shared gate rather than a replacement for account security. Whether the staging profile is deployed or reachable is Unknown. Confidence: high on repository behavior.
 
 ### Verified weaknesses requiring policy decisions
 
@@ -227,8 +236,7 @@ The implementation trusts the multipart MIME type and stores the bytes unchanged
 
 - Required maximum access and refresh session lifetimes, and whether refresh sessions should be absolute or sliding.
 - Whether all frontends are same-origin/same-site with the API, and what outer proxy adds CORS/security headers/TLS.
-- Whether evaluator region is formally an authorization boundary for factory/enrollment details.
-- Which roles may retrieve each class of certificate/evidence file.
+- Which roles may retrieve each class of certificate/evidence file — evaluator region and Provincial Officer province are now confirmed authorization boundaries for enrollment/factory detail (2026-09-03), but presigned file access remains filename-only for every role.
 - Whether password reset/change must terminate all sessions and whether concurrent devices are supported.
 - Whether repository fallback/seed credentials are deployed or reused anywhere.
 - Production secret storage, rotation, entropy, audit process, firewall rules, Redis authentication/TLS, PostgreSQL exposure, MinIO policy, and backup encryption.
@@ -236,7 +244,7 @@ The implementation trusts the multipart MIME type and stores the bytes unchanged
 ## Coordinator decisions
 
 1. Fix refresh verification first: verify the refresh JWT with `REFRESH_JWT_SECRET`, HS256, expected claims, and expiry before database-hash lookup/rotation; add expired/tampered/malformed tests. Decide absolute versus sliding lifetime.
-2. Confirm and enforce evaluator detail scope, preferably returning 404 for out-of-region IDs to avoid resource enumeration.
+2. ~~Confirm and enforce evaluator detail scope, preferably returning 404 for out-of-region IDs to avoid resource enumeration.~~ Done 2026-09-03 — both Evaluator detail routes now enforce region scope, and the new Provincial Officer detail/cover-review routes enforce province scope, all returning the endpoint's normal not-found response for an out-of-scope id.
 3. Replace arbitrary filename presigning with resource-scoped authorization or prove the filename belongs to a caller-authorized row before signing.
 4. Define one password policy and apply it to registration, reset, first change, and account edits. Decide whether password changes clear refresh hashes.
 5. Add account/IP-aware login and reset controls at an explicitly trusted network layer; normalize trusted client IP first.

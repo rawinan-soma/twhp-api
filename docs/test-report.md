@@ -8,12 +8,14 @@
 | System | TWHP API (`twhp-elysia`) — Bun + ElysiaJS + PostgreSQL |
 | Module under test | Evaluation (Evaluator Review — two-phase review, finalize, grading) |
 | Report date | 2026-08-17 |
-| Repository state | branch `main`, last commit `cd101ac` (2026-07-16), 5 modified + 4 untracked paths |
+| Repository state | branch `main`, last commit `cd101ac` (2026-07-16), 5 modified + 4 untracked paths — **stale as of 2026-09-03**; six more tickets have since merged to `dev`, see the update note below |
 | Runner | `bun:test` (Bun 1.3.6) |
 | Prepared by | Claude Code, compiled from test sources and recorded bolt evidence |
 | Status | Compiled — **no suite was executed for this report** |
 
 > **Evidence statement.** All pass/fail figures in this report are point-in-time results recorded in `memory-bank/bolts/*/ddd-03-test-report.md` on the dates shown. They are not a claim about the suite's state today. See §3 and §11.
+
+> **2026-09-03 update note.** This report's own suites (§5–§7) cover the Evaluation module through intent 011, compiled 2026-08-17. They do **not** include the list-pagination suites (intent 012) or the tests added by the two tickets that shipped 2026-09-03 — provincial read-only review (`.scratch/provincial-read-only-review/`) and evaluator detail region scope (`.scratch/evaluator-detail-scope/`), which added `src/service/evaluator-detail-region-scope.integration.test.ts` and `src/service/factory-province-detail.integration.test.ts`, plus new cases inside `evaluator-review.integration.test.ts` and `enroll.integration.test.ts`. Separately, as of 2026-09-03 the *whole-repository* suite is reported at **411 pass / 0 fail across 20 files** — reported by the project orchestrator, not independently re-executed for this report (this worktree has no `seed_data/`, so the integration fixtures these suites depend on cannot be reproduced here). That whole-repository figure does not replace or reconcile with the module-scoped tallies below. The project's requirement-tracking process has also moved from memory-bank intents to `.scratch/<feature-slug>/PRD.md` plus `issues/NN-*.md` (the mattpocock skills workflow); memory-bank remains historical evidence for the intents already covered here and is not extended for new work.
 
 ---
 

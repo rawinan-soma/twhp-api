@@ -52,14 +52,14 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 
 ### BR-05 — Role and geographic ownership
 
-- **Rule:** Factory reads its own current-fiscal data; Provincial reads one province; Evaluator lists/scores one region and reviews by region/category; DOED reads/reviews nationally.
-- **Implementation:** route guards; Provincial/Evaluator subtype services; `scoreService`; `evaluator-review.ts:assertCoverAccess`; `categoriesFor`.
+- **Rule:** Factory reads its own current-fiscal data; Provincial reads one province, including cover-review, enrollment, and factory detail; Evaluator lists/scores one region and reviews by region/category, including enrollment and factory detail; DOED reads/reviews nationally.
+- **Implementation:** route guards; Provincial/Evaluator subtype services; `scoreService`; `evaluator-review.ts:assertCoverAccess` (dispatches on the `ReviewerScope` discriminator — `national | region | province`); `categoriesFor`; `enrollService.getEnrollById(id, provinceId?, region?)`; `factoryService.getFactoryById(id, provinceId?, region?)`.
 - **Inputs/conditions:** JWT role/sub, subtype scope, current Factory location, evaluator level.
 - **Result:** scoped data and reviewer actions.
-- **Edges/failure:** evaluator detail routes for Enrollment/Factory call unscoped services, so an evaluator can fetch arbitrary IDs. Review does not require matching Enrollment evaluator IDs. `/file/presigned-url` permits any authenticated caller with a known filename. Moving a Factory can change the evaluator region for an existing Cover.
-- **Failure behavior:** guarded wrong-region review returns 404; the unscoped detail/file paths have no ownership rejection.
+- **Edges/failure:** as of 2026-09-03, Evaluator enrollment/factory detail reads enforce the caller's health region and Provincial Officer enrollment/factory/cover-review reads enforce the caller's province; an out-of-scope id returns the same not-found response as a non-existent id in every case (`.scratch/evaluator-detail-scope/`, `.scratch/provincial-read-only-review/`). Review does not require matching Enrollment evaluator IDs. `/file/presigned-url` permits any authenticated caller with a known filename — deliberately unchanged by both of the above; see [technical debt](technical-debt.md) (TD-02). Moving a Factory can change the evaluator region for an existing Cover.
+- **Failure behavior:** guarded wrong-region/wrong-province review and detail reads return 404; the presign path has no ownership rejection.
 - **Risk of change:** High—authorization contracts.
-- **Confidence:** Intended list/review scopes and gaps are **Verified**.
+- **Confidence:** Intended list/review/detail scopes and the remaining presign gap are **Verified**.
 
 ## Fiscal year, Enrollment, and Cover
 
@@ -308,8 +308,21 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Risk of change:** Very high—constraints require live-data audit and conflict handling.
 - **Confidence:** Repository schema **Verified**; live violations **Unknown**. See [database](database.md) and [technical debt](technical-debt.md).
 
+## Provincial read-only review
+
+### BR-28 — Provincial Officer cover-review status gate and verdict redaction
+
+- **Rule:** A Provincial Officer may open a Cover in their own province only when its latest status is `in_review` or `finished`; an `in_progress` Cover returns the same 404 as an out-of-province Cover. While `in_review`, every Answer's latest verdict choice and description are forced `null` and its per-Answer status is forced `in_review`, regardless of the underlying record. Once `finished`, the Officer sees the same verdict values an Evaluator sees. Standard certificates are unredacted at both statuses.
+- **Implementation:** `evaluator-review.ts:getAnswers`, gated on `ReviewerScope.kind === "province"`; `resolveProvincialOfficer` (level `ODPC`, so all five `QuestionCategory` values are in scope); `latestCoverLogFor` for the status gate; `src/routes/provincialOfficers/covers/[coverId]/answers/index.ts`.
+- **Inputs/conditions:** province-scoped reviewer context, Cover's latest `coverLogs` status.
+- **Result:** same response shape as the Evaluator/DOED cover-review read (`AnswerViewSchema`), with verdict fields nulled and status pinned while `in_review`.
+- **Edges/failure:** the redaction and status gate apply only to the province scope — Evaluator and DOED reads of the same Cover are unaffected. The Officer has no write path: verdict-save and finalize routes are not exposed under `provincialOfficers/**`.
+- **Failure behavior:** `in_progress` or out-of-province Cover → `404 { message: "cover not found" }`.
+- **Risk of change:** High—confidentiality of an open review and authorization scope.
+- **Confidence:** **Verified.**
+
 ## Coverage and known gaps
 
 Current tests cover OTP flows, score arithmetic/report shape, Enrollment Cover-status filters, evaluator region/category reads, verdict payload/authorship behavior, finalize authorization/gates/outcomes, rejected evidence deletion, MinIO abort, DB finalize transaction, and email-job selection.
 
-Important rules without direct coverage include fiscal boundary/timezone, cardinality concurrency, Factory writes by Cover state, accepted-verdict provenance, Standard Question acceptance, N/A eligibility, workforce nonnegativity, false-standard-with-file, full Question set equality, repeat/concurrent finalize, empty Cover finalize, Grade special/boundary cases, evaluator detail/file ownership, and refresh-token expiry verification.
+Important rules without direct coverage include fiscal boundary/timezone, cardinality concurrency, Factory writes by Cover state, accepted-verdict provenance, Standard Question acceptance, N/A eligibility, workforce nonnegativity, false-standard-with-file, full Question set equality, repeat/concurrent finalize, empty Cover finalize, Grade special/boundary cases, presigned-file ownership, and refresh-token expiry verification. Evaluator and Provincial Officer detail-read region/province scoping (BR-05) and the provincial cover-review status gate/redaction (BR-28) gained integration coverage 2026-09-03.

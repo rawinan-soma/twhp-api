@@ -30,7 +30,7 @@ These statements describe consistent repository structure, not production availa
 ## What is fragile
 
 - Refresh JWT signature and expiry are not verified before a hash-matched refresh token mints a new session.
-- Evaluator detail routes do not scope requested IDs to the evaluator's region, and file presigning checks authentication but not resource ownership.
+- File presigning checks authentication but not resource ownership — any authenticated role can presign any filename it knows. (Evaluator/Provincial Officer detail routes were fixed to scope by region/province on 2026-09-03; presigning was explicitly left out of that work.)
 - Enrollment/cover/answer cardinalities are pre-checked in services but not enforced by database uniqueness; concurrent requests can violate them.
 - Finalize has no cover-state, lock, version, or idempotency guard and may repeat transitions and emails.
 - Business policy documents conflict with code on accepted change scores, standard-question acceptance, Gold special-question gating, `n/a`, and some state gates.
@@ -71,7 +71,7 @@ Do not modify authentication, refresh, RBAC, evaluator detail queries, presignin
 Immediate receiving-team actions:
 
 1. Verify refresh JWTs cryptographically, including expiry, before database hash lookup and access-token issuance.
-2. Add region/resource authorization to evaluator detail reads and replace filename-only presigning with resource-scoped access.
+2. Replace filename-only presigning with resource-scoped access. (Region/province authorization on evaluator and Provincial Officer detail reads was added 2026-09-03.)
 3. Decide and implement password-change/reset refresh revocation, password-login abuse controls, and browser-edge policy.
 4. Confirm that `DEV_SKIP_OTP` can never be effective in a deployed environment; current code treats `COOKIE_SECURE=true` as the production boundary.
 
@@ -92,7 +92,7 @@ Current Compose assumes API port 3000, PostgreSQL host port 5433, Redis host por
 ## Recommended next work
 
 1. Fix refresh-token verification and add expiry/tamper/revocation tests.
-2. Close evaluator-detail and file-presign object authorization gaps.
+2. Close the file-presign object authorization gap. (The evaluator-detail gap closed 2026-09-03.)
 3. Make the Nginx API-key gate fail closed on empty substitution and establish the authoritative `seed_data/` source.
 4. Define and enforce database cardinalities plus idempotent/concurrency-safe finalize semantics.
 5. Obtain product decisions for the rule conflicts listed in `business-rules.md`; update code, ADRs, and tests together.
@@ -160,7 +160,7 @@ Every item below is **Unknown / Requires Organizational Knowledge**:
 - Who owns releases, production database changes/imports, backups, restores, rollback, secrets, DNS/TLS, the external edge, and incident response?
 - What are the recovery objectives, retention requirements, audit obligations, and personal-data classification?
 - Are all frontends same-origin/same-site with the API, and what CORS/CSRF/security-header policy is required?
-- Is evaluator detail access strictly regional, and what exact ownership/category rules must apply to every evidence file?
+- Evaluator detail access is now strictly regional and Provincial Officer detail/cover-review access is strictly province-scoped (2026-09-03); what exact ownership rules must still apply to every presigned evidence file remains open.
 - What are the canonical intended rules for accepted change scores, Standard Question acceptance, `n/a`, Gold `special` values, post-submit edits, and evidence retention?
 - What timezone is authoritative for fiscal-year queries and stored timestamps?
 - What are the maximum data volumes, email delivery SLOs, and acceptable presigned URL lifetime? _(The pagination and ordering contract is answered for the nine staff lists — see [API conventions](api-conventions.md#pagination). The data-volume question remains open.)_

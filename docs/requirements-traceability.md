@@ -8,9 +8,11 @@
 | Document ID | `TWHP-RTM-EVAL-001` |
 | Scope | Evaluation module — 6 intents, 37 functional requirements |
 | Report date | 2026-08-17 |
-| Requirement source | `memory-bank/intents/*/requirements.md` |
+| Requirement source | `memory-bank/intents/*/requirements.md` (intents 003–011; this matrix's scope) |
 | Test evidence source | [`test-report.md`](./test-report.md) §5–§6 |
 | Status | Compiled — no suite executed; recorded results carry their original dates |
+
+> **2026-09-03 scope note.** This matrix covers intents 003–011 only, compiled 2026-08-17. It does **not** include intent 012 (list pagination, `memory-bank/intents/012-list-pagination/`) or the six tickets that shipped 2026-09-03 — provincial read-only review (`.scratch/provincial-read-only-review/`) and evaluator detail region scope (`.scratch/evaluator-detail-scope/`). Before those six tickets, the project's requirement-tracking process moved from memory-bank intents to `.scratch/<feature-slug>/PRD.md` plus `issues/NN-*.md` (each carrying a `Status:` triage line) — the mattpocock skills workflow. Memory-bank remains the historical requirement source for the intents already covered here; it is not extended for new work. This note is a scope flag, not a re-audit: the tables below are unchanged from 2026-08-17.
 
 ---
 
