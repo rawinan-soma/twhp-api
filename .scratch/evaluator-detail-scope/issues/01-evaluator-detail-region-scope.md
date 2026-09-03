@@ -2,30 +2,75 @@
 
 # 01 — Evaluator enrollment and factory detail reads have no region scope
 
-Status: needs-triage
+Status: ready-for-agent
 Category: bug
 Raised: 2026-09-03 (spun out of `.scratch/provincial-read-only-review/`)
+Triaged: 2026-09-03 — claim verified against dev; maintainer confirmed no caller depends on the loose read
 
-## What was found
+## Agent Brief
 
-While triaging provincial read-only review access, the Evaluator's two detail endpoints — enrollment
-by id and factory by id — were read closely. Neither performs any region check. An Evaluator can pass
-any id and receive the full record, including enrollments and factories in health regions they do not
-cover. Every list endpoint the Evaluator has is region-scoped, so the detail reads are the odd ones
-out.
+**Category:** bug
+**Summary:** The Evaluator's enrollment-by-id and factory-by-id reads return records from any health region. They must be constrained to the calling Evaluator's region.
 
-The Provincial Officer's new detail endpoints (issues 03 and 04 of that feature) deliberately enforce
-province scope rather than copy this behavior.
+**Current behavior:**
+An Evaluator is scoped to one health region. Every Evaluator *list* endpoint enforces that scope —
+enrollments, factories and Score Reports are all filtered by the evaluator's region.
 
-## Why it was not fixed in that change
+The two Evaluator *detail* reads do not. Each takes an id, calls the service with that id alone, and
+returns the full record. The role guard confirms the caller is an Evaluator but never checks *which*
+region they belong to, so any Evaluator can read any enrollment or factory in the country by passing
+its id. Verified against dev on 2026-09-03.
 
-Tightening these endpoints is a behavior change for a role already in production. An Evaluator UI may
-be relying on the loose read — for example to resolve a factory referenced from a cross-region record.
-That needs a maintainer decision, not an agent's judgment during an unrelated feature.
+The equivalent Provincial Officer reads, added alongside, deliberately do enforce their scope — so
+the codebase is now internally inconsistent about the same rule.
 
-## Questions for the maintainer
+**Desired behavior:**
+Both Evaluator detail reads are constrained to the caller's health region. A record whose factory is
+outside that region returns the endpoint's existing not-found response — `404 { message: "enroll not
+found" }` and `404 { message: "factory not found" }` — byte-identical to the response for an id that
+does not exist. The endpoint must never reveal that an out-of-region record exists.
 
-- Should the Evaluator detail reads enforce the evaluator's health region, returning `404` for
-  out-of-region ids?
-- Is any current caller known to fetch a record outside the Evaluator's region?
-- Does the DOED admin path need the same review, or is national access correct there?
+An in-region read is unchanged: same record shape, same status codes.
+
+**Key interfaces:**
+- The enrollment and factory by-id service reads already accept an optional province constraint,
+  documented as "a scope constraint, not a lookup key: an out-of-province match is a miss." Add a
+  region constraint following that same shape rather than inventing a second pattern. A factory
+  carries a province, and a province carries a health region, so the region constraint is one further
+  join on the chain these reads already build.
+- The route handlers must resolve the caller's region from the existing evaluator lookup and pass it
+  down. Do not re-check scope in the route — the constraint belongs in the query, matching how the
+  cover-access helpers already work.
+
+**Acceptance criteria:**
+- [ ] An Evaluator reading an enrollment whose factory is in their region gets the full record,
+      unchanged from today.
+- [ ] An Evaluator reading an enrollment whose factory is in another region gets
+      `404 { message: "enroll not found" }`.
+- [ ] The same two criteria hold for the factory detail read, with its own not-found message.
+- [ ] A non-existent id and an out-of-region id are indistinguishable to the caller — same status,
+      same body.
+- [ ] The DOED admin detail reads still return records from every region.
+- [ ] The Provincial Officer detail reads are untouched and still province-scoped.
+- [ ] Integration tests cover in-region read, out-of-region miss, and non-existent id for both
+      endpoints.
+- [ ] `bun test` and `bun run check` are green.
+
+**Out of scope:**
+- The DOED admin path. National access there is correct by design — admins have their own routes and
+  review as a national ODPC.
+- The Provincial Officer endpoints, which already enforce province scope.
+- Any change to the Evaluator list endpoints, which are already correctly scoped.
+- Adding scope checks to `/file/presigned-url`. That endpoint is guarded by authentication only, with
+  no ownership check, for every role. It is a real gap but a separate one — do not fix it here.
+
+## Triage notes
+
+Two of the three original questions resolved without the maintainer:
+
+- **Prior art** — tickets 03 and 04 of the provincial feature added the optional-scope-parameter
+  pattern to both services, so the fix follows an established shape.
+- **DOED admin** — national access is deliberate, not an oversight.
+
+The third was answered by the maintainer on 2026-09-03: **no known caller depends on the loose read**,
+so the endpoints can be tightened directly. No logging period is needed.

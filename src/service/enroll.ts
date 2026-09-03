@@ -129,11 +129,11 @@ export const createEnrollService = (database: typeof db) => {
     ) => listEnrolls({ region, provinceId, coverStatus, ...pagination }),
 
     /**
-     * `provinceId` is an optional scope constraint, not a lookup key: an out-of-province match is
-     * indistinguishable from a non-existent id, so a Provincial Officer never learns whether the id
-     * exists outside their province.
+     * `provinceId` and `region` are optional scope constraints, not lookup keys: an out-of-scope
+     * match is indistinguishable from a non-existent id, so a Provincial Officer or Evaluator never
+     * learns whether the id exists outside their province or health region.
      */
-    getEnrollById: async (enrollId: number, provinceId?: number) => {
+    getEnrollById: async (enrollId: number, provinceId?: number, region?: number) => {
       const result = await database
         .select({
           ...getTableColumns(enrolls),
@@ -150,6 +150,7 @@ export const createEnrollService = (database: typeof db) => {
           and(
             eq(enrolls.id, enrollId),
             provinceId === undefined ? undefined : eq(provinces.provinceId, provinceId),
+            region === undefined ? undefined : eq(provinces.healthRegion, region),
           ),
         )
         .limit(1)
