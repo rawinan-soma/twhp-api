@@ -312,7 +312,7 @@ describe("getAnswerByFactoryId — a settled correction after finalize", () => {
     const res = await reviewService.finalize(coverId, {
       accountId: SEEDED_EVALUATOR_ID,
       level: "ODPC",
-      region: COVER_REGION,
+      scope: { kind: "region", region: COVER_REGION },
     });
     queueSpy.mockRestore();
     expect((res as { code: number }).code).toBe(200);
