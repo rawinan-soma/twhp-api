@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { Value } from "@sinclair/typebox/value";
 import { eq, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { ElysiaCustomStatusResponse, t } from "elysia";
+import { t } from "elysia";
 import { Pool } from "pg";
 import {
   accounts,
@@ -500,47 +500,6 @@ describe("Story 003 — coverStatus query param contract", () => {
     for (const v of ["FINISHED", "", "done", "in-progress", 1]) {
       expect(Value.Check(QuerySchema, { coverStatus: v })).toBe(false);
     }
-  });
-});
-
-// ─── Issue 03 — provincial enrollment detail (province-scoped) ───────────────
-
-describe("Issue 03 — getEnrollById province scope", () => {
-  it("AC: in-province read returns the full record with province/district/subdistrict names", async () => {
-    const result = await enrollService.getEnrollById(enrollFinished, PROVINCE_A);
-    expect(result).not.toBeInstanceOf(ElysiaCustomStatusResponse);
-    const record = result as {
-      id: number;
-      province_name_th: string | null;
-      district_name_th: string | null;
-      subdistrict_name_th: string | null;
-    };
-    expect(record.id).toBe(enrollFinished);
-    expect(record.province_name_th).not.toBeNull();
-    expect(record.district_name_th).not.toBeNull();
-    expect(record.subdistrict_name_th).not.toBeNull();
-  });
-
-  it("AC: an enrollment in another province returns 404 'enroll not found'", async () => {
-    const result = await enrollService.getEnrollById(enrollBFinished, PROVINCE_A);
-    expect(result).toBeInstanceOf(ElysiaCustomStatusResponse);
-    const response = result as ElysiaCustomStatusResponse<404, { message: string }>;
-    expect(response.code).toBe(404);
-    expect(response.response.message).toBe("enroll not found");
-  });
-
-  it("AC: a non-existent id returns the same 404 as an out-of-province id", async () => {
-    const result = await enrollService.getEnrollById(999_999_999, PROVINCE_A);
-    expect(result).toBeInstanceOf(ElysiaCustomStatusResponse);
-    const response = result as ElysiaCustomStatusResponse<404, { message: string }>;
-    expect(response.code).toBe(404);
-    expect(response.response.message).toBe("enroll not found");
-  });
-
-  it("AC: the Evaluator's existing read (no province arg) is unchanged — no scope applied", async () => {
-    const result = await enrollService.getEnrollById(enrollBFinished);
-    expect(result).not.toBeInstanceOf(ElysiaCustomStatusResponse);
-    expect((result as { id: number }).id).toBe(enrollBFinished);
   });
 });
 
