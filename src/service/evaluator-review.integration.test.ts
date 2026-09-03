@@ -172,6 +172,7 @@ beforeAll(async () => {
 
   const [cover] = await db.insert(covers).values({ enrollId }).returning();
   coverId = cover.id;
+  await db.insert(coverLogs).values({ coverId, status: "in_review" });
 
   // one in_review answer per category
   for (const cat of ALL_CATEGORIES) {
@@ -327,6 +328,219 @@ describe("Issue 01 — province-scoped reviewer context", () => {
     expect((result as { response: { message: string } }).response).toMatchObject({
       message: "cover not found",
     });
+  });
+});
+
+// ─── Issue 02 — provincial cover-review redaction ────────────────────────────
+
+describe("Issue 02 — provincial cover-review redaction", () => {
+  let inProgressCoverId: number;
+  let inReviewCoverId: number;
+  let finishedCoverId: number;
+  let standardCoverId: number;
+
+  beforeAll(async () => {
+    const [cover] = await db.insert(covers).values({ enrollId }).returning();
+    inProgressCoverId = cover.id;
+    await db.insert(coverLogs).values({ coverId: inProgressCoverId, status: "in_progress" });
+
+    const [reviewCover] = await db.insert(covers).values({ enrollId }).returning();
+    inReviewCoverId = reviewCover.id;
+    await db.insert(coverLogs).values({ coverId: inReviewCoverId, status: "in_review" });
+    const [ans] = await db
+      .insert(answers)
+      .values({
+        questionId: CATEGORY_QUESTION.Collaborate,
+        coverId: inReviewCoverId,
+        selectedChoice: "2",
+      })
+      .returning();
+    await db.insert(answerLogs).values({ answerId: ans.id, status: "in_review" });
+    // Evaluator already recorded a verdict — must stay hidden while the Cover is in_review.
+    await db.insert(answerLogs).values({
+      answerId: ans.id,
+      status: "recommended",
+      verdictChoice: "1",
+      description: "looks good",
+    });
+
+    const [finishedCover] = await db.insert(covers).values({ enrollId }).returning();
+    finishedCoverId = finishedCover.id;
+    await db.insert(coverLogs).values({ coverId: finishedCoverId, status: "finished" });
+    const [finishedAns] = await db
+      .insert(answers)
+      .values({
+        questionId: CATEGORY_QUESTION.Collaborate,
+        coverId: finishedCoverId,
+        selectedChoice: "2",
+      })
+      .returning();
+    await db.insert(answerLogs).values({ answerId: finishedAns.id, status: "in_review" });
+    await db.insert(answerLogs).values({
+      answerId: finishedAns.id,
+      status: "finished",
+      verdictChoice: "1",
+      description: "final outcome",
+    });
+
+    // Separate enroll claiming a standard certificate, to prove standards stay visible
+    // and unredacted for a province-scoped reader while the Cover is in_review.
+    const [standardEnroll] = await db
+      .insert(enrolls)
+      .values({
+        factoryId: TEST_FACTORY_ACCOUNT_ID,
+        evalDohId: SEEDED_EVALUATOR_ID,
+        evalOdpcId: SEEDED_EVALUATOR_ID,
+        evalMentalId: SEEDED_EVALUATOR_ID,
+        employeeThM: 10,
+        employeeMmM: 0,
+        employeeKhM: 0,
+        employeeLaM: 0,
+        employeeVnM: 0,
+        employeeCnM: 0,
+        employeePhM: 0,
+        employeeJpM: 0,
+        employeeInM: 0,
+        employeeOtherM: 0,
+        employeeThF: 5,
+        employeeMmF: 0,
+        employeeKhF: 0,
+        employeeLaF: 0,
+        employeeVnF: 0,
+        employeeCnF: 0,
+        employeePhF: 0,
+        employeeJpF: 0,
+        employeeInF: 0,
+        employeeOtherF: 0,
+        standardHc: true,
+        fileStandardHcUrl: "hc.pdf",
+        standardSan: false,
+        standardSanPlus: false,
+        standardWellness: false,
+        standardSafety: false,
+        standardTis18001: false,
+        standardIso45001: false,
+        standardIso14001: false,
+        standardZero: false,
+        standard5S: false,
+        standardHas: false,
+        safetyOfficerPrefix: "นาย",
+        safetyOfficerFirstName: "ทดสอบ",
+        safetyOfficerLastName: "ทดสอบ",
+        safetyOfficerPosition: "เจ้าหน้าที่",
+      })
+      .returning();
+    const [standardCover] = await db
+      .insert(covers)
+      .values({ enrollId: standardEnroll.id })
+      .returning();
+    standardCoverId = standardCover.id;
+    await db.insert(coverLogs).values({ coverId: standardCoverId, status: "in_review" });
+  });
+
+  it("AC: province-scoped reader + in_progress Cover → 404 cover not found", async () => {
+    const result = await reviewService.getAnswers(inProgressCoverId, {
+      accountId: TEST_OFFICER_ACCOUNT_ID,
+      level: "ODPC",
+      scope: { kind: "province", province: TEST_PROVINCE_ID },
+    });
+    expect(result).toBeInstanceOf(ElysiaCustomStatusResponse);
+    expect((result as { code: number }).code).toBe(404);
+    expect((result as { response: { message: string } }).response).toMatchObject({
+      message: "cover not found",
+    });
+  });
+
+  it("AC: province-scoped reader + in_review Cover → verdict choice, description and status are redacted", async () => {
+    const result = await reviewService.getAnswers(inReviewCoverId, {
+      accountId: TEST_OFFICER_ACCOUNT_ID,
+      level: "ODPC",
+      scope: { kind: "province", province: TEST_PROVINCE_ID },
+    });
+    expect(code(result)).toBe(200);
+    const rows = body(result).answers as Array<{
+      status: string;
+      latestVerdictChoice: string | null;
+      latestDescription: string | null;
+    }>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      status: "in_review",
+      latestVerdictChoice: null,
+      latestDescription: null,
+    });
+  });
+
+  it("AC: province-scoped reader + finished Cover → sees the recorded verdict, unredacted", async () => {
+    const result = await reviewService.getAnswers(finishedCoverId, {
+      accountId: TEST_OFFICER_ACCOUNT_ID,
+      level: "ODPC",
+      scope: { kind: "province", province: TEST_PROVINCE_ID },
+    });
+    expect(code(result)).toBe(200);
+    const rows = body(result).answers as Array<{
+      status: string;
+      latestVerdictChoice: string | null;
+      latestDescription: string | null;
+    }>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      status: "finished",
+      latestVerdictChoice: "1",
+      latestDescription: "final outcome",
+    });
+  });
+
+  it("AC: province-scoped reader + Cover in another province → 404 cover not found (even in_review)", async () => {
+    const result = await reviewService.getAnswers(inReviewCoverId, {
+      accountId: TEST_OFFICER_ACCOUNT_ID,
+      level: "ODPC",
+      scope: { kind: "province", province: WRONG_PROVINCE_ID },
+    });
+    expect(result).toBeInstanceOf(ElysiaCustomStatusResponse);
+    expect((result as { code: number }).code).toBe(404);
+    expect((result as { response: { message: string } }).response).toMatchObject({
+      message: "cover not found",
+    });
+  });
+
+  it("AC: region-scoped reader on the same in_review Cover is unaffected — no redaction, no status gate", async () => {
+    const result = await reviewService.getAnswers(inReviewCoverId, {
+      accountId: SEEDED_EVALUATOR_ID,
+      level: "ODPC",
+      scope: { kind: "region", region: COVER_REGION },
+    });
+    expect(code(result)).toBe(200);
+    const rows = body(result).answers as Array<{
+      status: string;
+      latestVerdictChoice: string | null;
+      latestDescription: string | null;
+    }>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      status: "recommended",
+      latestVerdictChoice: "1",
+      latestDescription: "looks good",
+    });
+  });
+
+  it("AC: standard certificates stay visible and unredacted for a province reader on an in_review Cover", async () => {
+    const result = await reviewService.getAnswers(standardCoverId, {
+      accountId: TEST_OFFICER_ACCOUNT_ID,
+      level: "ODPC",
+      scope: { kind: "province", province: TEST_PROVINCE_ID },
+    });
+    expect(code(result)).toBe(200);
+    expect(body(result).standards).toEqual([{ standard: "standardHC", fileName: "hc.pdf" }]);
+  });
+
+  it("AC: region-scoped reader can still reach an in_progress Cover — no status gate outside province scope", async () => {
+    const result = await reviewService.getAnswers(inProgressCoverId, {
+      accountId: SEEDED_EVALUATOR_ID,
+      level: "ODPC",
+      scope: { kind: "region", region: COVER_REGION },
+    });
+    expect(code(result)).toBe(200);
   });
 });
 
