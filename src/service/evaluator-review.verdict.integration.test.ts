@@ -56,11 +56,23 @@ const FACTORY_ACCEPT_AUTHOR = 70004; // author of a "factory-accepted" recommend
 const mentalCtx = (id: number) => ({
   accountId: id,
   level: "Mental" as const,
-  region: COVER_REGION,
+  scope: { kind: "region" as const, region: COVER_REGION },
 });
-const dohCtx = (id: number) => ({ accountId: id, level: "DOH" as const, region: COVER_REGION });
-const odpcCtx = (id: number) => ({ accountId: id, level: "ODPC" as const, region: COVER_REGION });
-const adminCtx = (id: number) => ({ accountId: id, level: "ODPC" as const, region: null });
+const dohCtx = (id: number) => ({
+  accountId: id,
+  level: "DOH" as const,
+  scope: { kind: "region" as const, region: COVER_REGION },
+});
+const odpcCtx = (id: number) => ({
+  accountId: id,
+  level: "ODPC" as const,
+  scope: { kind: "region" as const, region: COVER_REGION },
+});
+const adminCtx = (id: number) => ({
+  accountId: id,
+  level: "ODPC" as const,
+  scope: { kind: "national" as const },
+});
 
 const CATEGORY_QUESTION: Record<string, number> = {
   Collaborate: 1,
@@ -291,7 +303,7 @@ describe("Story 004 — finalize authorization (AC: tier-1 → 403)", () => {
     const res = await reviewService.finalize(coverId, {
       accountId: ODPC_A,
       level: "ODPC",
-      region: 1, // a region the cover does NOT belong to
+      scope: { kind: "region", region: 1 }, // a region the cover does NOT belong to
     });
     expect(code(res)).toBe(404);
   });
