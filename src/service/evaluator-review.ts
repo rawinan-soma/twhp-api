@@ -17,6 +17,7 @@ import {
 import { emailQueue } from "../queue/email";
 import type { StandardFileItem, VerdictSaveBody } from "../schema/evaluator-review";
 import { utilities } from "../utils";
+import { latestCoverLogFor } from "./coverStatus";
 import { categoriesFor, type EvaluatorLevel, evaluatorService } from "./evaluator";
 import { provincialOfficerService } from "./provincialOfficer";
 import { type CategoryKey, calculateBreakdown, computeGrade } from "./scoreHelpers";
@@ -176,6 +177,19 @@ export const createEvaluatorReviewService = (database: typeof db) => {
       const coverCheck = await helper.assertCoverAccess(coverId, reviewer.scope);
       if (coverCheck instanceof ElysiaCustomStatusResponse) return coverCheck;
 
+      // Province-scoped reader (Provincial Officer, issue 02): the same 404 that gates an
+      // out-of-province Cover also gates an in_progress one, so this read never confirms a
+      // Cover's existence before the Evaluator has opened it. No other scope is gated here —
+      // an Evaluator keeps reading an in_progress Cover unchanged.
+      let redactVerdicts = false;
+      if (reviewer.scope.kind === "province") {
+        const latestStatus = (await latestCoverLogFor(database, coverId)) ?? "in_progress";
+        if (latestStatus === "in_progress") return status(404, { message: "cover not found" });
+        // While in_review, every Verdict Score is withheld from the Officer; once finished,
+        // the Officer sees exactly what an Evaluator sees (decisions #2, #5).
+        redactVerdicts = latestStatus === "in_review";
+      }
+
       // Factory's claimed + uploaded standard certificates for this cover (intent 009).
       // Factory-level (not category-scoped) — every reviewer with cover access sees all.
       const enrollRow = await database
@@ -262,10 +276,10 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           answerId: a.answerId,
           questionId: a.questionId,
           category: a.category as string,
-          status: log?.status ?? "in_review",
+          status: redactVerdicts ? "in_review" : (log?.status ?? "in_review"),
           selectedChoice: a.selectedChoice,
-          latestVerdictChoice: log?.verdictChoice ?? null,
-          latestDescription: log?.description ?? null,
+          latestVerdictChoice: redactVerdicts ? null : (log?.verdictChoice ?? null),
+          latestDescription: redactVerdicts ? null : (log?.description ?? null),
           fileUrl1_1: a.fileUrl1_1,
           fileUrl1_2: a.fileUrl1_2,
           fileUrl1_3: a.fileUrl1_3,

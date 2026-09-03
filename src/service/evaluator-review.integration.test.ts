@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { Value } from "@sinclair/typebox/value";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { ElysiaCustomStatusResponse } from "elysia";
 import { Pool } from "pg";
@@ -172,6 +172,12 @@ beforeAll(async () => {
 
   const [cover] = await db.insert(covers).values({ enrollId }).returning();
   coverId = cover.id;
+
+  // Cover starts in_review — the state under which a province-scoped reader (issue 02) is
+  // first allowed to read it, and the state its verdict-redaction rule applies to.
+  await db
+    .insert(coverLogs)
+    .values({ coverId, status: "in_review", evaluatorId: SEEDED_EVALUATOR_ID });
 
   // one in_review answer per category
   for (const cat of ALL_CATEGORIES) {
@@ -359,6 +365,116 @@ describe("Story 002 — admin answers endpoint (service path)", () => {
     );
     expect(result).toBeInstanceOf(ElysiaCustomStatusResponse);
     expect((result as { code: number }).code).toBe(404);
+  });
+});
+
+// ─── Issue 02 — province-scoped status gate + verdict redaction ─────────────
+
+describe("Issue 02 — provincial cover-review read", () => {
+  const officerCtx = {
+    accountId: TEST_OFFICER_ACCOUNT_ID,
+    level: "ODPC" as const,
+    scope: { kind: "province" as const, province: TEST_PROVINCE_ID },
+  };
+  const evaluatorCtx = {
+    accountId: SEEDED_EVALUATOR_ID,
+    level: "ODPC" as const,
+    scope: { kind: "region" as const, region: COVER_REGION },
+  };
+
+  let safetyAnswerId: number;
+
+  beforeAll(async () => {
+    safetyAnswerId = await db
+      .select({ id: answers.id })
+      .from(answers)
+      .where(and(eq(answers.coverId, coverId), eq(answers.questionId, CATEGORY_QUESTION.Safety)))
+      .then((rows) => rows[0].id);
+
+    // A real, already-recorded verdict on one Answer — proves redaction hides it even
+    // though the Evaluator has already acted, not just when there is nothing to hide.
+    await db.insert(answerLogs).values({
+      answerId: safetyAnswerId,
+      status: "recommended",
+      verdictChoice: "3",
+      description: "evaluator note",
+      eval_id: SEEDED_EVALUATOR_ID,
+    });
+  });
+
+  it("AC: while in_review, every Answer's verdict/description are null and status is in_review", async () => {
+    const result = await reviewService.getAnswers(coverId, officerCtx);
+    expect(code(result)).toBe(200);
+    const rows = body(result).answers as Array<{
+      answerId: number;
+      status: string;
+      latestVerdictChoice: string | null;
+      latestDescription: string | null;
+    }>;
+    expect(rows).toHaveLength(ALL_CATEGORIES.length);
+    for (const row of rows) {
+      expect(row.status).toBe("in_review");
+      expect(row.latestVerdictChoice).toBeNull();
+      expect(row.latestDescription).toBeNull();
+    }
+    // Standards are unredacted at every status (empty here — nothing claimed).
+    expect(body(result).standards).toEqual([]);
+  });
+
+  it("AC: an Evaluator reading the same in_review Cover is unaffected — no redaction, no gate", async () => {
+    const result = await reviewService.getAnswers(coverId, evaluatorCtx);
+    expect(code(result)).toBe(200);
+    const rows = body(result).answers as Array<{
+      answerId: number;
+      status: string;
+      latestVerdictChoice: string | null;
+      latestDescription: string | null;
+    }>;
+    const safetyRow = rows.find((r) => r.answerId === safetyAnswerId);
+    expect(safetyRow).toMatchObject({
+      status: "recommended",
+      latestVerdictChoice: "3",
+      latestDescription: "evaluator note",
+    });
+  });
+
+  it("AC: once finished, the Officer sees exactly what the Evaluator sees", async () => {
+    await db.insert(coverLogs).values({
+      coverId,
+      status: "finished",
+      evaluatorId: SEEDED_EVALUATOR_ID,
+    });
+
+    const officerResult = await reviewService.getAnswers(coverId, officerCtx);
+    const evaluatorResult = await reviewService.getAnswers(coverId, evaluatorCtx);
+    expect(code(officerResult)).toBe(200);
+    expect(code(evaluatorResult)).toBe(200);
+    expect(body(officerResult).answers).toEqual(body(evaluatorResult).answers);
+    expect(body(officerResult).standards).toEqual(body(evaluatorResult).standards);
+
+    const officerSafetyRow = (
+      body(officerResult).answers as Array<{ answerId: number; latestVerdictChoice: string | null }>
+    ).find((r) => r.answerId === safetyAnswerId);
+    expect(officerSafetyRow?.latestVerdictChoice).toBe("3");
+  });
+
+  it("AC: an in_progress Cover 404s a province-scoped reader but not an Evaluator", async () => {
+    await db.insert(coverLogs).values({
+      coverId,
+      status: "in_progress",
+      evaluatorId: SEEDED_EVALUATOR_ID,
+    });
+
+    const officerResult = await reviewService.getAnswers(coverId, officerCtx);
+    expect(officerResult).toBeInstanceOf(ElysiaCustomStatusResponse);
+    expect((officerResult as { code: number }).code).toBe(404);
+    expect((officerResult as { response: { message: string } }).response).toMatchObject({
+      message: "cover not found",
+    });
+
+    // The Evaluator's ability to open an in_progress Cover is unchanged (out of scope).
+    const evaluatorResult = await reviewService.getAnswers(coverId, evaluatorCtx);
+    expect(code(evaluatorResult)).toBe(200);
   });
 });
 
