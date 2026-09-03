@@ -154,7 +154,13 @@ export const createFactoryService = (database: typeof db) => {
       return { message: "factory created successfully" };
     },
 
-    getFactoryById: async (factoryId: number) => {
+    /**
+     * `provinceId`, when given, additionally constrains the row to that province — used by the
+     * Provincial Officer route to scope the read without a second query or duplicated joins. A
+     * factory that exists but is outside the given province is indistinguishable from a
+     * non-existent one: both fall through to the same 404.
+     */
+    getFactoryById: async (factoryId: number, provinceId?: number) => {
       const factory = await database
         .select({
           account_id: factories.accountId,
@@ -182,7 +188,12 @@ export const createFactoryService = (database: typeof db) => {
         .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
         .innerJoin(districts, eq(factories.districtId, districts.districtId))
         .innerJoin(subdistricts, eq(factories.subdistrictId, subdistricts.subdistrictId))
-        .where(eq(factories.accountId, factoryId))
+        .where(
+          and(
+            eq(factories.accountId, factoryId),
+            provinceId !== undefined ? eq(factories.provinceId, provinceId) : undefined,
+          ),
+        )
         .limit(1)
         .then((res) => res[0]);
 
