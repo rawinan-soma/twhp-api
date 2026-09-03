@@ -1,6 +1,6 @@
 # Elysia Documentation
 
-> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-07-03
+> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-09-03
 
 51 operations across 8 groups.
 
@@ -104,24 +104,32 @@
 ### `GET /twhp/api/admins/enrolls`
 
 
-ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมด (กรองตามสถานะ cover ได้ด้วย ?coverStatus=)
+ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมด (กรองตามสถานะ cover ได้ด้วย ?coverStatus= และแบ่งหน้าด้วย ?page= ?limit=)
 
 **Parameters**
 
 | Name | In | Required | Type | Description |
 | --- | --- | --- | --- | --- |
 | `coverStatus` | query | — | `"finished" \| "in_progress" \| "in_review" \| "none"` |  |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 
 ---
 
 ### `GET /twhp/api/admins/factories`
 
 
-ดึงข้อมูล สปก. ทั้งหมด
+ดึงข้อมูล สปก. ทั้งหมด (แบ่งหน้าด้วย ?page= และ ?limit=)
 
 **Parameters**
 
@@ -129,10 +137,18 @@
 | --- | --- | --- | --- | --- |
 | `validated` | query | yes | `boolean` |  |
 | `enrolled` | query | — | `boolean` |  |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 
 ---
 
@@ -173,7 +189,7 @@
 ### `GET /twhp/api/admins/score`
 
 
-ดูคะแนนประเมินโรงงานทั้งหมด (กรองตามเขต/จังหวัดได้)
+ดูคะแนนประเมินโรงงานทั้งหมด (กรองตามเขต/จังหวัดได้ และแบ่งหน้าด้วย ?page= ?limit=)
 
 **Parameters**
 
@@ -181,10 +197,18 @@
 | --- | --- | --- | --- | --- |
 | `region` | query | — | `number` |  |
 | `provinceId` | query | — | `number` |  |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 
 ---
 
@@ -867,17 +891,25 @@ logout
 ### `GET /twhp/api/evaluators/enrolls`
 
 
-ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดตามเขตสุขภาพ (กรองตามสถานะ cover ได้ด้วย ?coverStatus=)
+ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดตามเขตสุขภาพ (กรองตามสถานะ cover ได้ด้วย ?coverStatus= และแบ่งหน้าด้วย ?page= ?limit=)
 
 **Parameters**
 
 | Name | In | Required | Type | Description |
 | --- | --- | --- | --- | --- |
 | `coverStatus` | query | — | `"finished" \| "in_progress" \| "in_review" \| "none"` |  |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 - `404` — Response for status 404
 
   | Field | Type | Required | Description |
@@ -890,7 +922,7 @@ logout
 ### `GET /twhp/api/evaluators/factories`
 
 
-ดึงข้อมูลสปก. ทั้งหมดตามเขตสุขภาพ
+ดึงข้อมูลสปก. ทั้งหมดตามเขตสุขภาพ (แบ่งหน้าด้วย ?page= และ ?limit=)
 
 **Parameters**
 
@@ -898,10 +930,18 @@ logout
 | --- | --- | --- | --- | --- |
 | `validated` | query | yes | `boolean` |  |
 | `enrolled` | query | — | `boolean` |  |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 - `404` — Response for status 404
 
   | Field | Type | Required | Description |
@@ -914,11 +954,24 @@ logout
 ### `GET /twhp/api/evaluators/score`
 
 
-ดูคะแนนประเมินโรงงานทั้งหมดในเขตสุขภาพ
+ดูคะแนนประเมินโรงงานทั้งหมดในเขตสุขภาพ (แบ่งหน้าด้วย ?page= ?limit=)
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 - `404` — Response for status 404
 
   | Field | Type | Required | Description |
@@ -1869,17 +1922,25 @@ Get a 5-minute presigned URL for a stored file
 ### `GET /twhp/api/provincialOfficers/enrolls`
 
 
-ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดของจังหวัด (กรองตามสถานะ cover ได้ด้วย ?coverStatus=)
+ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดของจังหวัด (กรองตามสถานะ cover ได้ด้วย ?coverStatus= และแบ่งหน้าด้วย ?page= ?limit=)
 
 **Parameters**
 
 | Name | In | Required | Type | Description |
 | --- | --- | --- | --- | --- |
 | `coverStatus` | query | — | `"finished" \| "in_progress" \| "in_review" \| "none"` |  |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 - `404` — Response for status 404
 
   | Field | Type | Required | Description |
@@ -1892,7 +1953,7 @@ Get a 5-minute presigned URL for a stored file
 ### `GET /twhp/api/provincialOfficers/factories`
 
 
-ดึงข้อมูลโรงงานทั้งหมดในจังหวัด
+ดึงข้อมูลโรงงานทั้งหมดในจังหวัด (แบ่งหน้าด้วย ?page= และ ?limit=)
 
 **Parameters**
 
@@ -1900,10 +1961,18 @@ Get a 5-minute presigned URL for a stored file
 | --- | --- | --- | --- | --- |
 | `validated` | query | yes | `boolean` |  |
 | `enrolled` | query | — | `boolean` |  |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 - `404` — Response for status 404
 
   | Field | Type | Required | Description |
@@ -1916,11 +1985,24 @@ Get a 5-minute presigned URL for a stored file
 ### `GET /twhp/api/provincialOfficers/score`
 
 
-ดูคะแนนประเมินโรงงานทั้งหมดในจังหวัด
+ดูคะแนนประเมินโรงงานทั้งหมดในจังหวัด (แบ่งหน้าด้วย ?page= ?limit=)
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 - `404` — Response for status 404
 
   | Field | Type | Required | Description |

@@ -1,6 +1,6 @@
 # Technical debt and maintainability register
 
-Audit date: 2026-07-15
+Audit date: 2026-07-15. Reviewed for currency on 2026-09-02; the deltas are marked **Update 2026-09-02** on the affected items and summarized under [Status of this register](#status-of-this-register). No item was closed.
 Scope: synthesis of the architecture, database, API, domain, security, development/deployment, testing, and operations investigations, with targeted source spot-checks. This register describes repository evidence; it does not claim that an environment-dependent risk has occurred in production.
 
 ## Classification
@@ -11,6 +11,19 @@ Scope: synthesis of the architecture, database, API, domain, security, developme
 - **Optional improvement**: useful maintainability work with no current defect demonstrated.
 
 Severity reflects engineering and operational impact, not code style. “Required before handover” means the receiving team needs either a fix or an explicit, owned decision/runbook; it does not imply every item must be implemented before documentation can be published.
+
+## Status of this register
+
+Reviewed on 2026-09-02 against branch `dev`. The 2026-07-15 evidence still holds for TD-01 through TD-05 and TD-07 through TD-09 and TD-11 through TD-16: none of their subject files changed, and none of the work delivered since then targeted them. Four items moved:
+
+| Item | Movement |
+|---|---|
+| TD-06 | Partly narrowed. ADR-0012 settled the accepted-change-score conflict and the change-score/evidence conflict; the remaining conflicts are unchanged. One new residue was added. |
+| TD-10 | Inventory refreshed: 18 files / 315 declared cases, 201 isolated tests passing, Biome down to 3 errors. The gate itself is unchanged and still absent. |
+| TD-13 | The README boilerplate item is closed; the rest stands. |
+| TD-15 | Cover latest-log duplication is closed by `src/service/coverStatus.ts` (ADR-0010). Answer latest-log duplication, standard mapping, queue-name duplication, and the index question stand. |
+
+Nothing here is safe to treat as fixed on the strength of a document date. Re-verify against source before acting on any item.
 
 ## Consolidated register
 
@@ -83,6 +96,7 @@ Severity reflects engineering and operational impact, not code style. “Require
 - **Engineering impact:** Rules are distributed across services, append-only logs, seed metadata, and contradictory documents. A local fix can silently change scoring, provenance, or allowed transitions elsewhere.
 - **Operational / business impact:** Assessments may be edited in an unintended phase, historical decisions may not be reconstructable, and grades/evidence retention may differ from policy.
 - **Remediation:** Product owners must settle the conflict list, then encode one transition matrix and invariant layer shared by commands. Preserve immutable claim/verdict provenance if auditability is required. Add rule-focused boundary tests for state, N/A, standards, grade thresholds, fiscal dates, and post-submit mutability.
+- **Update 2026-09-02:** ADR-0012 settled two of the listed conflicts — the immutable-factory-choice versus overwriting `selectedChoice` question (finalize now performs the write, deliberately, and the original claim is preserved nowhere), and evidence retention on a change score (preserved; only hard rejects delete). Standard auto-credit acceptance, N/A eligibility, the Gold `special` set, assignment meaning, and the absent transition matrix are unchanged. One residue was added: a `finished` Answer can keep a score whose backing certificate a later hard reject deleted, because the reset is bounded to non-`finished` Answers to preserve immutability.
 - **Required before handover:** Yes — decisions are required even if implementation follows later
 - **Confidence:** High on implementation/document divergence; intended behavior is partly Unknown
 
@@ -126,7 +140,8 @@ Severity reflects engineering and operational impact, not code style. “Require
 
 - **Severity:** High
 - **Category:** Confirmed debt
-- **Evidence:** The repository has 12 Bun test files with 167 `it(...)` declarations, but `bun run test` intentionally exits 1. Five isolated files passed separately (86 tests, 0 failures); the 81 PostgreSQL integration tests were not run because the global preload falls back to the ordinary local `twhp` development database and tests perform real inserts/deletes. There is no `TEST_DATABASE_URL`, test-only database guard, per-run schema/database, migration/seed bootstrap, or rollback harness. The current read-only Biome invocation checked 77 files and failed with 8 errors and 30 warnings. Package format/lint/check scripts mutate files, no direct pinned TypeScript binary/typecheck script exists, and no CI or coverage gate is checked in. High-risk gaps include refresh/RBAC middleware, password reset/revocation, object authorization, fiscal boundaries, write concurrency/idempotency, cross-store recovery, and worker delivery.
+- **Evidence (2026-07-15; superseded counts — see the 2026-09-02 update below):** The repository had 12 Bun test files with 167 `it(...)` declarations, but `bun run test` intentionally exits 1. Five isolated files passed separately (86 tests, 0 failures); the 81 PostgreSQL integration tests were not run because the global preload falls back to the ordinary local `twhp` development database and tests perform real inserts/deletes. There is no `TEST_DATABASE_URL`, test-only database guard, per-run schema/database, migration/seed bootstrap, or rollback harness. The current read-only Biome invocation checked 77 files and failed with 8 errors and 30 warnings. Package format/lint/check scripts mutate files, no direct pinned TypeScript binary/typecheck script exists, and no CI or coverage gate is checked in. High-risk gaps include refresh/RBAC middleware, password reset/revocation, object authorization, fiscal boundaries, write concurrency/idempotency, cross-store recovery, and worker delivery.
+- **Update 2026-09-02:** the inventory grew to 18 files and 315 declared cases; the 8 isolated files now run in one process (201 pass, 0 fail) and the read-only Biome check is down to 3 errors / 32 warnings / 3 infos across 86 files. The new coverage is real — the pagination contract, route composition, and cover-status resolution are all tested — but every structural finding below is unchanged: `bun run test` still exits 1, there is still no `TEST_DATABASE_URL` or test-only guard, no ephemeral database, no pinned TypeScript, and no CI.
 - **Path / symbol:** `package.json` scripts; `bunfig.toml`; `src/test/setup.ts`; test files under `src/`; repository workflow inventory.
 - **Engineering impact:** Contributors and automation cannot invoke one canonical, hermetic verification pipeline. A careless bare integration run can mutate a developer database, shared fixture IDs/order make parallelism risky, overlapping Bun module mocks require separate processes, and the current static-analysis baseline is red.
 - **Operational / business impact:** Releases may ship with session, authorization, assessment integrity, or deployment regressions without a failed gate.
@@ -162,11 +177,12 @@ Severity reflects engineering and operational impact, not code style. “Require
 
 - **Severity:** Medium
 - **Category:** Confirmed debt
-- **Evidence:** Four operations document 201 but return the default 200. Root validation maps errors to 400 while route-only tests expect 422. JWT/domain failures are JSON but RBAC 403 is a bare string. OpenAPI lacks cookie security schemes and common middleware failures, advertises the development bypass header, and has no reproducible source-commit/freshness check. The presign description says five minutes while source signs for five seconds. README remains template boilerplate.
-- **Path / symbol:** factory registration, enrollment, cover, and reset-request routes; `src/index.ts#onError`; `src/middleware/jwt.ts`; `src/middleware/rbac.ts`; `docs/api/openapi.json`; `docs/api/API.md`; `README.md`.
+- **Evidence:** Four operations document 201 but return the default 200. Root validation maps errors to 400 while route-only tests expect 422. JWT/domain failures are JSON but RBAC 403 is a bare string. OpenAPI lacks cookie security schemes and common middleware failures, advertises the development bypass header, and has no reproducible source-commit/freshness check. The presign description says five minutes while source signs for five seconds.
+- **Path / symbol:** factory registration, enrollment, cover, and reset-request routes; `src/index.ts#onError`; `src/middleware/jwt.ts`; `src/middleware/rbac.ts`; `docs/api/openapi.json`; `docs/api/API.md`.
 - **Engineering impact:** Clients, tests, and generated schemas encode different contracts; integrators must learn behavior through runtime failures.
 - **Operational / business impact:** Client error handling, creation flows, and file retrieval can fail unexpectedly; security requirements can be omitted by generated clients.
-- **Remediation:** Decide canonical status/error semantics, add shared JSON error schemas and cookie security components, align tests/handlers, and make OpenAPI generation/checking reproducible with source metadata and environment-specific treatment of dev controls.
+- **Update 2026-09-02:** the root `README.md` was rewritten as a real project entry point, closing that sub-item. The OpenAPI snapshot has not been regenerated since the pagination and score-change work, so its drift is now wider: the nine staff lists return an `{ items, meta }` envelope the snapshot does not describe, and the verdict semantics it documents predate ADR-0012.
+- **Remediation:** Decide canonical status/error semantics, add shared JSON error schemas and cookie security components, align tests/handlers, and make OpenAPI generation/checking reproducible with source metadata and environment-specific treatment of dev controls. Regenerate the snapshot with `scripts/gen-api-docs.ts` as part of that work.
 - **Required before handover:** No, except security semantics already covered above
 - **Confidence:** High
 
@@ -186,6 +202,7 @@ Severity reflects engineering and operational impact, not code style. “Require
 
 - **Severity:** Medium
 - **Category:** Potential risk
+- **Update 2026-09-02:** Cover latest-log resolution is now centralized in `src/service/coverStatus.ts` with both query shapes and 17 isolated tests, and a second `coverLogs` subquery is an explicit review failure ([ADR-0010](adr/0010-lateral-latest-cover-log-resolution.md)). ADR-0008 removed a row-multiplication defect from the factory lists in the process. Answer latest-log queries, standard mapping, and queue-name duplication are unchanged, and the index question is still open — the staff lists now issue a count query per request, which raises rather than lowers the value of validating the proposed indexes.
 - **Evidence:** Latest-log-wins queries are independently implemented across services; standard type/boolean/URL mapping is repeated across service code, schema columns, enum values, and seed JSON with casing differences. Queue job names/payloads are stringly duplicated between producers and the worker. Dominant foreign-key, latest-log, region/year list access patterns have few supporting indexes beyond unique identifiers. Live `EXPLAIN` evidence and production cardinality are unavailable.
 - **Path / symbol:** `src/service/answer.ts`; `src/service/evaluator-review.ts`; `src/service/enroll.ts`; `src/service/score.ts`; `src/drizzle/schema.ts`; `seed_data/questions.json`; `src/queue/email.ts`; `src/worker/email.ts`.
 - **Engineering impact:** Adding a standard or changing state ordering requires shotgun edits; divergent query ordering can change current state. Missing indexes may become expensive as logs grow.

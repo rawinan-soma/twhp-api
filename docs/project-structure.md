@@ -1,6 +1,6 @@
 # Project Structure
 
-Use this page to find the code that owns a behavior. Read [Architecture](architecture.md) first when a change crosses HTTP, persistence, files, queues, or process boundaries.
+Use this page to find the code that owns a behavior. Verified on 2026-09-02 on branch `dev`. Read [Architecture](architecture.md) first when a change crosses HTTP, persistence, files, queues, or process boundaries.
 
 ## Quick navigation
 
@@ -12,6 +12,8 @@ Use this page to find the code that owns a behavior. Read [Architecture](archite
 | Tables or enums | `src/drizzle/schema.ts`, `src/schema/index.ts` | [Database](database.md) |
 | File upload/presign/delete | `src/utils.ts`, caller service | [Architecture](architecture.md#postgresql-and-minio) |
 | Email or scheduled work | `src/queue/email.ts`, `src/workers.ts`, `src/worker/email.ts` | [Architecture](architecture.md#worker-process) |
+| Cover status filter/count/pagination | `src/service/coverStatus.ts` | [ADR-0010](adr/0010-lateral-latest-cover-log-resolution.md), [ADR-0008](adr/0008-exists-subquery-for-enrolled-filter.md) |
+| A paginated staff list | `src/schema/pagination.ts`, the route's service | [API conventions](api-conventions.md#pagination), [ADR-0007](adr/0007-pagination-envelope-scoped-exception.md), [ADR-0009](adr/0009-offset-pagination-for-staff-lists.md) |
 | Local commands | `package.json`, `bunfig.toml`, `docker-compose.yaml` | [Development](development.md), [Testing](testing.md) |
 | Containers or proxying | `Dockerfile`, `docker-compose.yaml`, `nginx/` | [Deployment](deployment.md) |
 | Incident diagnosis | relevant service plus infrastructure config | [Troubleshooting](troubleshooting.md) |
@@ -34,7 +36,11 @@ src/
 │   └── guards.ts             role-specific guard singletons
 ├── routes/                   filesystem-routed HTTP adapters
 ├── schema/                   TypeBox request/response schemas
+│   └── pagination.ts         shared offset-pagination contract for the nine staff lists
 ├── service/                  workflows and direct Drizzle queries
+│   ├── coverStatus.ts        the single latest-cover-log resolution (both query shapes)
+│   ├── answerFileRules.ts    pure per-choice evidence requirements
+│   └── scoreHelpers.ts       pure score and grade rules
 ├── queue/
 │   └── email.ts              BullMQ producer queue singleton
 ├── worker/
@@ -69,7 +75,11 @@ Each module default-exports a function accepting the inferred `App` type. Route 
 | `src/routes/location/` | Public geographic lookup |
 | `src/routes/file/` | Authenticated presigned file URL |
 
-Do not derive the complete endpoint from filenames alone. A route file may add suffixes such as `answers`, `submission`, or `negotiate` in its Elysia method calls. Consult the route source or `docs/api/openapi.json`.
+Do not derive the complete endpoint from filenames alone. A route file may add suffixes such as `covers`, `questions`, `answers`, `answers/negotiate`, or `submission` in its Elysia method calls. Consult the route source or `docs/api/openapi.json`.
+
+`POST /factories/assessments/answers/negotiate` still exists, but since [ADR-0012](adr/0012-score-changes-are-terminal.md) both of its actions are refused on a settled score change; it is reachable only for redoing a hard reject. The path name predates that decision.
+
+The nine staff list routes — `/{admins,evaluators,provincialOfficers}/{factories,enrolls,score}` — compose `PaginationQuery` from `src/schema/pagination.ts` into their existing query schema with `t.Composite` and return an `{ items, meta }` envelope. Every other list route returns a bare array. See [API conventions](api-conventions.md#pagination).
 
 Type-only route imports point back to `src/index.ts` for `App`. This is erased at runtime, but it creates a conceptual navigation cycle: the bootstrap discovers routes while route types reference the bootstrap.
 
@@ -78,9 +88,11 @@ Type-only route imports point back to `src/index.ts` for `App`. This is erased a
 | Module | Primary responsibility |
 |---|---|
 | `admin.ts` | DOED profile and factory administration queries |
-| `answer.ts` | Factory answers, evidence, submission, and negotiation |
+| `answer.ts` | Factory answers, evidence, submission, redo of hard rejects, and the now-unreachable `accept` branch |
+| `answerFileRules.ts` | Pure per-choice evidence requirements shared by save, edit, and redo |
 | `authentication.ts` | Passwords, JWT/refresh, reset, staff OTP, dev bypass |
 | `cover.ts` | Cover creation and current cover state |
+| `coverStatus.ts` | The single latest-cover-log rule: a lateral for lists/counts and a standalone read for one Cover (ADR-0010) |
 | `enroll.ts` | Enrollment CRUD, scoped lists, standard files |
 | `evaluator-review.ts` | Reviewer access, answer verdicts, finalization |
 | `evaluator.ts` | Evaluator data and category scope |
@@ -96,7 +108,7 @@ Most database services expose `createXxxService(database)` plus a production sin
 
 Large workflow modules deserve extra care:
 
-- `answer.ts` coordinates many assessment, evidence, state, and negotiation paths.
+- `answer.ts` coordinates many assessment, evidence, state, and factory-response paths.
 - `authentication.ts` owns several security protocols and global external dependencies.
 - `enroll.ts` coordinates eleven standard/certificate fields and files.
 - `evaluator-review.ts` combines access rules, verdicts, finalization, storage, scoring, and notification.
@@ -135,7 +147,7 @@ These modules instantiate infrastructure at import time. Importing a service in 
 
 ## Tests
 
-Tests are colocated as `*.test.ts` under `src/`; `bunfig.toml` preloads `src/test/setup.ts`.
+Tests are colocated as `*.test.ts` under `src/`; `bunfig.toml` preloads `src/test/setup.ts`. There are 18 test files: 8 isolated and 10 PostgreSQL integration.
 
 The real test runner is:
 
@@ -163,7 +175,8 @@ The suite includes both unit tests and PostgreSQL integration tests. Integration
 | `scripts/gen-api-docs.ts` | Generates static Markdown/HTML from OpenAPI |
 | `CONTEXT.md` | Detailed domain context and current workflow vocabulary |
 | `docs/adr/` | Architecture decisions |
-| `memory-bank/` | Intent, story, bolt, and implementation history |
+| `memory-bank/` | AI-DLC intent, story, bolt, and implementation history |
+| `.specs-fire/` | FIRE intent briefs, work items, and per-run plan/test/review/walkthrough artifacts |
 | `.scratch/` | Local issue/handover working artifacts |
 
 `drizzle.config.ts` points generated migration output at `src/core/drizzle/generated`, but that directory is absent and the current development workflow uses `db:push`. Production migration in Compose is an intentional no-op; see [Deployment](deployment.md).
@@ -178,7 +191,7 @@ The suite includes both unit tests and PostgreSQL integration tests. Integration
 - `memory-bank/intents/` and `memory-bank/bolts/` preserve detailed implementation history.
 - `.specsmd/`, `.agents/`, `.codex/`, `.claude/`, and `docs/superpowers/` support agent/process workflows and are not runtime modules.
 
-The root `README.md` remains an Elysia starter-template README and is not authoritative for this project. Current source is authoritative; use the handover docs and `CONTEXT.md` for orientation.
+The root `README.md` was rewritten on 2026-09-02 as the project entry point: stack summary, repository map, quick start, commands, load-bearing conventions, and links into this documentation set. It is orientation only. Current source is authoritative; use `docs/handover.md`, this set, and `CONTEXT.md` for detail.
 
 ## Naming and coupling conventions to watch
 
@@ -186,7 +199,7 @@ The root `README.md` remains an Elysia starter-template README and is not author
 - Role definitions live in `src/service/authentication.ts`, so authorization middleware imports a large service module to obtain `Role`.
 - Standard names differ across enum keys and columns, for example `standardHC` versus `standardHc` and `fileStandardHcUrl`.
 - Queue job names and payloads are string literals duplicated between producers and the worker switch.
-- Latest-log queries are repeated across services and are part of domain correctness.
+- Answer latest-log queries are still repeated across services and are part of domain correctness. Cover latest-log queries are not: they belong to `src/service/coverStatus.ts` and a second implementation is a review failure (ADR-0010).
 - The API and both Nginx configurations separately define the 130 MB request limit.
 
 Treat these as cross-file change indicators: search the repository before modifying any one occurrence.
