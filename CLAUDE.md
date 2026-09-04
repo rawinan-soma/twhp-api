@@ -42,6 +42,16 @@ docker compose --profile production up         # Production build
 ```
 The `migrate-dev` service runs `db:push && db:seed` as a one-shot before `api-dev` starts. If schema changes don't apply after `down -v && up`, always pass `--build` — Docker caches the `twhp-api:dev` image.
 
+`worker-dev` bakes its source in at `build` (`target: build`) — it has **no bind mount**, so it does
+not hot-reload and `up -d` without `--build` keeps running the old code indefinitely, even while
+`api-dev` is rebuilt around it. **Any change under `src/worker/` or `src/queue/` needs
+`docker compose --profile <dev|staging> up -d --build worker-dev`.** A stale worker is silent: the
+API enqueues the new payload shape and the old worker quietly ignores the fields it doesn't know
+(this is what dropped the safety-officer `cc` from verdict emails on staging for two weeks —
+see `.scratch/verdict-email-safety-officer/issues/01-safety-officer-cc-not-delivered.md`).
+Production runs a compiled `./worker-bin` from `rawinan/twhp-elysia-api:latest`; that image must be
+rebuilt and pushed, not just restarted.
+
 ## Architecture
 
 **Runtime**: Bun + ElysiaJS. Prefer `Bun.env`, `Bun.SHA256` etc. over Node equivalents.

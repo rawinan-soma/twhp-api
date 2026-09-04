@@ -40,9 +40,37 @@ const transporter = nodemailer.createTransport({
   auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
 });
 
+/**
+ * `sendMail` resolves as long as the relay accepted *at least one* recipient — it reports the
+ * rest in `info.rejected`. A verdict email addressed to the factory and cc'ing the safety
+ * officer can therefore "succeed" with the cc silently dropped at RCPT time, which is
+ * indistinguishable from never having been sent unless we log both lists. Every sender goes
+ * through here so that distinction is always on the record.
+ *
+ * A partial rejection is logged, never thrown: throwing would make BullMQ retry the whole job
+ * and re-deliver to the recipients the relay already accepted.
+ */
+const sendAndLog = async (label: string, options: nodemailer.SendMailOptions) => {
+  const info = await transporter.sendMail(options);
+  const rejected = info.rejected ?? [];
+
+  if (rejected.length > 0) {
+    console.error(`[${label}] relay rejected ${rejected.length} recipient(s)`, {
+      accepted: info.accepted,
+      rejected,
+      messageId: info.messageId,
+      response: info.response,
+    });
+  } else {
+    console.log(`[${label}] sent`, { accepted: info.accepted, messageId: info.messageId });
+  }
+
+  return info;
+};
+
 const sendOtpEmail = async (data: { email: string; code: string }) => {
   try {
-    await transporter.sendMail({
+    await sendAndLog("2fa-otp", {
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
       subject: "รหัส OTP สำหรับเข้าสู่ระบบ",
@@ -73,7 +101,7 @@ const sendPasswordResetEmail = async (data: { email: string; token: string }) =>
   const resetLink = `${env.FRONTEND_URL}/resetpassword?token=${data.token}`;
 
   try {
-    await transporter.sendMail({
+    await sendAndLog("password-reset-request", {
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
       subject: "รีเซ็ตรหัสผ่าน เว็บไซต์ โครงการพัฒนาสถานประกอบการปลอดโรค ปลอดภัย กายใจเป็นสุข",
@@ -100,8 +128,6 @@ const sendPasswordResetEmail = async (data: { email: string; token: string }) =>
     console.error("Failed to send email", error);
     throw error; // Let BullMQ retry
   }
-
-  console.log(`Sending password reset email to ${data.email}`);
 };
 
 const GRADE_LABEL: Record<string, string> = {
@@ -119,7 +145,7 @@ const sendVerdictResultFinishedEmail = async (data: {
 }) => {
   const gradeLabel = data.grade ? (GRADE_LABEL[data.grade] ?? data.grade) : "-";
   try {
-    await transporter.sendMail({
+    await sendAndLog("verdict-result-finished", {
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
       cc: data.cc,
@@ -152,7 +178,7 @@ const sendVerdictResultInProgressEmail = async (data: {
   factoryNameTh: string;
 }) => {
   try {
-    await transporter.sendMail({
+    await sendAndLog("verdict-result-in-progress", {
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
       cc: data.cc,
@@ -227,14 +253,13 @@ const sendFactoryValidationReminderEmail = async () => {
   for (const admin of doedAdmins) {
     const personalizedHtml = html.replace("__ADMIN_NAME__", `${admin.firstName} ${admin.lastName}`);
     try {
-      await transporter.sendMail({
+      await sendAndLog("factory-validation-reminder", {
         from: `Total Worker health support <${env.SMTP_USER}>`,
         to: admin.email,
         subject: `แจ้งเตือน: โรงงานรอการอนุมัติ ${pendingFactories.length} แห่ง`,
         text: `เรียน คุณ${admin.firstName} ${admin.lastName}\n\nมีโรงงานที่ยังไม่ได้รับการอนุมัติจำนวน ${pendingFactories.length} แห่ง กรุณาเข้าสู่ระบบเพื่อดำเนินการ`,
         html: personalizedHtml,
       });
-      console.log(`Sent validation reminder to ${admin.email}`);
     } catch (error) {
       console.error(`Failed to send validation reminder to ${admin.email}`, error);
       throw error;
