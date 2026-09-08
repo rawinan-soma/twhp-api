@@ -67,6 +67,13 @@ partial dependency-injection boundary.
   on status alone; legacy rows are `rejected` with a non-null `verdict_choice`. See
   [ADR-0012](docs/adr/0012-score-changes-are-terminal.md), which supersedes ADR-0006 in full and
   ADR-0004 in part.
+- A Provincial Officer reads Covers through the same `evaluatorReviewService.getAnswers` as the
+  Evaluator and DOED reads; a parallel provincial read is a review failure. For
+  `ReviewerScope.kind === "province"` only: an `in_progress` Cover 404s byte-identically to an
+  out-of-province one (never 403), and while `in_review` every Answer's `verdictChoice`,
+  `description` and per-Answer `status` are masked. Standard certificates are never masked, and no
+  write route may appear under `provincialOfficers/**`. See
+  [ADR-0013](docs/adr/0013-province-scoped-read-only-cover-review.md).
 - The `{ items, meta }` pagination envelope belongs to the nine staff list endpoints only; bounded
   collections stay bare arrays, and every paginated query must impose a total order. Compose
   `PaginationQuery` from `src/schema/pagination.ts` with `t.Composite` rather than replacing a

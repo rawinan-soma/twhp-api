@@ -115,7 +115,7 @@ The Officer may open a Cover whose latest status is `in_review` or `finished`. A
 
 **Open-review confidentiality.** While a Cover is `in_review`, the Officer reads the factory's side of the record — each Answer's selected choice and uploaded evidence, plus the factory's claimed standard certificates — but not the verdict layer: no [[Verdict Score]], no verdict description, and no per-Answer status (see [[Answer Review]]). Exposing the bare status would leak the open review as surely as the verdict itself, since a status of anything but "awaiting review" already tells the Officer a verdict exists. Standard certificates are visible at **both** statuses regardless — they are the factory's own submission, not Evaluator output, so there is nothing of the review to protect.
 
-Once the Cover reaches `finished`, this redaction lifts: Verdict Scores, verdict descriptions and per-Answer statuses all become visible. This is consistent with the [[Grade]] the Officer can already retrieve from a [[Score Report]] once a Cover is `finished` — the outcome is settled, so the detail behind it is no longer sensitive.
+The status gate and the redaction above are recorded in ADR-0013. Once the Cover reaches `finished`, this redaction lifts: Verdict Scores, verdict descriptions and per-Answer statuses all become visible. This is consistent with the [[Grade]] the Officer can already retrieve from a [[Score Report]] once a Cover is `finished` — the outcome is settled, so the detail behind it is no longer sensitive.
 
 ### Evaluator Verdict
 A verdict is recorded **per Answer, one save at a time** (not as a single batch — see ADR-0005). Each save carries one of **three outcomes**, and the resulting status depends on the caller's level:

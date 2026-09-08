@@ -163,7 +163,7 @@ The cover-review read reuses `evaluatorReviewService.getAnswers` through a new p
 - **Status gate:** the Cover's latest status must be `in_review` or `finished`; an `in_progress` Cover returns `404 { message: "cover not found" }`, the same response as an out-of-province Cover.
 - **Verdict redaction:** while `in_review`, every Answer's latest verdict choice and description are forced `null` and its per-Answer `status` is forced `in_review`, regardless of the underlying evaluator record. Once `finished`, the Officer sees the same values an Evaluator sees. Standard certificates are never redacted. The redaction lives inside `evaluator-review.ts`, keyed on the scope discriminator — Evaluator and DOED reads are unaffected.
 
-The Officer resolves to evaluator level `ODPC` for category-filtering purposes only (all five `QuestionCategory` values are in scope); it carries no write authority and cannot reach verdict-save or finalize routes.
+The Officer resolves to evaluator level `ODPC` for category-filtering purposes only (all five `QuestionCategory` values are in scope); it carries no write authority and cannot reach verdict-save or finalize routes. The reasoning behind the gate, the redaction, and the identical 404s is recorded in [ADR-0013](adr/0013-province-scoped-read-only-cover-review.md).
 
 ### DOED only
 

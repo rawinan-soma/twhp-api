@@ -136,6 +136,24 @@ Rows written before 2026-08-25 are `rejected` **with** a `verdict_choice`; they 
 migration was run. Finalize writes the settled Verdict Score into `answers.selected_choice` and is the
 only writer of `finished`. See `docs/adr/0012-score-changes-are-terminal.md`.
 
+### Provincial read-only review
+
+A Provincial Officer reads Covers in its province through the **same**
+`evaluatorReviewService.getAnswers` and `AnswerViewSchema` the Evaluator and DOED reads use — there is
+no parallel provincial read, and adding one is a review failure. Two rules fire only for
+`ReviewerScope.kind === "province"`:
+
+> An `in_progress` Cover returns `404 { message: "cover not found" }`, byte-identical to the
+> out-of-province response — never a 403, which would confirm the Cover exists.
+> While `in_review`, every Answer's `verdictChoice` and `description` are forced `null` and its
+> per-Answer `status` is forced `in_review`. Standard certificates are never redacted.
+
+The redaction lives in the service, not the route, so any route reusing `getAnswers` inherits it. The
+Officer resolves at level `ODPC` **for category filtering only** — it means "all five categories",
+never authority; no write route may be exposed under `provincialOfficers/**`. Any change to the
+verdict fields needs a province-scope test alongside the Evaluator one. See
+`docs/adr/0013-province-scoped-read-only-cover-review.md`.
+
 ### Fiscal year
 
 All enrollment/cover queries are scoped to the current fiscal year (Oct 1 – Sep 30). Always use `utilities().getFiscalYear()` from `src/utils.ts` — don't hand-roll date boundaries.
@@ -199,7 +217,8 @@ reading order and task-to-document map. `README.md` is the project entry point. 
 working agreement for agents on this repository — read it before non-trivial work.
 
 Read the relevant ADR before changing scoring, authentication, review/finalization, evidence
-deletion, list pagination, or Cover-status resolution. ADR-0006 is superseded in full by ADR-0012;
+deletion, list pagination, Cover-status resolution, or what a reader role may see of a Cover.
+ADR-0006 is superseded in full by ADR-0012;
 ADR-0004's consensus loop is superseded in part by it.
 
 When a public contract or business rule changes, update the affected guide and ADR in the same
