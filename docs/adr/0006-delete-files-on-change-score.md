@@ -1,6 +1,15 @@
 # ADR 0006: Delete evidence files on `change_score`, not just hard reject
 
-**Status:** Accepted (2026-07-07)
+**Status:** ~~Accepted (2026-07-07)~~ — **superseded in full by [ADR-0012](0012-score-changes-are-terminal.md) (2026-08-25)**
+
+> A `change_score` Answer **keeps** its files. This ADR's driver — that a Factory could redo a
+> downgraded Answer by resubmitting the same file — dissolved once a score change is never redone at
+> all; the gap closes by removing the loop, not by deleting evidence. ADR-0005's file-preservation
+> clause is restored.
+>
+> This ADR also had an unintended effect it did not anticipate: deleting those files broke
+> ADR-0004's `accept` branch, which validates against the same columns finalize nulls. The consensus
+> loop was redo-only in production from 2026-07-07 until ADR-0012.
 
 **Supersedes:** the file-preservation clause of ADR-0005 — *"File deletion stays deferred to finalize... only for Answers whose final persisted status is hard-reject (`verdict_choice` null)"* — and FR-6 of intent `008-per-answer-verdict-save` ("A hard-reject later overridden... retains its files" as a change_score-specific exemption). Every other rule in ADR-0005 is unchanged: deletion stays deferred to `finalize`, stays outside-then-before the transaction, and `saveAnswerVerdict` still performs zero MinIO I/O.
 

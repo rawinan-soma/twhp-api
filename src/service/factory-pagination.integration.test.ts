@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { Value } from "@sinclair/typebox/value";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
+import { Elysia } from "elysia";
 import { Pool } from "pg";
 import { accounts, districts, enrolls, factories, provinces } from "../drizzle/schema";
 import {
@@ -367,5 +368,139 @@ describeDb("Story 004 — Factory list pagination", () => {
       limit: 100,
     });
     expect(seededOnly(idsOf(page)).length).toBeGreaterThan(0);
+  });
+});
+
+// ─── Story 011 · route layer ─────────────────────────────────────────────────
+//
+// Elysia strips response properties the declared schema does not name, so the service selecting
+// `email` is necessary but NOT sufficient — the route's registered 200 schema has to declare it or
+// the field never reaches the client. Reading the registered schema proves that directly, and needs
+// no database and no auth (all three routes sit behind a guard that would answer an unauthenticated
+// HTTP request before the response schema was ever consulted). Pattern borrowed from
+// `pagination-routes.test.ts`.
+
+type ListRouteEntry = {
+  method: string;
+  path: string;
+  // biome-ignore lint/suspicious/noExplicitAny: Elysia does not export the type of a registered route's compiled hooks
+  hooks?: { response?: any };
+};
+
+const itemSchemaOf = async (modPath: string) => {
+  // biome-ignore lint/suspicious/noExplicitAny: route modules are typed against the concrete App instance, which cannot be constructed here without booting config, Redis and MinIO
+  const define = (await import(modPath)).default as (app: any) => any;
+  // biome-ignore lint/suspicious/noExplicitAny: see above
+  const app = define(new Elysia() as any) as { routes: ListRouteEntry[] };
+  const entry = app.routes.find((r) => r.method === "GET" && r.path === "");
+  if (!entry) throw new Error(`no GET "" route registered by ${modPath}`);
+  const response = entry.hooks?.response;
+  // `response` is either a bare schema (admin) or a status-keyed map (evaluator, provincial).
+  const ok =
+    response?.type === undefined && response?.[200] !== undefined ? response[200] : response;
+  const props = ok?.properties?.items?.items?.properties;
+  // Throw rather than fall back to `{}`. The two "declares neither email nor username" tests below
+  // assert ABSENCE, so an empty object would satisfy them for the wrong reason — a changed
+  // `Paginated` nesting would silently turn them into tests of nothing instead of failing here.
+  if (!props || Object.keys(props).length === 0) {
+    throw new Error(`could not read list-item properties from the 200 response of ${modPath}`);
+  }
+  return props;
+};
+
+describe("Story 011 — route response schemas declare (and withhold) email", () => {
+  it("the Admin route declares email on its list item, so Elysia will not strip it", async () => {
+    const props = await itemSchemaOf("../routes/admins/factories/index");
+    expect(Object.keys(props)).toContain("email");
+    expect(Object.keys(props)).toContain("username");
+  });
+
+  it("the Evaluator route declares neither email nor username", async () => {
+    const props = await itemSchemaOf("../routes/evaluators/factories/index");
+    expect(Object.keys(props)).not.toContain("email");
+    expect(Object.keys(props)).not.toContain("username");
+  });
+
+  it("the Provincial Officer route declares neither email nor username", async () => {
+    const props = await itemSchemaOf("../routes/provincialOfficers/factories/index");
+    expect(Object.keys(props)).not.toContain("email");
+    expect(Object.keys(props)).not.toContain("username");
+  });
+});
+
+// ─── Story 011: account email on the Admin factory list ──────────────────────
+//
+// Story 004's AC1–AC3 validate each response against its `Paginated(...)` schema, but TypeBox
+// objects admit additional properties by default — so those checks pass whether or not `email` is
+// present, and would keep passing if it leaked into the Evaluator or Provincial payloads. They
+// cannot prove either half of this story. These assertions read the property directly, in both
+// directions: present and correct on Admin, absent everywhere else.
+
+describeDb("Story 011 — Admin factory list exposes account email", () => {
+  it("AC1: every Admin item carries a non-empty email", async () => {
+    const page = await factoryService.getAllFactories({ validated: true, limit: 100 });
+    expect(page.items.length).toBeGreaterThan(0);
+    for (const item of page.items) {
+      expect(item).toHaveProperty("email");
+      expect(typeof item.email).toBe("string");
+      expect(item.email.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("AC2: the email is the account's own address, not another factory's", async () => {
+    const page = await factoryService.getAllFactories({ validated: true, limit: 100 });
+    const seeded = page.items.filter((i) => ALL.includes(i.account_id));
+    expect(seeded.length).toBeGreaterThan(0);
+    for (const item of seeded) {
+      expect(item.email).toBe(`test_pagination_${item.account_id}@test.com`);
+    }
+  });
+
+  it("AC3: email travels with username — the pair identifies one account", async () => {
+    const page = await factoryService.getAllFactories({ validated: true, limit: 100 });
+    const seeded = page.items.filter((i) => ALL.includes(i.account_id));
+    for (const item of seeded) {
+      expect(item.username).toBe(`test_pagination_${item.account_id}`);
+      expect(item.email).toBe(`${item.username}@test.com`);
+    }
+  });
+
+  it("AC4: the Evaluator list does NOT expose email", async () => {
+    const page = await factoryService.getAllFactoriesByRegion({
+      validated: true,
+      enrolled: false,
+      region: regionA,
+      limit: 100,
+    });
+    expect(page.items.length).toBeGreaterThan(0);
+    for (const item of page.items) {
+      expect(item).not.toHaveProperty("email");
+      expect(item).not.toHaveProperty("username");
+    }
+  });
+
+  it("AC5: the Provincial Officer list does NOT expose email", async () => {
+    const page = await factoryService.getAllFactoriesByProvinceId({
+      validated: true,
+      enrolled: false,
+      provinceId: PROVINCE_A,
+      limit: 100,
+    });
+    expect(page.items.length).toBeGreaterThan(0);
+    for (const item of page.items) {
+      expect(item).not.toHaveProperty("email");
+      expect(item).not.toHaveProperty("username");
+    }
+  });
+
+  it("AC6: adding email did not disturb pagination, ordering, or the validated filter", async () => {
+    const page = await factoryService.getAllFactories({ validated: true, limit: 3 });
+    expect(page.items.length).toBeLessThanOrEqual(3);
+    expect(page.meta.limit).toBe(3);
+    expect(idsOf(page)).toEqual([...idsOf(page)].sort((a, b) => a - b));
+
+    const unvalidated = await factoryService.getAllFactories({ validated: false, limit: 100 });
+    expect(idsOf(unvalidated)).toContain(FACTORY_UNVALIDATED);
+    expect(idsOf(unvalidated)).not.toContain(FACTORY_CURRENT);
   });
 });

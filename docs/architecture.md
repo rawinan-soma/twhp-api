@@ -1,6 +1,6 @@
 # Architecture
 
-This backend serves the Total Worker Health Promotion (TWHP) system. It is a Bun/TypeScript application with two executable processes:
+This backend serves the Total Worker Health Promotion (TWHP) system, verified on 2026-09-02 on branch `dev`. It is a Bun/TypeScript application with two executable processes:
 
 - an Elysia HTTP API for authentication, enrollment, factory assessments, scoring, review, administration, locations, and file access;
 - a BullMQ worker for transactional and scheduled email.
@@ -96,7 +96,7 @@ This is a useful database seam, but it is **not full dependency injection**. Do 
 - `createEvaluatorReviewService(database)` still uses global `emailQueue`, MinIO utilities, and the production `evaluatorService` singleton when resolving evaluators.
 - answer, enrollment, and file services use process-global MinIO helpers; cover, factory, and score use the fiscal-year helper exported by the same overloaded global utilities module.
 
-Services also return Elysia `status(...)` objects, and routes detect `ElysiaCustomStatusResponse`. The business layer is therefore coupled to the HTTP framework. `src/service/scoreHelpers.ts` is the notable pure module: it contains scoring and grade computation without Elysia or infrastructure imports.
+Services also return Elysia `status(...)` objects, and routes detect `ElysiaCustomStatusResponse`. The business layer is therefore coupled to the HTTP framework. `src/service/scoreHelpers.ts` and `src/service/answerFileRules.ts` are the notable pure modules: scoring/grade computation and per-choice evidence rules, with no Elysia or infrastructure imports. `src/schema/pagination.ts` and `src/service/coverStatus.ts` are similarly narrow shared contracts.
 
 For known maintainability consequences, see [Technical debt](technical-debt.md).
 
@@ -138,7 +138,9 @@ Current cover and answer state follows a load-bearing latest-log-wins convention
 - answer state comes from the latest `answerLogs` row;
 - missing logs receive workflow-specific default states.
 
-This query convention is implemented in several services rather than one shared module. Changes to log ordering or defaults must be checked across `cover.ts`, `answer.ts`, `enroll.ts`, `score.ts`, and `evaluator-review.ts`.
+Cover status resolution was consolidated into `src/service/coverStatus.ts` during intent 012. It exports two shapes of the same rule — `latestCoverLogLateral(db)` for a `LEFT JOIN LATERAL` in a list or count query, and a standalone read for one already-known Cover — and every query that filters, counts, or paginates on Cover status must import from it. Writing a second correlated subquery over `coverLogs` is a review failure; see [ADR-0010](adr/0010-lateral-latest-cover-log-resolution.md) and [ADR-0008](adr/0008-exists-subquery-for-enrolled-filter.md), which removed a row-multiplication defect from the factory lists.
+
+Answer state resolution is **not** consolidated. Changes to answer log ordering or defaults must still be checked across `answer.ts`, `score.ts`, and `evaluator-review.ts`. Per-choice evidence requirements live in `src/service/answerFileRules.ts`.
 
 Scores and grades are derived on demand. They are not persisted. See [Business rules](business-rules.md) and ADR [0001](adr/0001-score-calculated-on-demand.md).
 
@@ -230,7 +232,10 @@ Before changing cross-cutting behavior, preserve or explicitly revise these inva
 7. API and Nginx request-body limits both currently allow 130 MB.
 8. The daily worker schedule requires Bangkok process timezone.
 9. Service factories inject a database, not every external dependency.
+10. Cover status is resolved only through `src/service/coverStatus.ts`; a second `coverLogs` subquery is a review failure (ADR-0010).
+11. The `{ items, meta }` pagination envelope is scoped to the nine staff list endpoints. Bounded collections stay bare arrays (ADR-0007), and every paginated query must impose a total order or OFFSET has no defined meaning (ADR-0009).
+12. An evaluator's `change_score` is terminal and preserves evidence; only a hard reject (`status = 'rejected'` **and** `verdict_choice IS NULL`) deletes files and returns the Cover to the factory (ADR-0012).
 
 ## Evidence status
 
-Architecture, bootstrap, imports, scripts, and container definitions above are verified from current source and configuration. Failure outcomes described across separate systems are reasoned from operation ordering and should be fault-injection tested before remediation. Deployed runtime versions and all organization-owned operational procedures are explicitly unknown.
+Architecture, bootstrap, imports, scripts, and container definitions above are verified from current source and configuration on 2026-09-02. `Dockerfile`, `docker-compose.yaml`, `nginx/`, `src/config.ts`, and `src/middleware/` are unchanged since the 2026-07-15 audit, so the deployment- and configuration-shaped statements here carry that earlier verification forward. Failure outcomes described across separate systems are reasoned from operation ordering and should be fault-injection tested before remediation. Deployed runtime versions and all organization-owned operational procedures are explicitly unknown.

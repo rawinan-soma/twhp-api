@@ -1,6 +1,6 @@
 # Development
 
-This guide documents the development commands and service topology that are currently implemented in the repository. For system design, see [Architecture](architecture.md). For schema and seed behavior, see [Database](database.md).
+This guide documents the development commands and service topology that are currently implemented in the repository. Verified 2026-07-15; re-checked 2026-09-02 — `package.json` scripts, `bunfig.toml`, `docker-compose.yaml`, `Dockerfile`, and `src/config.ts` are unchanged since, so it still holds. For system design, see [Architecture](architecture.md). For schema and seed behavior, see [Database](database.md). For the current test inventory and safe commands, see [Testing](testing.md).
 
 ## Prerequisites
 

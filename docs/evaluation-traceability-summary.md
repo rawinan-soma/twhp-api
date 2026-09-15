@@ -9,9 +9,22 @@ The full document is [Requirements Traceability](./requirements-traceability.md)
 | Date | 2026-08-17 |
 | Scope | The Evaluation module |
 | Requirements | 37 |
-| Source | `memory-bank/intents/*/requirements.md` |
+| Source | `memory-bank/intents/*/requirements.md` (six intents only — see the note below) |
 
 ---
+
+## A Note About the Date
+
+This document covers six intents. The intents stop at number 011. The project added new work after that.
+
+The new work is not in this document. The new work is two things:
+
+- Pagination for list endpoints (intent 012).
+- Six new tickets from 3 September 2026. These tickets add read access for the Provincial Officer. They also add a region check for the Evaluator.
+
+The project uses a new process for new work. The new process writes files at `.scratch/<feature-slug>/PRD.md` and `issues/NN-*.md`. Each issue file has a `Status:` line.
+
+The old process wrote memory-bank intents. The project does not write new memory-bank intents now. The memory-bank files stay in the repository as a record of past work.
 
 ## 1. Why This Document Exists
 

@@ -1,8 +1,8 @@
 # Elysia Documentation
 
-> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-07-03
+> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-09-03
 
-51 operations across 8 groups.
+54 operations across 8 groups.
 
 ## Contents
 
@@ -65,6 +65,9 @@
   - [`GET /twhp/api/provincialOfficers/enrolls`](#get-twhp-api-provincialofficers-enrolls)
   - [`GET /twhp/api/provincialOfficers/factories`](#get-twhp-api-provincialofficers-factories)
   - [`GET /twhp/api/provincialOfficers/score`](#get-twhp-api-provincialofficers-score)
+  - [`GET /twhp/api/provincialOfficers/enrolls/{id}`](#get-twhp-api-provincialofficers-enrolls-id)
+  - [`GET /twhp/api/provincialOfficers/factories/{id}`](#get-twhp-api-provincialofficers-factories-id)
+  - [`GET /twhp/api/provincialOfficers/covers/{coverId}/answers`](#get-twhp-api-provincialofficers-covers-coverid-answers)
 
 ## admins
 
@@ -104,24 +107,32 @@
 ### `GET /twhp/api/admins/enrolls`
 
 
-ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมด (กรองตามสถานะ cover ได้ด้วย ?coverStatus=)
+ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมด (กรองตามสถานะ cover ได้ด้วย ?coverStatus= และแบ่งหน้าด้วย ?page= ?limit=)
 
 **Parameters**
 
 | Name | In | Required | Type | Description |
 | --- | --- | --- | --- | --- |
 | `coverStatus` | query | — | `"finished" \| "in_progress" \| "in_review" \| "none"` |  |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 
 ---
 
 ### `GET /twhp/api/admins/factories`
 
 
-ดึงข้อมูล สปก. ทั้งหมด
+ดึงข้อมูล สปก. ทั้งหมด (แบ่งหน้าด้วย ?page= และ ?limit=)
 
 **Parameters**
 
@@ -129,10 +140,18 @@
 | --- | --- | --- | --- | --- |
 | `validated` | query | yes | `boolean` |  |
 | `enrolled` | query | — | `boolean` |  |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 
 ---
 
@@ -173,7 +192,7 @@
 ### `GET /twhp/api/admins/score`
 
 
-ดูคะแนนประเมินโรงงานทั้งหมด (กรองตามเขต/จังหวัดได้)
+ดูคะแนนประเมินโรงงานทั้งหมด (กรองตามเขต/จังหวัดได้ และแบ่งหน้าด้วย ?page= ?limit=)
 
 **Parameters**
 
@@ -181,10 +200,18 @@
 | --- | --- | --- | --- | --- |
 | `region` | query | — | `number` |  |
 | `provinceId` | query | — | `number` |  |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 
 ---
 
@@ -867,17 +894,25 @@ logout
 ### `GET /twhp/api/evaluators/enrolls`
 
 
-ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดตามเขตสุขภาพ (กรองตามสถานะ cover ได้ด้วย ?coverStatus=)
+ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดตามเขตสุขภาพ (กรองตามสถานะ cover ได้ด้วย ?coverStatus= และแบ่งหน้าด้วย ?page= ?limit=)
 
 **Parameters**
 
 | Name | In | Required | Type | Description |
 | --- | --- | --- | --- | --- |
 | `coverStatus` | query | — | `"finished" \| "in_progress" \| "in_review" \| "none"` |  |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 - `404` — Response for status 404
 
   | Field | Type | Required | Description |
@@ -890,7 +925,7 @@ logout
 ### `GET /twhp/api/evaluators/factories`
 
 
-ดึงข้อมูลสปก. ทั้งหมดตามเขตสุขภาพ
+ดึงข้อมูลสปก. ทั้งหมดตามเขตสุขภาพ (แบ่งหน้าด้วย ?page= และ ?limit=)
 
 **Parameters**
 
@@ -898,10 +933,18 @@ logout
 | --- | --- | --- | --- | --- |
 | `validated` | query | yes | `boolean` |  |
 | `enrolled` | query | — | `boolean` |  |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 - `404` — Response for status 404
 
   | Field | Type | Required | Description |
@@ -914,11 +957,24 @@ logout
 ### `GET /twhp/api/evaluators/score`
 
 
-ดูคะแนนประเมินโรงงานทั้งหมดในเขตสุขภาพ
+ดูคะแนนประเมินโรงงานทั้งหมดในเขตสุขภาพ (แบ่งหน้าด้วย ?page= ?limit=)
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 - `404` — Response for status 404
 
   | Field | Type | Required | Description |
@@ -1869,17 +1925,25 @@ Get a 5-minute presigned URL for a stored file
 ### `GET /twhp/api/provincialOfficers/enrolls`
 
 
-ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดของจังหวัด (กรองตามสถานะ cover ได้ด้วย ?coverStatus=)
+ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดของจังหวัด (กรองตามสถานะ cover ได้ด้วย ?coverStatus= และแบ่งหน้าด้วย ?page= ?limit=)
 
 **Parameters**
 
 | Name | In | Required | Type | Description |
 | --- | --- | --- | --- | --- |
 | `coverStatus` | query | — | `"finished" \| "in_progress" \| "in_review" \| "none"` |  |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 - `404` — Response for status 404
 
   | Field | Type | Required | Description |
@@ -1892,7 +1956,7 @@ Get a 5-minute presigned URL for a stored file
 ### `GET /twhp/api/provincialOfficers/factories`
 
 
-ดึงข้อมูลโรงงานทั้งหมดในจังหวัด
+ดึงข้อมูลโรงงานทั้งหมดในจังหวัด (แบ่งหน้าด้วย ?page= และ ?limit=)
 
 **Parameters**
 
@@ -1900,10 +1964,18 @@ Get a 5-minute presigned URL for a stored file
 | --- | --- | --- | --- | --- |
 | `validated` | query | yes | `boolean` |  |
 | `enrolled` | query | — | `boolean` |  |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
 - `404` — Response for status 404
 
   | Field | Type | Required | Description |
@@ -1916,11 +1988,184 @@ Get a 5-minute presigned URL for a stored file
 ### `GET /twhp/api/provincialOfficers/score`
 
 
-ดูคะแนนประเมินโรงงานทั้งหมดในจังหวัด
+ดูคะแนนประเมินโรงงานทั้งหมดในจังหวัด (แบ่งหน้าด้วย ?page= ?limit=)
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `page` | query | — | `string<numeric> \| number` |  |
+| `limit` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `items` | `object[]` | yes |  |
+  | `meta` | `object` | yes |  |
+
+- `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+
+---
+
+### `GET /twhp/api/provincialOfficers/enrolls/{id}`
+
+
+ดึงข้อมูลการสมัครเข้าร่วมโครงการตาม id (เฉพาะในจังหวัดของเจ้าหน้าที่)
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `id` | path | yes | `number` |  |
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `id` | `integer` | yes |  |
+  | `enrollDate` | `string` | yes |  |
+  | `factoryId` | `integer` | yes |  |
+  | `evalDohId` | `integer` | yes |  |
+  | `evalOdpcId` | `integer` | yes |  |
+  | `evalMentalId` | `integer` | yes |  |
+  | `employeeThM` | `integer` | yes |  |
+  | `employeeMmM` | `integer` | yes |  |
+  | `employeeKhM` | `integer` | yes |  |
+  | `employeeLaM` | `integer` | yes |  |
+  | `employeeVnM` | `integer` | yes |  |
+  | `employeeCnM` | `integer` | yes |  |
+  | `employeePhM` | `integer` | yes |  |
+  | `employeeJpM` | `integer` | yes |  |
+  | `employeeInM` | `integer` | yes |  |
+  | `employeeOtherM` | `integer` | yes |  |
+  | `employeeThF` | `integer` | yes |  |
+  | `employeeMmF` | `integer` | yes |  |
+  | `employeeKhF` | `integer` | yes |  |
+  | `employeeLaF` | `integer` | yes |  |
+  | `employeeVnF` | `integer` | yes |  |
+  | `employeeCnF` | `integer` | yes |  |
+  | `employeePhF` | `integer` | yes |  |
+  | `employeeJpF` | `integer` | yes |  |
+  | `employeeInF` | `integer` | yes |  |
+  | `employeeOtherF` | `integer` | yes |  |
+  | `standardHc` | `boolean` | yes |  |
+  | `fileStandardHcUrl` | `string \| null` | yes |  |
+  | `standardSan` | `boolean` | yes |  |
+  | `fileStandardSanUrl` | `string \| null` | yes |  |
+  | `standardSanPlus` | `boolean` | yes |  |
+  | `fileStandardSanPlusUrl` | `string \| null` | yes |  |
+  | `standardWellness` | `boolean` | yes |  |
+  | `fileStandardWellnessUrl` | `string \| null` | yes |  |
+  | `standardSafety` | `boolean` | yes |  |
+  | `fileStandardSafetyUrl` | `string \| null` | yes |  |
+  | `standardTis18001` | `boolean` | yes |  |
+  | `fileStandardTis18001Url` | `string \| null` | yes |  |
+  | `standardIso45001` | `boolean` | yes |  |
+  | `fileStandardIso45001Url` | `string \| null` | yes |  |
+  | `standardIso14001` | `boolean` | yes |  |
+  | `fileStandardIso14001Url` | `string \| null` | yes |  |
+  | `standardZero` | `boolean` | yes |  |
+  | `fileStandardZeroUrl` | `string \| null` | yes |  |
+  | `standard5S` | `boolean` | yes |  |
+  | `fileStandard5SUrl` | `string \| null` | yes |  |
+  | `standardHas` | `boolean` | yes |  |
+  | `fileStandardHasUrl` | `string \| null` | yes |  |
+  | `safetyOfficerPrefix` | `string` | yes |  |
+  | `safetyOfficerFirstName` | `string` | yes |  |
+  | `safetyOfficerLastName` | `string` | yes |  |
+  | `safetyOfficerPosition` | `string` | yes |  |
+  | `safetyOfficerEmail` | `string \| null` | yes |  |
+  | `safetyOfficerPhone` | `string \| null` | yes |  |
+  | `safetyOfficerLineId` | `string \| null` | yes |  |
+  | `province_name_th` | `string \| null` | yes |  |
+  | `district_name_th` | `string \| null` | yes |  |
+  | `subdistrict_name_th` | `string \| null` | yes |  |
+
+- `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+
+---
+
+### `GET /twhp/api/provincialOfficers/factories/{id}`
+
+
+ดึงข้อมูลโรงงานตาม id ภายในจังหวัดของเจ้าหน้าที่
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `id` | path | yes | `number` |  |
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `account_id` | `number` | yes |  |
+  | `factory_type` | `number` | yes |  |
+  | `name_th` | `string` | yes |  |
+  | `name_en` | `string` | yes |  |
+  | `tsic_code` | `string` | yes |  |
+  | `address_no` | `string` | yes |  |
+  | `soi` | `string \| null` | yes |  |
+  | `road` | `string \| null` | yes |  |
+  | `zipcode` | `string` | yes |  |
+  | `phone_number` | `string` | yes |  |
+  | `fax_number` | `string \| null` | yes |  |
+  | `province_id` | `number` | yes |  |
+  | `district_id` | `number` | yes |  |
+  | `subdistrict_id` | `number` | yes |  |
+  | `is_validate` | `boolean` | yes |  |
+  | `username` | `string` | yes |  |
+  | `province_name_th` | `string` | yes |  |
+  | `district_name_th` | `string` | yes |  |
+  | `subdistrict_name_th` | `string` | yes |  |
+
+- `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+
+---
+
+### `GET /twhp/api/provincialOfficers/covers/{coverId}/answers`
+
+
+ดูคำตอบในฝาประเมินของจังหวัด (read-only) — ต้องมีสถานะ in_review หรือ finished เท่านั้น ขณะ in_review ผลตัดสิน (verdict choice/description) และสถานะรายข้อจะถูกซ่อนเป็น null/in_review ใบรับรองมาตรฐานแสดงผลไม่ถูกซ่อนทั้งสองสถานะ
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `coverId` | path | yes | `number` |  |
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `answers` | `object[]` | yes |  |
+  | `standards` | `object[]` | yes |  |
+
 - `404` — Response for status 404
 
   | Field | Type | Required | Description |

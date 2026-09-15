@@ -17,7 +17,9 @@ import {
 import { emailQueue } from "../queue/email";
 import type { StandardFileItem, VerdictSaveBody } from "../schema/evaluator-review";
 import { utilities } from "../utils";
+import { latestCoverLogFor } from "./coverStatus";
 import { categoriesFor, type EvaluatorLevel, evaluatorService } from "./evaluator";
+import { provincialOfficerService } from "./provincialOfficer";
 import { type CategoryKey, calculateBreakdown, computeGrade } from "./scoreHelpers";
 
 type QuestionCategory = (typeof questionCategories.enumValues)[number];
@@ -53,20 +55,27 @@ const standardFilesFromEnroll = (
   });
 
 /**
- * The resolved actor performing a review, decoupled from how it authenticated.
- * `region: null` denotes a national (admin) reviewer that bypasses the region gate.
+ * The scope a reviewer is authorized against: national (no gate, existence only),
+ * region (health-region gate), or province (single-province gate). A discriminated
+ * union so a context always carries exactly one scope — there is no "no scope" state.
  */
+export type ReviewerScope =
+  | { kind: "national" }
+  | { kind: "region"; region: number }
+  | { kind: "province"; province: number };
+
+/** The resolved actor performing a review, decoupled from how it authenticated. */
 export type ReviewerContext = {
   accountId: number;
   level: EvaluatorLevel;
-  region: number | null;
+  scope: ReviewerScope;
 };
 
 /** A DOED admin always reviews as a national ODPC. */
 export const adminReviewerContext = (accountId: number): ReviewerContext => ({
   accountId,
   level: "ODPC",
-  region: null,
+  scope: { kind: "national" },
 });
 
 const createEvaluatorReviewHelper = (database: typeof db) => {
@@ -78,6 +87,20 @@ const createEvaluatorReviewHelper = (database: typeof db) => {
       .innerJoin(factories, eq(factories.accountId, enrolls.factoryId))
       .innerJoin(provinces, eq(provinces.provinceId, factories.provinceId))
       .where(and(eq(covers.id, coverId), eq(provinces.healthRegion, region)))
+      .limit(1)
+      .then((r) => r[0]);
+
+    if (!row) return status(404, { message: "cover not found" });
+    return row;
+  };
+
+  const assertCoverInProvince = async (coverId: number, province: number) => {
+    const row = await database
+      .select({ coverId: covers.id })
+      .from(covers)
+      .innerJoin(enrolls, eq(enrolls.id, covers.enrollId))
+      .innerJoin(factories, eq(factories.accountId, enrolls.factoryId))
+      .where(and(eq(covers.id, coverId), eq(factories.provinceId, province)))
       .limit(1)
       .then((r) => r[0]);
 
@@ -97,18 +120,26 @@ const createEvaluatorReviewHelper = (database: typeof db) => {
     return row;
   };
 
-  /** Region-aware cover access: national (region null) → existence only. */
-  const assertCoverAccess = async (coverId: number, region: number | null) =>
-    region === null ? assertCoverExists(coverId) : assertCoverInRegion(coverId, region);
+  /** Scope-aware cover access: dispatches on the reviewer scope discriminator. */
+  const assertCoverAccess = async (coverId: number, scope: ReviewerScope) => {
+    switch (scope.kind) {
+      case "national":
+        return assertCoverExists(coverId);
+      case "region":
+        return assertCoverInRegion(coverId, scope.region);
+      case "province":
+        return assertCoverInProvince(coverId, scope.province);
+    }
+  };
 
-  return { assertCoverInRegion, assertCoverExists, assertCoverAccess };
+  return { assertCoverInRegion, assertCoverInProvince, assertCoverExists, assertCoverAccess };
 };
 
 export const createEvaluatorReviewService = (database: typeof db) => {
   const helper = createEvaluatorReviewHelper(database);
 
   /**
-   * Resolve an evaluator caller into a ReviewerContext (level + region).
+   * Resolve an evaluator caller into a ReviewerContext (level + region scope).
    * Returns the 404 status response from getEvaluatorData if the caller is not an evaluator.
    */
   const resolveEvaluator = async (callerId: number) => {
@@ -116,15 +147,49 @@ export const createEvaluatorReviewService = (database: typeof db) => {
     if (evaluatorData instanceof ElysiaCustomStatusResponse) return evaluatorData;
     // biome-ignore lint/style/noNonNullAssertion: guaranteed non-null after getEvaluatorData
     const evaluator = evaluatorData.evaluator!;
-    return { accountId: evaluator.accountId, level: evaluator.level, region: evaluator.region };
+    return {
+      accountId: evaluator.accountId,
+      level: evaluator.level,
+      scope: { kind: "region" as const, region: evaluator.region },
+    };
+  };
+
+  /**
+   * Resolve a Provincial Officer caller into a province-scoped ReviewerContext at level
+   * `ODPC`, so category filtering includes all five QuestionCategories (decision #1).
+   * Returns the existing `404 { message: "officer not found" }` for a non-officer caller.
+   */
+  const resolveProvincialOfficer = async (callerId: number) => {
+    const officerData = await provincialOfficerService.getOfficerDataById(callerId);
+    if (officerData instanceof ElysiaCustomStatusResponse) return officerData;
+    return {
+      accountId: callerId,
+      level: "ODPC" as const,
+      scope: { kind: "province" as const, province: officerData.provinceId },
+    };
   };
 
   return {
     resolveEvaluator,
+    resolveProvincialOfficer,
 
     getAnswers: async (coverId: number, reviewer: ReviewerContext) => {
-      const coverCheck = await helper.assertCoverAccess(coverId, reviewer.region);
+      const coverCheck = await helper.assertCoverAccess(coverId, reviewer.scope);
       if (coverCheck instanceof ElysiaCustomStatusResponse) return coverCheck;
+
+      // Province-scoped readers (Provincial Officers) are gated to in_review/finished Covers;
+      // an in_progress Cover 404s identically to an out-of-province one so existence is never
+      // confirmed either way (issue 02). While in_review, every Answer's verdict and status
+      // are redacted below — a bare `rejected` would leak the open review as much as the
+      // verdict itself.
+      let redactVerdicts = false;
+      if (reviewer.scope.kind === "province") {
+        const coverStatusValue = (await latestCoverLogFor(database, coverId)) ?? "in_progress";
+        if (coverStatusValue === "in_progress") {
+          return status(404, { message: "cover not found" });
+        }
+        redactVerdicts = coverStatusValue === "in_review";
+      }
 
       // Factory's claimed + uploaded standard certificates for this cover (intent 009).
       // Factory-level (not category-scoped) — every reviewer with cover access sees all.
@@ -212,10 +277,10 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           answerId: a.answerId,
           questionId: a.questionId,
           category: a.category as string,
-          status: log?.status ?? "in_review",
+          status: redactVerdicts ? "in_review" : (log?.status ?? "in_review"),
           selectedChoice: a.selectedChoice,
-          latestVerdictChoice: log?.verdictChoice ?? null,
-          latestDescription: log?.description ?? null,
+          latestVerdictChoice: redactVerdicts ? null : (log?.verdictChoice ?? null),
+          latestDescription: redactVerdicts ? null : (log?.description ?? null),
           fileUrl1_1: a.fileUrl1_1,
           fileUrl1_2: a.fileUrl1_2,
           fileUrl1_3: a.fileUrl1_3,
@@ -243,9 +308,9 @@ export const createEvaluatorReviewService = (database: typeof db) => {
       reviewer: ReviewerContext,
       entry: VerdictSaveBody,
     ) => {
-      const { accountId, level, region } = reviewer;
+      const { accountId, level, scope } = reviewer;
 
-      const coverCheck = await helper.assertCoverAccess(coverId, region);
+      const coverCheck = await helper.assertCoverAccess(coverId, scope);
       if (coverCheck instanceof ElysiaCustomStatusResponse) return coverCheck;
 
       // Answer must exist within this Cover
@@ -304,9 +369,16 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         });
       }
 
-      // approve → recommended for EVERY level (only finalize writes `finished`).
+      // approve → recommended, and change_score with it: a settled score correction is
+      // terminal and never returns to the factory (ADR supersedes 0004's consensus loop for
+      // score changes). Only a hard `reject` writes `rejected`; only finalize writes `finished`.
+      //
+      // No file check runs here, in EITHER direction. The evaluator is the authority on what the
+      // evidence supports; refusing an upgrade would leave them only the hard reject, which
+      // deletes the factory's evidence and forces a redo — a worse outcome than honouring the
+      // verdict. Decided 2026-08-24, superseding the save-time evidence guard.
       const outcomeStatus =
-        entry.decision === "approve" ? ("recommended" as const) : ("rejected" as const);
+        entry.decision === "reject" ? ("rejected" as const) : ("recommended" as const);
 
       await database.insert(answerLogs).values({
         answerId,
@@ -328,14 +400,14 @@ export const createEvaluatorReviewService = (database: typeof db) => {
      * writer of `finished` and of a `coverLogs` transition.
      */
     finalize: async (coverId: number, reviewer: ReviewerContext) => {
-      const { accountId, level, region } = reviewer;
+      const { accountId, level, scope } = reviewer;
 
       // ODPC-only gate (native ODPC or DOED-admin-as-national). No DB read before the gate.
       if (level !== "ODPC") {
         return status(403, { message: "finalize is restricted to ODPC" });
       }
 
-      const coverCheck = await helper.assertCoverAccess(coverId, region);
+      const coverCheck = await helper.assertCoverAccess(coverId, scope);
       if (coverCheck instanceof ElysiaCustomStatusResponse) return coverCheck;
 
       // Factory contact for the verdict email (before txn so it's always available).
@@ -347,6 +419,32 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           email: accounts.email,
           ccEmail: enrolls.safetyOfficerEmail,
           factoryNameTh: factories.nameTh,
+          enrollId: enrolls.id,
+          // The eleven (claimed, certificate) pairs. Enumerated rather than spread from
+          // STANDARD_ENROLL_COLUMNS because a computed select object loses Drizzle's column
+          // inference; the map below still drives every *read* of these fields.
+          standardHc: enrolls.standardHc,
+          fileStandardHcUrl: enrolls.fileStandardHcUrl,
+          standardSan: enrolls.standardSan,
+          fileStandardSanUrl: enrolls.fileStandardSanUrl,
+          standardSanPlus: enrolls.standardSanPlus,
+          fileStandardSanPlusUrl: enrolls.fileStandardSanPlusUrl,
+          standardWellness: enrolls.standardWellness,
+          fileStandardWellnessUrl: enrolls.fileStandardWellnessUrl,
+          standardSafety: enrolls.standardSafety,
+          fileStandardSafetyUrl: enrolls.fileStandardSafetyUrl,
+          standardTis18001: enrolls.standardTis18001,
+          fileStandardTis18001Url: enrolls.fileStandardTis18001Url,
+          standardIso45001: enrolls.standardIso45001,
+          fileStandardIso45001Url: enrolls.fileStandardIso45001Url,
+          standardIso14001: enrolls.standardIso14001,
+          fileStandardIso14001Url: enrolls.fileStandardIso14001Url,
+          standardZero: enrolls.standardZero,
+          fileStandardZeroUrl: enrolls.fileStandardZeroUrl,
+          standard5S: enrolls.standard5S,
+          fileStandard5SUrl: enrolls.fileStandard5SUrl,
+          standardHas: enrolls.standardHas,
+          fileStandardHasUrl: enrolls.fileStandardHasUrl,
         })
         .from(covers)
         .innerJoin(enrolls, eq(enrolls.id, covers.enrollId))
@@ -363,6 +461,7 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           selectedChoice: answers.selectedChoice,
           category: questions.category,
           special: questions.special,
+          standard: questions.standard,
           fileUrl1_1: answers.fileUrl1_1,
           fileUrl1_2: answers.fileUrl1_2,
           fileUrl1_3: answers.fileUrl1_3,
@@ -385,6 +484,7 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           answerId: answerLogs.answerId,
           status: answerLogs.status,
           verdictChoice: answerLogs.verdictChoice,
+          description: answerLogs.description,
         })
         .from(answerLogs)
         .where(inArray(answerLogs.answerId, allCoverAnswerIds))
@@ -399,6 +499,9 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           answerId: a.answerId,
           status: log?.status ?? "in_review",
           verdictChoice: log?.verdictChoice ?? null,
+          // Carried into the promotion row so the evaluator's reason survives finalize — it is
+          // the factory's only explanation now that a score change is never negotiated.
+          description: log?.description ?? null,
         };
       });
 
@@ -409,28 +512,83 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         });
       }
 
-      // Promotions: un-overridden recommended → finished (the ONLY write of `finished`).
-      const promotionRows = resolved
-        .filter((r) => r.status === "recommended")
+      // Classification. A settled score change is identified by its `verdictChoice`, NOT by its
+      // status, because it arrives in two shapes: `recommended` (saved after this intent) and
+      // `rejected` (rows written under the old semantics, still in production). Keying on the
+      // discriminator both shapes share is what lets legacy rows finalize correctly with no
+      // backfill. `verdictChoice` is only ever written by `change_score`, so a non-null value
+      // cannot mean anything else.
+      // `finished` Answers are excluded throughout: a Cover that bounced to `in_progress` and
+      // is finalized again still carries the rows promoted by the FIRST finalize, and they are
+      // immutable. Re-promoting them would append duplicate `finished` logs on every pass.
+      const open = resolved.filter((r) => r.status !== "finished");
+
+      const settledScores = open.filter((r) => r.verdictChoice !== null);
+      const settledChoiceById = new Map(
+        settledScores.map((r) => [r.answerId, r.verdictChoice as string]),
+      );
+
+      // A hard reject is `rejected` with NO verdict choice — the evaluator proposed no
+      // replacement. Only these lose their evidence and send the Cover back.
+      const hardRejectIds = new Set(
+        open
+          .filter((r) => r.status === "rejected" && r.verdictChoice === null)
+          .map((r) => r.answerId),
+      );
+
+      // Standard certificates behind a hard-rejected question. A standard-backed Answer holds
+      // no per-answer files — `selectedChoice` was forced to "3" from the certificate — so
+      // without this a hard reject deletes nothing and the redo re-derives the same "3".
+      // Every standard the rejected question NAMES and the factory actually CLAIMS is deleted,
+      // even when other questions still rely on it (decision 1, 2026-08-24).
+      const doomedStandards = new Set<string>();
+      for (const a of allCoverAnswers) {
+        if (!hardRejectIds.has(a.answerId)) continue;
+        for (const std of a.standard) {
+          const cols = STANDARD_ENROLL_COLUMNS.find((c) => c.standard === std);
+          if (!cols) continue;
+          const claimed = enrollData?.[cols.bool] === true;
+          const certificate = enrollData?.[cols.url];
+          if (claimed && typeof certificate === "string" && certificate.length > 0) {
+            doomedStandards.add(std);
+          }
+        }
+      }
+
+      // Collateral: an Answer scored from a certificate this finalize deletes has lost its
+      // basis, so it returns to `in_review` for the factory to re-answer with real evidence.
+      // Already-`finished` Answers are exempt — reopening one would break "finished is
+      // immutable to everyone" (decision 6, 2026-08-25); that is a separate intent.
+      const collateralIds = new Set(
+        doomedStandards.size === 0
+          ? []
+          : allCoverAnswers
+              .filter(
+                (a) =>
+                  !hardRejectIds.has(a.answerId) &&
+                  a.standard.some((std) => doomedStandards.has(std)),
+              )
+              .map((a) => a.answerId)
+              .filter((id) => open.some((r) => r.answerId === id)),
+      );
+
+      // Promotions: every non-hard-reject Answer → finished (the ONLY write of `finished`).
+      // A settled score change carries its `verdictChoice` forward rather than nulling it, so
+      // the latest log still records what was corrected — the factory-facing read keys off
+      // exactly this row.
+      const promotionRows = open
+        .filter((r) => !hardRejectIds.has(r.answerId) && !collateralIds.has(r.answerId))
         .map((r) => ({
           answerId: r.answerId,
           status: "finished" as const,
-          verdictChoice: null,
-          description: null,
+          verdictChoice: r.verdictChoice,
+          description: r.description,
           eval_id: accountId,
         }));
 
-      // Rejected-at-finalize set: any Answer whose final status is `rejected` — hard reject
-      // or change_score alike — has its files deleted + nulled (ADR-0006). An Answer
-      // re-saved to approve/recommended before finalize is excluded, since `resolved`
-      // reflects only the latest persisted answerLogs row per Answer.
-      const rejectedAnswerIds = new Set(
-        resolved.filter((r) => r.status === "rejected").map((r) => r.answerId),
-      );
-
       const fileUrlsToDelete: string[] = [];
       for (const a of allCoverAnswers) {
-        if (!rejectedAnswerIds.has(a.answerId)) continue;
+        if (!hardRejectIds.has(a.answerId)) continue;
         for (const url of [
           a.fileUrl1_1,
           a.fileUrl1_2,
@@ -446,6 +604,14 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         }
       }
 
+      for (const std of doomedStandards) {
+        const cols = STANDARD_ENROLL_COLUMNS.find((c) => c.standard === std);
+        const certificate = cols ? enrollData?.[cols.url] : null;
+        if (typeof certificate === "string" && certificate.length > 0) {
+          fileUrlsToDelete.push(certificate);
+        }
+      }
+
       // File I/O outside (and before) the transaction — project pattern. Uses the STRICT
       // delete so a MinIO failure surfaces here and aborts finalize *before* any DB write
       // → no partial cover transition (story 004 edge case). The 500 is logged by the
@@ -458,14 +624,23 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         });
       }
 
-      const hasRejected = resolved.some((r) => r.status === "rejected");
-      const newCoverStatus = hasRejected ? ("in_progress" as const) : ("finished" as const);
+      // Only a hard reject owes the factory anything — a settled score change is closed.
+      const hasHardReject = hardRejectIds.size > 0;
+      const newCoverStatus = hasHardReject ? ("in_progress" as const) : ("finished" as const);
 
       await database.transaction(async (tx) => {
         for (const row of promotionRows) {
           await tx.insert(answerLogs).values(row);
         }
-        if (rejectedAnswerIds.size > 0) {
+        // The Verdict Score becomes the settled choice. This is the write `accept` used to
+        // perform (answer.ts) before the negotiation loop was retired for score changes.
+        for (const [answerIdToSettle, choice] of settledChoiceById) {
+          await tx
+            .update(answers)
+            .set({ selectedChoice: choice as (typeof answers.selectedChoice.enumValues)[number] })
+            .where(eq(answers.id, answerIdToSettle));
+        }
+        if (hardRejectIds.size > 0) {
           await tx
             .update(answers)
             .set({
@@ -479,17 +654,46 @@ export const createEvaluatorReviewService = (database: typeof db) => {
               fileUrl3_2: null,
               fileUrl3_3: null,
             })
-            .where(inArray(answers.id, [...rejectedAnswerIds]));
+            .where(inArray(answers.id, [...hardRejectIds]));
         }
+        // Un-claim each deleted standard: the certificate is gone, so the claim cannot stand.
+        // This preserves the invariant `enroll.create` enforces — a claimed standard must have
+        // a file — and lets the redo fall through to a normal file-based answer instead of
+        // erroring with "standard file not found in enroll" (decision 2, 2026-08-24).
+        if (doomedStandards.size > 0 && enrollData?.enrollId) {
+          const unclaim: Record<string, null | false> = {};
+          for (const std of doomedStandards) {
+            const cols = STANDARD_ENROLL_COLUMNS.find((c) => c.standard === std);
+            if (!cols) continue;
+            unclaim[cols.url] = null;
+            unclaim[cols.bool] = false;
+          }
+          await tx.update(enrolls).set(unclaim).where(eq(enrolls.id, enrollData.enrollId));
+        }
+
+        // Collateral returns to `in_review` INSTEAD of being promoted — it was subtracted from
+        // promotionRows above, so no Answer receives both rows in one transaction.
+        for (const answerIdToReset of collateralIds) {
+          await tx.insert(answerLogs).values({
+            answerId: answerIdToReset,
+            status: "in_review" as const,
+            verdictChoice: null,
+            description: null,
+            eval_id: accountId,
+          });
+        }
+
         await tx
           .insert(coverLogs)
           .values({ coverId, status: newCoverStatus, evaluatorId: accountId });
       });
 
-      // Grade (on-demand, not persisted — ADR-0001). Computed from the factory's choices;
-      // on the finished outcome no answer is rejected, so selectedChoice is the settled value.
+      // Grade (on-demand, not persisted — ADR-0001). `allCoverAnswers` was read before the
+      // transaction, so it still holds pre-correction choices; overlay the settled Verdict
+      // Scores here. The overlay and the DB write above derive from the same map, so they
+      // cannot disagree.
       const gradeAnswers = allCoverAnswers.map((a) => ({
-        selectedChoice: a.selectedChoice,
+        selectedChoice: settledChoiceById.get(a.answerId) ?? a.selectedChoice,
         category: a.category as CategoryKey,
         special: a.special,
       }));

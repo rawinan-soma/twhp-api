@@ -1,6 +1,6 @@
 # Database and persistence
 
-This guide documents the persistence model implemented by the current source and configuration. Where older requirements or prose disagree with the code, current code/schema is described as behavior and the disagreement is recorded under [Documentation conflicts](#documentation-conflicts).
+This guide documents the persistence model implemented by the current source and configuration, verified on 2026-08-25 and re-checked on 2026-09-02. Where older requirements or prose disagree with the code, current code/schema is described as behavior and the disagreement is recorded under [Documentation conflicts](#documentation-conflicts).
 
 Related guides:
 

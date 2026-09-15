@@ -1,6 +1,6 @@
 # Troubleshooting and Operations Runbook
 
-This maintainer runbook is based on repository behavior verified on 2026-07-15. It does not claim that any described failure has occurred. No production system, live database, SMTP server, Redis queue, or MinIO deployment was queried; current deployed state is **Unknown**.
+This maintainer runbook is based on repository behavior verified on 2026-07-15 and re-checked on 2026-09-02; the infrastructure, configuration, and worker source it describes is unchanged since. It does not claim that any described failure has occurred. No production system, live database, SMTP server, Redis queue, or MinIO deployment was queried; current deployed state is **Unknown**.
 
 ## Evidence vocabulary and safety boundary
 

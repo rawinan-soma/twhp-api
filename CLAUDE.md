@@ -19,7 +19,21 @@ bun run db:push    # Push schema.ts to DB via drizzle-kit (no migration files)
 bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 ```
 
-No test command exists (`package.json` has `"test": "echo ... && exit 1"`).
+`package.json`'s `test` script is a placeholder that exits 1. The real runner is `bun test <files>`.
+There are 18 test files: 8 isolated and 10 PostgreSQL integration.
+
+```bash
+# Isolated only — safe anywhere. 201 pass / 0 fail as of 2026-09-02.
+bun test src/config.test.ts src/routes/authentication/index.test.ts \
+  src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
+  src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
+  src/service/pagination.test.ts src/service/score.test.ts
+
+bun ./node_modules/.bin/biome check src   # read-only lint; the package scripts all --write
+```
+
+Never run bare `bun test` or a `*.integration.test.ts` file until `DATABASE_URL` names a disposable
+database — the preload falls back to the ordinary local `twhp` database and the tests mutate it.
 
 **Docker** (uses `docker.env`):
 ```bash
@@ -27,6 +41,16 @@ docker compose --profile dev up --build        # Dev with hot-reload (rebuild on
 docker compose --profile production up         # Production build
 ```
 The `migrate-dev` service runs `db:push && db:seed` as a one-shot before `api-dev` starts. If schema changes don't apply after `down -v && up`, always pass `--build` — Docker caches the `twhp-api:dev` image.
+
+`worker-dev` bakes its source in at `build` (`target: build`) — it has **no bind mount**, so it does
+not hot-reload and `up -d` without `--build` keeps running the old code indefinitely, even while
+`api-dev` is rebuilt around it. **Any change under `src/worker/` or `src/queue/` needs
+`docker compose --profile <dev|staging> up -d --build worker-dev`.** A stale worker is silent: the
+API enqueues the new payload shape and the old worker quietly ignores the fields it doesn't know
+(this is what dropped the safety-officer `cc` from verdict emails on staging for two weeks —
+see `.scratch/verdict-email-safety-officer/issues/01-safety-officer-cc-not-delivered.md`).
+Production runs a compiled `./worker-bin` from `rawinan/twhp-elysia-api:latest`; that image must be
+rebuilt and pushed, not just restarted.
 
 ## Architecture
 
@@ -76,6 +100,59 @@ PostgreSQL via Drizzle ORM. **Single-file schema** at `src/drizzle/schema.ts`. `
 **Do not edit drizzle migration output directly** — generate schema changes via schema.ts and use `db:push` for dev. For production, import CSV/data directly (see `migrate-prod` in compose).
 
 **Standard enum**: The `standardTypes` pgEnum has 11 values in camelCase: `standardHC`, `standardSAN`, `standardSANPlus`, `standardWellness`, `standardSafety`, `standardTIS18001`, `standardISO45001`, `standardISO14001`, `standardZero`, `standard5S`, `standardHAS`. These match the keys used in `standardBoolMap`/`standardUrlMap` inside `src/service/answer.ts`, and must stay in sync with `seed_data/questions.json`.
+
+### Cover status
+
+Current Cover status is the `coverLogs` row with the greatest **serial `id`**, never the greatest
+timestamp. That rule has one owner: `src/service/coverStatus.ts`, which exports
+`latestCoverLogLateral(db)` for a `LEFT JOIN LATERAL` in list/count queries and a standalone read for
+one already-known Cover. Every query that filters, counts, or paginates on Cover status must import
+from it; a second correlated subquery over `coverLogs` is a review failure. See
+`docs/adr/0010-lateral-latest-cover-log-resolution.md`.
+
+Answer status follows the same latest-log rule but is **not** yet centralized.
+
+### Pagination
+
+The nine staff list endpoints — `/{admins,evaluators,provincialOfficers}/{factories,enrolls,score}` —
+return an `{ items, meta }` envelope built from `src/schema/pagination.ts`. Compose `PaginationQuery`
+into the route's existing query schema with `t.Composite`; do not replace it. Every paginated query
+must impose a total order, or OFFSET has no defined meaning. Every other list stays a bare array.
+See ADRs 0007, 0009, and 0011.
+
+### Review verdicts
+
+An evaluator's `change_score` is **terminal**: it writes `recommended`, keeps `verdict_choice` and
+`description`, preserves evidence, and the factory has no response to it — `accept` and `redo` both
+return 400. Only a hard reject bounces the Cover and deletes files, and on a standard-backed question
+it also deletes the named standard certificates and un-claims them for the fiscal year.
+
+The classification is normative and must not be narrowed to a status test:
+
+> A hard reject is `status = 'rejected'` **AND** `verdict_choice IS NULL`.
+> A settled score change is any Answer whose latest log carries a non-null `verdict_choice`.
+
+Rows written before 2026-08-25 are `rejected` **with** a `verdict_choice`; they are score changes. No
+migration was run. Finalize writes the settled Verdict Score into `answers.selected_choice` and is the
+only writer of `finished`. See `docs/adr/0012-score-changes-are-terminal.md`.
+
+### Provincial read-only review
+
+A Provincial Officer reads Covers in its province through the **same**
+`evaluatorReviewService.getAnswers` and `AnswerViewSchema` the Evaluator and DOED reads use — there is
+no parallel provincial read, and adding one is a review failure. Two rules fire only for
+`ReviewerScope.kind === "province"`:
+
+> An `in_progress` Cover returns `404 { message: "cover not found" }`, byte-identical to the
+> out-of-province response — never a 403, which would confirm the Cover exists.
+> While `in_review`, every Answer's `verdictChoice` and `description` are forced `null` and its
+> per-Answer `status` is forced `in_review`. Standard certificates are never redacted.
+
+The redaction lives in the service, not the route, so any route reusing `getAnswers` inherits it. The
+Officer resolves at level `ODPC` **for category filtering only** — it means "all five categories",
+never authority; no write route may be exposed under `provincialOfficers/**`. Any change to the
+verdict fields needs a province-scope test alongside the Evaluator one. See
+`docs/adr/0013-province-scoped-read-only-cover-review.md`.
 
 ### Fiscal year
 
@@ -132,3 +209,17 @@ Default label vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-h
 ### Domain docs
 
 Single-context — one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+## Handover documentation
+
+`docs/` is a maintained handover set. Start at `docs/handover.md`, then `docs/README.md` for the
+reading order and task-to-document map. `README.md` is the project entry point. `AGENTS.md` is the
+working agreement for agents on this repository — read it before non-trivial work.
+
+Read the relevant ADR before changing scoring, authentication, review/finalization, evidence
+deletion, list pagination, Cover-status resolution, or what a reader role may see of a Cover.
+ADR-0006 is superseded in full by ADR-0012;
+ADR-0004's consensus loop is superseded in part by it.
+
+When a public contract or business rule changes, update the affected guide and ADR in the same
+change.

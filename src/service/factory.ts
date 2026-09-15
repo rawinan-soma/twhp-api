@@ -154,7 +154,13 @@ export const createFactoryService = (database: typeof db) => {
       return { message: "factory created successfully" };
     },
 
-    getFactoryById: async (factoryId: number) => {
+    /**
+     * `provinceId` and `region`, when given, additionally constrain the row to that province or
+     * health region — used by the Provincial Officer and Evaluator routes to scope the read without
+     * a second query or duplicated joins. A factory that exists but is outside the given scope is
+     * indistinguishable from a non-existent one: both fall through to the same 404.
+     */
+    getFactoryById: async (factoryId: number, provinceId?: number, region?: number) => {
       const factory = await database
         .select({
           account_id: factories.accountId,
@@ -182,7 +188,13 @@ export const createFactoryService = (database: typeof db) => {
         .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
         .innerJoin(districts, eq(factories.districtId, districts.districtId))
         .innerJoin(subdistricts, eq(factories.subdistrictId, subdistricts.subdistrictId))
-        .where(eq(factories.accountId, factoryId))
+        .where(
+          and(
+            eq(factories.accountId, factoryId),
+            provinceId !== undefined ? eq(factories.provinceId, provinceId) : undefined,
+            region !== undefined ? eq(provinces.healthRegion, region) : undefined,
+          ),
+        )
         .limit(1)
         .then((res) => res[0]);
 
@@ -272,7 +284,7 @@ export const createFactoryService = (database: typeof db) => {
       const [total, items] = await Promise.all([
         countFactories(database, predicate, true),
         database
-          .select({ username: accounts.username, ...factoryListColumns })
+          .select({ username: accounts.username, email: accounts.email, ...factoryListColumns })
           .from(factories)
           .innerJoin(provinces, eq(factories.provinceId, provinces.provinceId))
           .innerJoin(districts, eq(factories.districtId, districts.districtId))

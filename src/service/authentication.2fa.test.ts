@@ -79,6 +79,7 @@ function makeDb(rows: unknown[]) {
     leftJoin: () => chain,
     where: () => resolved,
     limit: () => resolved,
+    // biome-ignore lint/suspicious/noThenProperty: intentional thenable so `await chain` works without a terminal call
     then: resolved.then.bind(resolved),
     catch: resolved.catch.bind(resolved),
     finally: resolved.finally.bind(resolved),

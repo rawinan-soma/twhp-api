@@ -1,14 +1,25 @@
-import { t } from "elysia";
+import { ElysiaCustomStatusResponse, t } from "elysia";
 import type { App } from "../../..";
 import { evalGuard } from "../../../middleware/guards";
+import { evaluatorService } from "../../../service/evaluator";
 import { factoryService } from "../../../service/factory";
 
 export default (app: App) =>
   app.group("", { detail: { tags: ["evaluators"] } }, (group) =>
     group.use(evalGuard).get(
       "",
-      async ({ params }) => {
-        return await factoryService.getFactoryById(params.id);
+      async ({ jwtPayload, params }) => {
+        const evaluatorData = await evaluatorService.helper.getEvaluatorData(
+          Number(jwtPayload.sub),
+        );
+
+        if (evaluatorData instanceof ElysiaCustomStatusResponse) {
+          return evaluatorData;
+        }
+
+        // biome-ignore lint/style/noNonNullAssertion: evaluator is guaranteed non-null after getEvaluatorData succeeds
+        const evaluatorRegion = evaluatorData.evaluator!.region;
+        return await factoryService.getFactoryById(params.id, undefined, evaluatorRegion);
       },
       {
         detail: { description: "ดึงข้อมูลสปก. ตาม id" },

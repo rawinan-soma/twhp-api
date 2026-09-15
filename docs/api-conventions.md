@@ -1,6 +1,6 @@
 # API conventions and integration behavior
 
-This document describes the current HTTP contract and integration behavior of the TWHP API. It is a conventions guide, not a complete route reference. For endpoint-specific fields, see the [generated API reference](api/API.md) or [OpenAPI snapshot](api/openapi.json); when generated artifacts differ from route/service code, the code is authoritative.
+This document describes the current HTTP contract and integration behavior of the TWHP API, verified on 2026-08-25 and re-checked on 2026-09-02. It is a conventions guide, not a complete route reference. For endpoint-specific fields, see the [generated API reference](api/API.md) or [OpenAPI snapshot](api/openapi.json); when generated artifacts differ from route/service code, the code is authoritative.
 
 Known defects and contract drift are called out explicitly so clients do not mistake current behavior for the intended long-term design.
 

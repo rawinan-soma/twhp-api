@@ -2,6 +2,8 @@
 
 This document describes the deployment behavior implemented by `Dockerfile`, `docker-compose.yaml`, and the Nginx configurations. It also records the operational gaps that must be resolved outside the current repository.
 
+Verified 2026-07-15; re-checked 2026-09-02. `Dockerfile` and `docker-compose.yaml` were last changed on 2026-04-20 and `nginx/` on 2026-07-02, so every statement here stands unchanged. Nothing delivered since the original audit addressed the release, backup, rollback, or artifact-immutability gaps below.
+
 For developer setup, see [Development](development.md). For persistence details, see [Database](database.md).
 
 ## Current deployment model
