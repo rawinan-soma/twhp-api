@@ -2,7 +2,11 @@ import { t } from "elysia";
 import type { App } from "../../..";
 import { factoryGuard } from "../../../middleware/guards";
 import { BaseEnrollSelect } from "../../../schema";
-import { CreateEnrollWithFilesSchema, UpdateEnrollWithFilesSchema } from "../../../schema/enroll";
+import {
+  CreateEnrollWithFilesSchema,
+  goldEnrolmentLockoutMessage,
+  UpdateEnrollWithFilesSchema,
+} from "../../../schema/enroll";
 import { FiscalYearQuery } from "../../../schema/fiscal-year";
 import { enrollService } from "../../../service/enroll";
 
@@ -39,8 +43,7 @@ export default (app: App) =>
               }),
               t.Object({
                 message: t.String({
-                  default:
-                    "enrollment is closed after a gold-tier award; next eligible fiscal year is 2028",
+                  default: goldEnrolmentLockoutMessage(2028),
                   description:
                     "gold-tier award in the previous two fiscal years; names the next fiscal year (Common Era) the factory may enrol",
                 }),

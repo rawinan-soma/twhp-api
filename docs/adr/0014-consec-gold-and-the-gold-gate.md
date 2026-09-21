@@ -51,7 +51,7 @@ finalize or the FY2566 import. No row, or a `silver`/`certificate`/`joined` row,
 
 An award in fiscal year A closes enrolment creation in A + 1 and A + 2; A + 3 is open
 (`GOLD_ENROLMENT_LOCKOUT_YEARS = 2`). `enrollService.create` asks
-`awardHistory.enrolmentLockedUntil(factoryId, Y)`, which walks Y − 1 and Y − 2 through the same
+`awardHistory.firstEligibleEnrolmentYear(factoryId, Y)`, which walks Y − 1 and Y − 2 through the same
 `heldGoldTierIn` the grading path uses and returns the first fiscal year the factory may enrol in, or
 `null`. It runs after the duplicate-enrolment guard and before any upload, so a rejected enrolment
 leaves no object in storage. Rejection is 400. The message names that year in Common Era — the

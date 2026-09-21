@@ -11,7 +11,11 @@ import {
   provinces,
   subdistricts,
 } from "../drizzle/schema";
-import type { CreateEnrollWithFilesDto, UpdateEnrollWithFilesDto } from "../schema/enroll";
+import {
+  type CreateEnrollWithFilesDto,
+  goldEnrolmentLockoutMessage,
+  type UpdateEnrollWithFilesDto,
+} from "../schema/enroll";
 import { buildPage, type PaginationQueryDto, resolvePage } from "../schema/pagination";
 import { utilities } from "../utils";
 import { createAwardHistory } from "./awardHistory";
@@ -245,10 +249,10 @@ export const createEnrollService = (database: typeof db) => {
 
       // The Gold plaque is valid for three fiscal years, so a gold-tier winner sits out the next
       // two. Checked before any upload: a rejected enrolment must leave nothing in storage.
-      const eligibleFrom = await awardHistory.enrolmentLockedUntil(factoryId, fiscalYear);
+      const eligibleFrom = await awardHistory.firstEligibleEnrolmentYear(factoryId, fiscalYear);
       if (eligibleFrom !== null) {
         return status(400, {
-          message: `enrollment is closed after a gold-tier award; next eligible fiscal year is ${eligibleFrom}`,
+          message: goldEnrolmentLockoutMessage(eligibleFrom),
         });
       }
 

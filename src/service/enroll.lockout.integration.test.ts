@@ -29,6 +29,9 @@ const F_DUPLICATE = 99997;
 const F_UPLOAD = 99998;
 const F_CONTROL = 99999;
 const F_BOTH = 99989;
+const F_CERT = 99988;
+const F_JOINED = 99987;
+const F_PRIOR_UNFINISHED = 99986;
 const ALL_FACTORIES = [
   F_GOLD_Y1,
   F_GOLD_Y2,
@@ -41,8 +44,12 @@ const ALL_FACTORIES = [
   F_UPLOAD,
   F_CONTROL,
   F_BOTH,
+  F_CERT,
+  F_JOINED,
+  F_PRIOR_UNFINISHED,
 ];
 
+const SEEDED_EVALUATOR_ID = 78; // seeded ODPC evaluator (FK target for enroll eval_* ids)
 const TEST_PROVINCE_ID = 10; // seeded province with seeded region evaluators
 
 const currentYear = utilities().getFiscalYear().fiscalYear;
@@ -195,16 +202,17 @@ describe("Ticket 03 — gold-tier enrolment lockout", () => {
     expect(codeOf(await enrollService.create(dto(), F_CONSEC_Y2))).toBe(400);
   });
 
-  it("carries no lockout for silver, certificate or joined", async () => {
-    // One factory, three non-gold grades in three different years.
-    await award(F_SILVER, currentYear - 1, "silver");
-    await award(F_SILVER, currentYear - 2, "certificate");
-    await award(F_SILVER, currentYear - 3, "joined");
+  it.each([
+    ["silver", F_SILVER],
+    ["certificate", F_CERT],
+    ["joined", F_JOINED],
+  ] as const)("carries no lockout for %s in FY − 1", async (grade, factoryId) => {
+    await award(factoryId, currentYear - 1, grade);
 
-    const result = await enrollService.create(dto(), F_SILVER);
+    const result = await enrollService.create(dto(), factoryId);
 
     expect(result).not.toBeInstanceOf(ElysiaCustomStatusResponse);
-    expect(await enrollsOf(F_SILVER)).toHaveLength(1);
+    expect(await enrollsOf(factoryId)).toHaveLength(1);
   });
 
   it("does not lock out a factory with no Awards row", async () => {
@@ -214,6 +222,24 @@ describe("Ticket 03 — gold-tier enrolment lockout", () => {
 
     expect(result).not.toBeInstanceOf(ElysiaCustomStatusResponse);
     expect(await enrollsOf(F_NO_AWARD)).toHaveLength(1);
+  });
+
+  it("does not lock out a factory whose FY − 1 enrolment never reached a finished Cover", async () => {
+    // Enrolled last fiscal year, Cover left in progress: finalize never ran, so no Awards row.
+    const { fiscalYearStart } = utilities().getFiscalYear(currentYear - 1);
+    await db.insert(enrolls).values({
+      ...dto(),
+      factoryId: F_PRIOR_UNFINISHED,
+      enrollDate: new Date(fiscalYearStart.getTime() + 86_400_000).toISOString(),
+      evalDohId: SEEDED_EVALUATOR_ID,
+      evalOdpcId: SEEDED_EVALUATOR_ID,
+      evalMentalId: SEEDED_EVALUATOR_ID,
+    });
+
+    const result = await enrollService.create(dto(), F_PRIOR_UNFINISHED);
+
+    expect(result).not.toBeInstanceOf(ElysiaCustomStatusResponse);
+    expect(await enrollsOf(F_PRIOR_UNFINISHED)).toHaveLength(2);
   });
 
   it("names the next fiscal year the factory may enrol in", async () => {

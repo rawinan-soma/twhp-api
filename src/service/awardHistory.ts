@@ -56,10 +56,10 @@ export const createAwardHistory = (database: typeof db) => {
     /**
      * The first fiscal year the factory may enrol in, when a gold-tier award in one of the
      * `GOLD_ENROLMENT_LOCKOUT_YEARS` fiscal years before `enrolFiscalYear` bars it from enrolling
-     * in `enrolFiscalYear`; `null` when it is free to enrol. The latest award decides, so a factory
+     * in `enrolFiscalYear`; `null` when it is free to enrol now. The latest award decides, so a factory
      * holding gold in both years is barred until the later one lapses.
      */
-    enrolmentLockedUntil: async (factoryId: number, enrolFiscalYear: number) => {
+    firstEligibleEnrolmentYear: async (factoryId: number, enrolFiscalYear: number) => {
       for (let back = 1; back <= GOLD_ENROLMENT_LOCKOUT_YEARS; back++) {
         if (await heldGoldTierIn(factoryId, enrolFiscalYear - back)) {
           return enrolFiscalYear - back + GOLD_ENROLMENT_LOCKOUT_YEARS + 1;

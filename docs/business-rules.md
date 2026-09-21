@@ -119,14 +119,14 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 ### BR-07 — One Enrollment per Factory per fiscal year
 
 - **Rule:** Enrollment creation pre-checks for an existing row for that Factory in the current fiscal interval.
-- **Implementation:** `enrollService.create` at `src/service/enroll.ts:181-245`; `Enrolls` schema.
+- **Implementation:** `enrollService.create` in `src/service/enroll.ts`; `Enrolls` schema.
 - **Inputs/conditions:** authenticated Factory and no matching row.
 - **Result:** creation proceeds; detected duplicate returns 400.
 - **Gold-tier lockout:** creation is also rejected with 400 when `Awards` holds a `gold` or
   `consec-gold` row for the Factory in fiscal year Y − 1 or Y − 2 (Y = the enrolment's fiscal year,
   Common Era). The Gold plaque is valid for three fiscal years, so an award in A closes A + 1 and
   A + 2 and A + 3 is open. The message names the next eligible fiscal year (Common Era). The check
-  runs after the duplicate guard and before any upload, through `awardHistory.enrolmentLockedUntil`
+  runs after the duplicate guard and before any upload, through `awardHistory.firstEligibleEnrolmentYear`
   (ADR-0014). `silver`/`certificate`/`joined` and no row carry no lockout; update and delete are
   unguarded, and there is no override.
 - **Edges/failure:** no database uniqueness or fiscal-year key. Concurrent/direct writes can duplicate; owner lookups use nondeterministic `.limit(1)`.
