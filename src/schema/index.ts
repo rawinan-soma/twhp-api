@@ -69,7 +69,6 @@ export const BaseCoverUpdate = createUpdateSchema(covers);
 
 // Awards
 export const BaseAwardSelect = createSelectSchema(awards);
-export const BaseAwardInsert = createInsertSchema(awards);
 
 // CoverLogs
 export const BaseCoverLogSelect = createSelectSchema(coverLogs);

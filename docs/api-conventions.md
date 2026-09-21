@@ -363,7 +363,7 @@ Only ODPC, or a DOED admin acting as national ODPC, may finalize a cover. Finali
 2. promotes `recommended` answers to `finished`;
 3. deletes and nulls evidence for rejected results;
 4. writes a cover-status transition;
-5. calculates grade on demand;
+5. calculates the grade and stores it in `Awards` in the same transaction as the `finished` log;
 6. attempts to enqueue a factory result email.
 
 See [ADR-0003](adr/0003-hierarchical-odpc-gated-cover-review.md), [ADR-0004](adr/0004-verdict-score-consensus-loop.md), [ADR-0005](adr/0005-per-answer-verdict-save.md), and [ADR-0006](adr/0006-delete-files-on-change-score.md).

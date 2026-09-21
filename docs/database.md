@@ -38,11 +38,13 @@ erDiagram
     Provinces ||--o{ ProvincialOfficers : "province_id; RESTRICT"
 
     Factories ||--o{ Enrolls : "factory_id; RESTRICT"
+    Factories ||--o{ Awards : "factory_id; RESTRICT"
     Evaluators ||--o{ Enrolls : "eval_doh_id; RESTRICT"
     Evaluators ||--o{ Enrolls : "eval_odpc_id; RESTRICT"
     Evaluators ||--o{ Enrolls : "eval_mental_id; RESTRICT"
     Enrolls ||--o{ Covers : "enroll_id; CASCADE"
     Covers ||--o{ CoverLogs : "cover_id; NO ACTION"
+    Covers ||--o| Awards : "cover_id; RESTRICT; nullable"
     Covers ||--o{ Answers : "cover_id; NO ACTION"
     Questions ||--o{ Answers : "question_id; NO ACTION"
     Answers ||--o{ AnswerLogs : "answer_id; RESTRICT"
@@ -123,6 +125,7 @@ All are **Verified** in `src/drizzle/schema.ts`.
 | `questionCategories` / `QuestionCategories` | `Collaborate`, `Disease`, `Safety`, `Mental`, `Outcome` | lines 316-322 |
 | `standardTypes` / `StandardTypes` | `standardHC`, `standardSAN`, `standardSANPlus`, `standardWellness`, `standardSafety`, `standardTIS18001`, `standardISO45001`, `standardISO14001`, `standardZero`, `standard5S`, `standardHAS` | lines 324-337 |
 | `choices` / `Choices` | `0`, `1`, `2`, `3`, `n/a` | line 351 |
+| `grades` / `Grades` | `gold`, `silver`, `certificate`, `joined` (`consec-gold` arrives with the consecutive-gold work) | `src/drizzle/schema.ts` |
 
 Several database type names are quoted/mixed-case, so raw SQL must quote them exactly. `AnswerLogs.verdict_choice` physically permits `n/a` because it uses `Choices`; the verdict API restricts score changes to `0`-`3` (`src/schema/evaluator-review.ts:77-85`). That narrower rule is application-only.
 
@@ -235,6 +238,20 @@ There is no uniqueness on Factory/date and no constraint proving evaluator level
 - TypeScript field `startDate` maps to physical column `enroll_date`, `timestamp(3) DEFAULT CURRENT_TIMESTAMP`.
 
 There is no unique constraint on `enroll_id`.
+
+### Awards
+
+`Awards` is the permanent record of what each factory has won, written by finalize (ADR-0001, amended).
+
+- `id serial` — PK.
+- `factory_id` — FK to `Factories.account_id`; delete `RESTRICT`, update cascade.
+- `fiscal_year int` — **Common Era** year the fiscal year ends in (FY2569 is `2026`). `CHECK` between 2000 and 2100 (`Awards_fiscal_year_range`), so a Buddhist Era year is rejected on the first bad write.
+- `grade Grades`.
+- `cover_id int NULL` — FK to `Covers.id`; delete `RESTRICT`, so an awarded Cover cannot be deleted. Null for imported history that has no Cover here.
+- `awarded_at timestamp(3) DEFAULT CURRENT_TIMESTAMP`.
+- Unique `Awards_factory_id_fiscal_year_key` on (`factory_id`, `fiscal_year`), and unique `Awards_cover_id_key` on `cover_id`. Postgres treats nulls as distinct, so many imported rows coexist while each real Cover is awarded at most once.
+
+Finalize inserts the row in the same transaction as the `finished` `CoverLogs` row, with the Cover's own fiscal year, and `ON CONFLICT (cover_id) DO NOTHING` so a repeat finalize keeps the first Grade. The table, column and constraint names are a contract with the manual backfill SQL in `.scratch/consecutive-gold-award/`.
 
 ### CoverLogs
 

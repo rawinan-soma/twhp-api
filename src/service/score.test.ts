@@ -227,6 +227,19 @@ describe("Story 008/009 — Score Report Shape (nested scoring)", () => {
     expect(Value.Check(GradeSchema, null)).toBe(false);
   });
 
+  it("AC: GradeSchema keeps the JSON-schema shape it had before it was derived from the enum", () => {
+    // The OpenAPI contract is the schema's JSON shape, which the finalize and Score Report routes
+    // publish — deriving it from the database enum must not change it.
+    expect(JSON.parse(JSON.stringify(GradeSchema))).toEqual({
+      anyOf: [
+        { const: "gold", type: "string" },
+        { const: "silver", type: "string" },
+        { const: "certificate", type: "string" },
+        { const: "joined", type: "string" },
+      ],
+    });
+  });
+
   it("AC: values outside the Grade enum are rejected", () => {
     expect(
       Value.Check(ScoreReportSchema, {

@@ -520,6 +520,10 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         .limit(1)
         .then((r) => r[0]);
 
+      // The Cover's enrolment is what the award is written against; without it there is nothing to
+      // finalize. Unreachable once `assertCoverAccess` has passed, but it keeps the type honest.
+      if (!enrollData) return status(404, { message: "cover not found" });
+
       // Every answer in the cover + grading inputs + files
       const allCoverAnswers = await database
         .select({
@@ -710,9 +714,7 @@ export const createEvaluatorReviewService = (database: typeof db) => {
 
       // The Cover's own fiscal year, not the current one: a past-year Cover can be finalized after
       // rollover (ODPC/DOED past-year authority, the Factory grace window).
-      const awardFiscalYear = enrollData
-        ? utilities().getFiscalYearOf(new Date(enrollData.enrollDate))
-        : null;
+      const awardFiscalYear = utilities().getFiscalYearOf(new Date(enrollData.enrollDate));
 
       const grade = await database.transaction(async (tx) => {
         for (const row of promotionRows) {
@@ -774,10 +776,6 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           .values({ coverId, status: newCoverStatus, evaluatorId: accountId });
 
         if (computedGrade === null) return null;
-        // Never finish a Cover without its award: abort the transaction instead of skipping.
-        if (!enrollData || awardFiscalYear === null) {
-          throw new Error(`cover ${coverId} has no enrollment to award`);
-        }
 
         // Same transaction as the `finished` log, so a Cover cannot be finished without an award.
         // A repeat finalize keeps the first stored Grade: the conflict target is the Cover only, so

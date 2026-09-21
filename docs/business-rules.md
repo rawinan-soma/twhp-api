@@ -295,8 +295,8 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Rule:** Points are 3/2/1/0; N/A is excluded. Percentage is `Math.round(achieved / (3 × scoredCount) × 100)`. Total combines raw Answers, not category percentages. Score is available for `in_review` and `finished`; list endpoints omit `in_progress`.
 - **Implementation:** `scoreHelpers.CHOICE_POINTS/scoreGroup/calculateBreakdown`; `scoreService`; ADR-0001; score tests.
 - **Inputs/conditions:** current-fiscal accessible Cover and current `Answers.selectedChoice` rows.
-- **Result:** on-demand nested Score Report; grade null unless finished.
-- **Edges/failure:** all-N/A/empty group returns zeros. AnswerLogs are not consulted. No completeness gate exists beyond Cover status, and rule changes retroactively rescore history.
+- **Result:** on-demand nested Score Report; `grade` is the stored `Awards` value, null unless finished (or not yet awarded).
+- **Edges/failure:** all-N/A/empty group returns zeros. AnswerLogs are not consulted. No completeness gate exists beyond Cover status. The breakdown is recomputed from current Answers, but the Grade is not: it is stored at finalize and does not change when rules or Answers later change.
 - **Failure behavior:** own missing Cover 404; own in-progress Cover 400; list path silently omits non-ready Covers.
 - **Risk of change:** Very high—published and historical results.
 - **Confidence:** **Verified.**
@@ -306,7 +306,7 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Rule:** Evaluate top-down: gold when every category is >80, total ≥90, and every `special > 0` Answer is `3`; silver when every category is >60 and total ≥80; certificate when total ≥60; otherwise joined. Grade exists only for finished Covers.
 - **Implementation:** `scoreHelpers.computeGrade`; `scoreService`; `evaluatorReviewService.finalize`.
 - **Inputs/conditions:** rounded score groups and current choices.
-- **Result:** one on-demand award tier.
+- **Result:** one award tier, computed once at finalize and stored in `Awards` (ADR-0001, amended); read paths return the stored value.
 - **Edges/failure:** code's gold gate includes `special=2`; `CONTEXT.md` says only 1 or 3. Code is authoritative. Empty categories score 0 and prevent gold/silver. Direct grade boundary/special tests are absent.
 - **Failure behavior:** no explicit error; a prose-based implementation would silently award a different grade.
 - **Risk of change:** Very high—award eligibility and prior reports.

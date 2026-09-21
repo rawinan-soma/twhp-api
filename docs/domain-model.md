@@ -47,7 +47,7 @@ The three evaluator IDs stored on an Enrollment are not authorization boundaries
 | Live Choice | The value used by Score and Grade: `Answers.selectedChoice`. Finalize writes each settled Verdict Score into that column, so the corrected value and the live choice converge at finalize. |
 | Evidence | PDF up to 10 MB stored in MinIO; the Answer or Enrollment stores only its filename. |
 | Score | Rounded, on-demand percentage calculated from current Answer choices; never persisted. |
-| Grade | On-demand finished-Cover award: `gold`, `silver`, `certificate`, or `joined`. |
+| Grade | Finished-Cover award, computed once at finalize and stored in `Awards` (never recomputed): `gold`, `silver`, `certificate`, or `joined`. |
 | 2FA Challenge | Redis-only pending staff login containing account ID, hashed OTP, and attempts. |
 
 ## Entities and relationships

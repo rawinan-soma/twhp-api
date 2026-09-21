@@ -265,11 +265,7 @@ export const createScoreService = (database: typeof db) => {
       const scoring = calculateBreakdown(mappedAnswers);
       const grade =
         coverStatus === "finished"
-          ? await database
-              .select({ grade: awards.grade })
-              .from(awards)
-              .where(eq(awards.coverId, coverRow.coverId))
-              .then((rows) => rows[0]?.grade ?? null)
+          ? ((await storedGrades([coverRow.coverId])).get(coverRow.coverId) ?? null)
           : null;
 
       return {

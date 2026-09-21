@@ -289,14 +289,24 @@ describe("Awards — finalize writes exactly one row", () => {
     expect(row.coverId).toBe(coverId);
   });
 
-  it("AC: a second finalize of the same Cover cannot write a second award row", async () => {
-    await reviewService.finalize(coverId, odpcCtx).catch(() => undefined);
-    expect(await awardsOf(coverId)).toHaveLength(1);
+  it("AC: a second finalize of the same Cover cannot write a second award row or change the Grade", async () => {
+    // Make a recomputation disagree with the stored gold, so keeping the first Grade is observable.
+    await db.update(answers).set({ selectedChoice: "0" }).where(eq(answers.coverId, coverId));
+
+    const again = await reviewService.finalize(coverId, odpcCtx);
+
+    const rows = await awardsOf(coverId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].grade).toBe("gold");
+    if (code(again) === 200) {
+      expect((again as unknown as { response: { grade: string } }).response.grade).toBe("gold");
+    }
   });
 
-  it("AC: the award of a past-year Cover finalized now carries the Cover's year, not the current one", async () => {
-    const pastStart = utilities().getFiscalYear(currentYear - 1).fiscalYearStart;
-    const enrollDate = new Date(pastStart.getTime() + 86_400_000).toISOString();
+  it("AC: a Cover enrolled in the last minute of the previous fiscal year is awarded that year, not the current one", async () => {
+    // 30 Sep 23:59 Bangkok — one minute before the rollover boundary — finalized long after it.
+    const boundary = utilities().getFiscalYear(currentYear).fiscalYearStart;
+    const enrollDate = new Date(boundary.getTime() - 60_000).toISOString();
     const { coverId: pastCover } = await seedCover(F_PAST, { choice: "3", enrollDate });
 
     const res = await reviewService.finalize(pastCover, odpcCtx);
