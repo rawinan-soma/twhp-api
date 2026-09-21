@@ -2,7 +2,7 @@
 
 # 05 — CONTEXT.md glossary for provincial read access
 
-Status: ready-for-agent
+Status: closed (resolved 2026-09-03 — merged in PR #10, 1f1f069)
 Category: enhancement
 Depends on: 01, 02, 03, 04
 
@@ -44,3 +44,7 @@ Terms to capture:
 - An ADR. The trade-offs here are reversible and follow the existing region-scoping pattern; nothing
   warrants one unless the reviewer disagrees.
 - Rewriting unrelated glossary entries.
+
+## Comments
+
+- 2026-09-21: Closed. Implemented in PR #10 (merge commit `1f1f069`), merged into `dev` on 2026-09-03 and reached `main` via `608cf91`.

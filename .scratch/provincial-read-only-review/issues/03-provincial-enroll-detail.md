@@ -2,7 +2,7 @@
 
 # 03 — Provincial enrollment detail endpoint
 
-Status: ready-for-agent
+Status: closed (resolved 2026-09-03 — merged in PR #6, 61a2461)
 Category: enhancement
 
 ## Agent Brief
@@ -42,3 +42,7 @@ non-existent id, so the endpoint never confirms that an out-of-province enrollme
 **Out of scope:**
 - Adding a scope check to the Evaluator endpoint. Tracked in `.scratch/evaluator-detail-scope/`.
 - Any mutation of the enrollment.
+
+## Comments
+
+- 2026-09-21: Closed. Implemented in PR #6 (merge commit `61a2461`), merged into `dev` on 2026-09-03 and reached `main` via `608cf91`.

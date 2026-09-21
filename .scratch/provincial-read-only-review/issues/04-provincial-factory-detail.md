@@ -2,7 +2,7 @@
 
 # 04 — Provincial factory detail endpoint
 
-Status: ready-for-agent
+Status: closed (resolved 2026-09-03 — merged in PR #7, b901ec8)
 Category: enhancement
 
 ## Agent Brief
@@ -40,3 +40,7 @@ The endpoint **enforces province scope**: a factory outside the Officer's provin
 **Out of scope:**
 - Adding a scope check to the Evaluator endpoint. Tracked in `.scratch/evaluator-detail-scope/`.
 - Any mutation of the factory record, including validation flags.
+
+## Comments
+
+- 2026-09-21: Closed. Implemented in PR #7 (merge commit `b901ec8`), merged into `dev` on 2026-09-03 and reached `main` via `608cf91`.
