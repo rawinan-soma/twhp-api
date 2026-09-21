@@ -19,6 +19,24 @@ The three are one feature, not three, because the lockout is what makes the
 years, so "gold three fiscal years ago" and "continuous gold" describe the same
 factory.
 
+## Year convention
+
+The fiscal-year labels in these tickets (FY2566, FY2569, ...) are **Buddhist
+Era**, as the programme uses them. The database and the API store **Common
+Era**, per `src/schema/fiscal-year.ts` — no Buddhist Era value crosses the API.
+
+| Label | Stored `fiscal_year` | Window (Asia/Bangkok) |
+| --- | --- | --- |
+| FY2566 | 2023 | 1 Oct 2022 – 30 Sep 2023 |
+| FY2567 | 2024 | 1 Oct 2023 – 30 Sep 2024 |
+| FY2568 | 2025 | 1 Oct 2024 – 30 Sep 2025 |
+| FY2569 | 2026 | 1 Oct 2025 – 30 Sep 2026 |
+| FY2570 | 2027 | 1 Oct 2026 – 30 Sep 2027 |
+
+Resolve windows only through `utilities().getFiscalYear(year)` and
+`getFiscalYearOf(date)` in `src/utils.ts`. "Three fiscal years back" is
+`getFiscalYear(year - 3)`. No new helper is needed.
+
 ## The certification cycle
 
 The Gold plaque is effectively valid for three fiscal years.
@@ -81,9 +99,9 @@ Finalize writes a row when it moves a Cover to `finished`. The FY2566 import
 that year exists in this system. Both new rules read this one table through a
 single resolver and never recompute a past Grade.
 
-Fiscal year is stored as a **Thai Buddhist year integer naming the year the
-fiscal year ends** - FY2566 is 1 Oct 2022 to 30 Sep 2023, derived from the shared
-helper as `fiscalYearStart.getFullYear() + 544`.
+Fiscal year is stored as the **Common Era** year the fiscal year ends in, the
+same convention `src/schema/fiscal-year.ts` uses: FY2566 is stored as `2023`.
+See "Year convention" below.
 
 This supersedes the consequence recorded in ADR-0001 — *"If scoring rules change,
 old covers are automatically re-scored with the new rules. This is acceptable —
@@ -151,5 +169,7 @@ an agent: FY2566-FY2568 golds inserted by the maintainer, FY2569 by the SQL in
 4. Run `backfill-fy2569.sql`.
 5. Deploy the new API code.
 6. 1 Oct - FY2570 opens; finalize writes every award from here.
+7. After 31 Oct - run SQL step 6 to review FY2569 Covers finalized after the
+   release. Those use the new gold rule; the maintainer accepted this.
 
 Full detail in issue 04.

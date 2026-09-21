@@ -48,8 +48,8 @@ in fiscal year Y − 1 or Y − 2.
 - The enrolment creation route already declares a union of 400 message shapes;
   the new message is added as a further variant so the OpenAPI contract stays
   accurate.
-- The fiscal-year helper needs the same "N fiscal years back" capability that
-  issue 02 introduces, over Thai year integers. Share one helper.
+- The enrolment's fiscal year Y comes from `utilities().getFiscalYear()`. Y − 1
+  and Y − 2 are plain integer arithmetic on the Common Era `fiscal_year`.
 - The gold-tier lookup goes through the **same resolver issue 02 uses** - "did
   this factory hold a gold-tier award in fiscal year Y". One owner, as
   `coverStatus.ts` owns latest-Cover-status resolution under ADR-0010. A second

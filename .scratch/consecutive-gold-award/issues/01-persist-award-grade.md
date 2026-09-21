@@ -45,8 +45,9 @@ adds the enum with the four current values; issue 02 adds `consec-gold`.
 An `Awards` table carrying:
 
 - the factory, referencing `Factories.account_id`
-- the fiscal year, as a **Thai Buddhist year integer** naming the year the fiscal
-  year *ends* — FY2566 is 1 Oct 2022 to 30 Sep 2023
+- the fiscal year, as the **Common Era** year the fiscal year ends in — the
+  convention in `src/schema/fiscal-year.ts`. FY2566 (1 Oct 2022 – 30 Sep 2023)
+  is stored as `2023`
 - the Grade
 - the originating Cover, **nullable** — null for imported history
 - an awarded-at timestamp
@@ -62,17 +63,20 @@ Constraints that carry real weight:
 - unique on (factory, fiscal year) — one award per factory per year
 - unique on the Cover reference — Postgres treats nulls as distinct, so many
   imported rows coexist while each real Cover is awarded at most once
-- a check that the fiscal year is plausibly Thai (roughly 2500–2700). The
-  Thai-versus-Gregorian mix-up (2566 against 2023) is the obvious corruption
-  path, and this catches it on the first bad write
+- a check that the fiscal year is between `FISCAL_YEAR_MIN` and
+  `FISCAL_YEAR_MAX` (2000–2100). Writing a Buddhist Era year such as 2566 by
+  mistake is the obvious corruption path, and this catches it on the first bad
+  write
 - the Cover reference restricts deletion. An award is a public record and must
   not be silently orphaned
 
 Other interfaces:
 
-- The fiscal-year helper gains a Thai-year derivation —
-  `fiscalYearStart.getFullYear() + 544` — written once and shared. Per CLAUDE.md
-  fiscal-year arithmetic never happens at a call site.
+- The award's fiscal year is **the Cover's** fiscal year, not the current one. A
+  past-year Cover can be finalized after rollover (ODPC and DOED past-year
+  authority, and the 31-day Factory grace window). Use the existing
+  `fiscalYearOfCover` in the evaluator review service, or `getFiscalYearOf` on
+  the enrolment date. Never `getFiscalYear()` with no argument.
 - `computeGrade()` keeps its signature and stays pure. Finalize writes the result.
 - The award row is written in the same transaction that writes the `finished`
   `coverLogs` row, so a Cover cannot be `finished` without an award.
@@ -83,8 +87,10 @@ Other interfaces:
 **Acceptance criteria:**
 - [ ] Finalizing a Cover writes exactly one `Awards` row; its grade equals what
       `computeGrade()` returned for that Cover at that moment.
-- [ ] The row carries the Cover's fiscal year as a Thai year, derived from the
-      shared helper, and references the originating Cover.
+- [ ] The row carries the Cover's own fiscal year in Common Era, and references
+      the originating Cover.
+- [ ] A FY2026 Cover finalized on 5 Oct 2026 writes `fiscal_year = 2026`, not
+      2027.
 - [ ] A Cover that is `in_review` has no `Awards` row and every read path reports
       `grade: null`.
 - [ ] Re-reading a `finished` Cover returns the stored Grade unchanged after the
@@ -93,7 +99,7 @@ Other interfaces:
 - [ ] A second finalize of the same Cover cannot write a second award row.
 - [ ] Two factories may hold awards in the same fiscal year; one factory may not
       hold two awards in the same fiscal year.
-- [ ] Writing a Gregorian year such as 2023 is rejected by the database.
+- [ ] Writing a Buddhist Era year such as 2566 is rejected by the database.
 - [ ] `ScoreReportSchema` and both finalize route response schemas are unchanged
       in shape — same field, same nullability.
 - [ ] The staff Score Report lists issue no per-item query for the Grade

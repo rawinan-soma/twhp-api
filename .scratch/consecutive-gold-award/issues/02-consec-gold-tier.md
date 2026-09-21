@@ -100,9 +100,10 @@ ad-hoc query over `Awards` is a review failure.
   must be able to resolve the whole page's history in one batched query rather
   than per item (ADR-0011). Give it a parameter carrying "this factory held gold
   in FY − 3", resolved by the caller.
-- The fiscal-year helper currently returns only the current window and has no
-  notion of an offset. It needs to express "the window N fiscal years back".
-  Per CLAUDE.md, fiscal-year boundaries are never hand-rolled at the call site.
+- FY − 3 is the Cover's own fiscal year minus 3, in Common Era — not the current
+  fiscal year minus 3. A past-year Cover finalized after rollover must look back
+  from its own year. `fiscal_year` is an integer, so the lookup is plain
+  arithmetic on it; no date window is needed.
 - The result-notification email maps each grade to a Thai label. `consec-gold` is
   **"รางวัลเชิดชูเกียรติและประกาศนียบัตรระดับประเทศ ประเภท โล่ทองต่อเนื่อง"**, following the
   form the `gold` and `silver` labels already use (…ประเภท โล่ทอง / โล่เงิน). The

@@ -1,6 +1,13 @@
 -- =============================================================================
 -- Backfill FY2569 awards into "Awards"
--- FY2569 = 1 Oct 2025 – 30 Sep 2026
+-- FY2569 = 1 Oct 2025 – 30 Sep 2026, Asia/Bangkok.
+--
+-- Years are stored in Common Era (src/schema/fiscal-year.ts):
+--   FY2566 = 2023, FY2567 = 2024, FY2568 = 2025, FY2569 = 2026.
+--
+-- enroll_date is timestamp without time zone, written in UTC (PostgreSQL runs on
+-- UTC). Midnight 1 Oct Bangkok = 17:00 on 30 Sep UTC, so the FY2569 window is
+-- [2025-09-30 17:00, 2026-09-30 17:00). Same boundary as getFiscalYear(2026).
 --
 -- Run manually, once, after ALL of the following are true:
 --   1. Auditors have finished FY2569 (every Cover finalized) — due 30 Sep 2026.
@@ -29,11 +36,11 @@
 
 
 -- -----------------------------------------------------------------------------
--- Step 0 — FY2566–FY2568 golds (you, by hand). Template:
+-- Step 0 — FY2566–FY2568 golds (you, by hand). Common Era years. Template:
 -- -----------------------------------------------------------------------------
 -- INSERT INTO "Awards" (factory_id, fiscal_year, grade, cover_id) VALUES
---   (1024, 2566, 'gold', NULL),
---   (1187, 2567, 'gold', NULL)
+--   (1024, 2023, 'gold', NULL),   -- FY2566
+--   (1187, 2024, 'gold', NULL)    -- FY2567
 -- ON CONFLICT (factory_id, fiscal_year) DO NOTHING;
 --
 -- Only factories that exist: check first with
@@ -69,8 +76,8 @@ WITH fy_covers AS (
     ORDER BY cl.id DESC            -- latest log = greatest serial id (ADR-0010)
     LIMIT 1
   ) latest ON true
-  WHERE e.enroll_date >= '2025-10-01 00:00:00'
-    AND e.enroll_date <  '2026-10-01 00:00:00'
+  WHERE e.enroll_date >= '2025-09-30 17:00:00'
+    AND e.enroll_date <  '2026-09-30 17:00:00'
     AND latest.status = 'finished'
 )
 SELECT factory_id, array_agg(cover_id) AS cover_ids
@@ -93,8 +100,8 @@ WITH fy_covers AS (
     ORDER BY cl.id DESC
     LIMIT 1
   ) latest ON true
-  WHERE e.enroll_date >= '2025-10-01 00:00:00'
-    AND e.enroll_date <  '2026-10-01 00:00:00'
+  WHERE e.enroll_date >= '2025-09-30 17:00:00'
+    AND e.enroll_date <  '2026-09-30 17:00:00'
     AND latest.status = 'finished'
 ),
 sums AS (
@@ -141,7 +148,7 @@ graded AS (
         THEN CASE WHEN EXISTS (
                     SELECT 1 FROM "Awards" aw
                     WHERE aw.factory_id = p.factory_id
-                      AND aw.fiscal_year = 2566
+                      AND aw.fiscal_year = 2023   -- FY2566
                       AND aw.grade IN ('gold', 'consec-gold'))
                   THEN 'consec-gold' ELSE 'gold' END
       WHEN least(collaborate, disease, safety, mental, outcome) > 60 AND total >= 80 THEN 'silver'
@@ -172,8 +179,8 @@ WITH fy_covers AS (
     ORDER BY cl.id DESC
     LIMIT 1
   ) latest ON true
-  WHERE e.enroll_date >= '2025-10-01 00:00:00'
-    AND e.enroll_date <  '2026-10-01 00:00:00'
+  WHERE e.enroll_date >= '2025-09-30 17:00:00'
+    AND e.enroll_date <  '2026-09-30 17:00:00'
     AND latest.status = 'finished'
 ),
 sums AS (
@@ -218,7 +225,7 @@ graded AS (
         THEN CASE WHEN EXISTS (
                     SELECT 1 FROM "Awards" aw
                     WHERE aw.factory_id = p.factory_id
-                      AND aw.fiscal_year = 2566
+                      AND aw.fiscal_year = 2023   -- FY2566
                       AND aw.grade IN ('gold', 'consec-gold'))
                   THEN 'consec-gold' ELSE 'gold' END
       WHEN least(collaborate, disease, safety, mental, outcome) > 60 AND total >= 80 THEN 'silver'
@@ -228,7 +235,7 @@ graded AS (
   FROM pct p
 )
 INSERT INTO "Awards" (factory_id, fiscal_year, grade, cover_id)
-SELECT factory_id, 2569, grade::"Grades", cover_id
+SELECT factory_id, 2026, grade::"Grades", cover_id
 FROM graded
 ON CONFLICT (factory_id, fiscal_year) DO NOTHING
 RETURNING factory_id, grade, cover_id;
@@ -241,7 +248,7 @@ RETURNING factory_id, grade, cover_id;
 -- Step 5 — Verify. Both counts must match.
 -- -----------------------------------------------------------------------------
 SELECT
-  (SELECT count(*) FROM "Awards" WHERE fiscal_year = 2569) AS fy2569_awards,
+  (SELECT count(*) FROM "Awards" WHERE fiscal_year = 2026) AS fy2569_awards,
   (SELECT count(*)
      FROM "Covers" c
      JOIN "Enrolls" e ON e.id = c.enroll_id
@@ -249,8 +256,22 @@ SELECT
        SELECT cl.status FROM "CoverLogs" cl
        WHERE cl.cover_id = c.id ORDER BY cl.id DESC LIMIT 1
      ) latest ON true
-    WHERE e.enroll_date >= '2025-10-01 00:00:00'
-      AND e.enroll_date <  '2026-10-01 00:00:00'
+    WHERE e.enroll_date >= '2025-09-30 17:00:00'
+      AND e.enroll_date <  '2026-09-30 17:00:00'
       AND latest.status = 'finished') AS fy2569_finished_covers;
 
-SELECT grade, count(*) FROM "Awards" WHERE fiscal_year = 2569 GROUP BY grade ORDER BY grade;
+SELECT grade, count(*) FROM "Awards" WHERE fiscal_year = 2026 GROUP BY grade ORDER BY grade;
+
+
+-- -----------------------------------------------------------------------------
+-- Step 6 — Late finalizations. Run again after 31 Oct 2026.
+-- FY2569 Covers can still be finalized after the release (31-day Factory grace
+-- window; ODPC and DOED past-year authority). The new code writes those awards
+-- itself, under the NEW gold rule. This lists them so you can review each one.
+-- Replace the timestamp with the time you ran step 4.
+-- -----------------------------------------------------------------------------
+SELECT a.factory_id, a.cover_id, a.grade, a.awarded_at
+FROM "Awards" a
+WHERE a.fiscal_year = 2026
+  AND a.awarded_at > '2026-10-01 00:00:00'   -- <- time of step 4, UTC
+ORDER BY a.awarded_at;

@@ -24,14 +24,15 @@ winner:
 
 ```sql
 INSERT INTO "Awards" (factory_id, fiscal_year, grade, cover_id) VALUES
-  (1024, 2566, 'gold', NULL),
-  (1187, 2567, 'gold', NULL)
+  (1024, 2023, 'gold', NULL),   -- FY2566
+  (1187, 2024, 'gold', NULL)    -- FY2567
 ON CONFLICT (factory_id, fiscal_year) DO NOTHING;
 ```
 
 - `factory_id` is `Factories.account_id`. Insert only factories that exist in
   the system; skip the rest.
-- `fiscal_year` is the Thai year.
+- `fiscal_year` is **Common Era**: FY2566 = `2023`, FY2567 = `2024`,
+  FY2568 = `2025`. Writing 2566 is rejected by the database check.
 - Only golds. No other grade is recorded for these years.
 - `cover_id` is always `NULL`.
 
@@ -72,6 +73,11 @@ The file runs in five steps:
 4. **Insert** inside `BEGIN`. Check the `RETURNING` rows, then `COMMIT` or
    `ROLLBACK`. Re-running inserts nothing new.
 5. **Verify.** The FY2569 award count must equal the FY2569 finished Cover count.
+6. **Late finalizations.** Run again after 31 Oct 2026 — see below.
+
+The FY2569 window in the SQL is `[2025-09-30 17:00, 2026-09-30 17:00)` UTC —
+midnight 1 October in Bangkok, the same boundary as `getFiscalYear(2026)`.
+`enroll_date` is stored in UTC because PostgreSQL runs on UTC.
 
 **The SQL has not been run.** The local database was down when it was written.
 Step 3 is the check: if any previewed grade differs from what the Score Report
@@ -94,6 +100,20 @@ runs.
 The window is tight — FY2570 opens the next day. The programme manager already
 gatekeeps FY2570 enrolment, so a short delay in step 5 does no harm.
 
+## Decision: release after 30 Sep, accept late finalizations
+
+A FY2569 Cover can still be finalized after 30 Sep: a Factory has a 31-day grace
+window (to 31 Oct 2026) to finish a prior-year Cover, and ODPC and DOED can
+finalize past years at any time. The maintainer chose to release after 30 Sep
+anyway.
+
+Consequence, accepted: a FY2569 Cover finalized **after** the release gets its
+award from the new code, under the **new** gold rule, not the rule the auditors
+used. The backfill never sees it, because the Cover was not `finished` when
+the backfill ran.
+
+SQL step 6 lists these awards. Run it after 31 Oct 2026 and review each one.
+
 ## Acceptance criteria
 
 - [ ] Every FY2566–FY2568 gold winner that exists in `Factories` has one row,
@@ -102,6 +122,7 @@ gatekeeps FY2570 enrolment, so a short delay in step 5 does no harm.
 - [ ] Step 3 grades match the live Score Report for a sample of factories,
       including at least one of each grade present.
 - [ ] Step 5 counts match.
+- [ ] Step 6 is run after 31 Oct 2026 and each late award is reviewed.
 - [ ] A FY2569 gold factory with a FY2566 gold row is recorded `consec-gold`.
 - [ ] After step 5 of the run order, every FY2569 Score Report shows the same
       grade as before the release, except consec-gold upgrades.
