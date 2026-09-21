@@ -7,7 +7,7 @@ import { awards } from "../drizzle/schema";
  * The one reader of the `Awards` table for the question "did this factory hold a gold-tier award in
  * fiscal year Y" — see docs/adr/0014-consec-gold-and-the-gold-gate.md.
  *
- * Grading at finalize (`consec-gold`) and the enrolment lockout both ask it. A second ad-hoc query
+ * Grading at finalize (`consec-gold`) asks it today; the enrolment lockout (issue 03) is the second caller. A second ad-hoc query
  * over `Awards` for this question is a review failure — two implementations of "held gold" is how
  * two subtly different definitions enter one codebase (the same rule `coverStatus.ts` sets for
  * Cover status under ADR-0010).

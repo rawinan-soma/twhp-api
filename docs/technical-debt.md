@@ -258,7 +258,7 @@ The receiving team should not infer answers to these from source:
 2. **Finalizer race:** CONTEXT/ADRs claim a single finalizer removes races or that a second call is guarded; source has no cover-state/locking/idempotency guard. Choose repeat-call and concurrency semantics.
 3. **Review/edit state:** CONTEXT restricts evaluator/factory activity by cover phase; services use partial answer-state checks. Approve one transition matrix.
 4. **Accepted choice and score:** CONTEXT/ADR-0004 says factory choice remains immutable and score uses accepted choice; negotiation source overwrites `selectedChoice`, and score reads it. Choose the audit model.
-5. **Standards/N/A/grade:** source, seed metadata, and domain prose disagree on accepted standard score, N/A eligibility, (the Gold `special` set is settled — ADR-0014). Product decision and boundary tests are required.
+5. **Standards/N/A/grade:** source, seed metadata, and domain prose disagree on accepted standard score, N/A eligibility. (The Gold `special` set is settled — ADR-0014.) Product decision and boundary tests are required.
 6. **Evidence deletion:** ADR-0006/source delete evidence for every rejected answer at finalize; older CONTEXT/ADR-0005 prose says hard rejects only. Treat ADR-0006 as authority or reverse the code, then update all stale material.
 7. **Cardinality:** domain language treats one enrollment/year, cover/enrollment, and answer/cover/question as guarantees; the database does not. Confirm keys and cleanup before constraints.
 8. **Assignment and scope:** enrollment stores named evaluator IDs, while review authorization uses any same-region/level actor. Decide whether assignment is authorization, routing, or audit-only.

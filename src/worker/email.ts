@@ -135,10 +135,10 @@ const sendPasswordResetEmail = async (data: { email: string; token: string }) =>
 const sendVerdictResultFinishedEmail = async (data: {
   email: string;
   cc?: string;
-  grade: string | null;
+  grade: Grade | null;
   factoryNameTh: string;
 }) => {
-  const gradeLabel = data.grade ? (GRADE_LABEL[data.grade as Grade] ?? data.grade) : "-";
+  const gradeLabel = data.grade ? GRADE_LABEL[data.grade] : "-";
   try {
     await sendAndLog("verdict-result-finished", {
       from: `Total Worker health support <${env.SMTP_USER}>`,
