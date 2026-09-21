@@ -12,3 +12,9 @@ export const GOLD_TIER_GRADES = ["consec-gold", "gold"] as const satisfies reado
 
 /** How many fiscal years back `consec-gold` looks for a gold-tier award (docs/adr/0014). */
 export const CONSEC_GOLD_LOOKBACK_YEARS = 3;
+
+/**
+ * How many fiscal years after a gold-tier award a factory may not enrol (docs/adr/0014). The plaque
+ * is valid for three fiscal years: an award in year A blocks A + 1 and A + 2, and A + 3 is open.
+ */
+export const GOLD_ENROLMENT_LOCKOUT_YEARS = 2;

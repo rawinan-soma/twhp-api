@@ -47,6 +47,17 @@ finalize or the FY2566 import. No row, or a `silver`/`certificate`/`joined` row,
   excluded from the percentages. A first-year factory answering *เข้าร่วมเป็นปีแรก* on the one
   `special == 2` Question that offers it is therefore not eligible for `consec-gold`.
 
+### The enrolment lockout
+
+An award in fiscal year A closes enrolment creation in A + 1 and A + 2; A + 3 is open
+(`GOLD_ENROLMENT_LOCKOUT_YEARS = 2`). `enrollService.create` asks
+`awardHistory.enrolmentLockedUntil(factoryId, Y)`, which walks Y − 1 and Y − 2 through the same
+`heldGoldTierIn` the grading path uses and returns the first fiscal year the factory may enrol in, or
+`null`. It runs after the duplicate-enrolment guard and before any upload, so a rejected enrolment
+leaves no object in storage. Rejection is 400. The message names that year in Common Era — the
+convention the API uses everywhere — and its wording is a placeholder until the maintainer supplies
+the Thai text. Only creation is guarded; there is no administrative override.
+
 ### Where the rule lives
 
 - **`computeGrade(breakdown, answers, history)`** stays pure and synchronous. The FY − 3 result is an

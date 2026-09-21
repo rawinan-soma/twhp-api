@@ -14,12 +14,15 @@ import {
 import type { CreateEnrollWithFilesDto, UpdateEnrollWithFilesDto } from "../schema/enroll";
 import { buildPage, type PaginationQueryDto, resolvePage } from "../schema/pagination";
 import { utilities } from "../utils";
+import { createAwardHistory } from "./awardHistory";
 import { latestCoverLogLateral } from "./coverStatus";
 
 /** Cover-status filter value. `none` = enroll has no cover yet. */
 export type CoverStatusFilter = "finished" | "in_progress" | "in_review" | "none";
 
 export const createEnrollService = (database: typeof db) => {
+  const awardHistory = createAwardHistory(database);
+
   /**
    * Shared join chain for every enrollment list read.
    *
@@ -174,7 +177,7 @@ export const createEnrollService = (database: typeof db) => {
     },
 
     create: async (dto: CreateEnrollWithFilesDto, factoryId: number) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+      const { fiscalYear, fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
 
       // Check if any standard is true but file is missing
       const standards = [
@@ -237,6 +240,15 @@ export const createEnrollService = (database: typeof db) => {
       if (existingEnroll) {
         return status(400, {
           message: "already make an enroll in fiscal year",
+        });
+      }
+
+      // The Gold plaque is valid for three fiscal years, so a gold-tier winner sits out the next
+      // two. Checked before any upload: a rejected enrolment must leave nothing in storage.
+      const eligibleFrom = await awardHistory.enrolmentLockedUntil(factoryId, fiscalYear);
+      if (eligibleFrom !== null) {
+        return status(400, {
+          message: `enrollment is closed after a gold-tier award; next eligible fiscal year is ${eligibleFrom}`,
         });
       }
 

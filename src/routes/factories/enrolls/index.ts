@@ -37,6 +37,14 @@ export default (app: App) =>
                   description: "existing enroll",
                 }),
               }),
+              t.Object({
+                message: t.String({
+                  default:
+                    "enrollment is closed after a gold-tier award; next eligible fiscal year is 2028",
+                  description:
+                    "gold-tier award in the previous two fiscal years; names the next fiscal year (Common Era) the factory may enrol",
+                }),
+              }),
             ]),
           },
         },
