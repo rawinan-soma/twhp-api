@@ -37,7 +37,7 @@ The three evaluator IDs stored on an Enrollment are not authorization boundaries
 | Fiscal Year | Half-open interval from October 1 00:00 to the next October 1 00:00, calculated using the application host's local timezone. |
 | Cover | One assessment instance and the unit of scoring. Its current state is the latest CoverLog, resolved through the shared `src/service/coverStatus.ts` helpers (ADR-0010). |
 | CoverLog | Append-only Cover state event. Greatest serial `id` wins; timestamp is informational. |
-| Question | Seeded assessment item with one category, choice text, optional N/A text, standards, and integer `special`. |
+| Question | Seeded assessment item with one category, choice text, optional N/A text, standards, and integer `special`. `special == 1` gates `gold`; `special == 2` additionally gates `consec-gold`; `special == 3` gates no tier (one evidence file per choice). |
 | Standard Question | Question linked to one or more standards. A matching claimed standard forces the Answer to choice `3`. |
 | Answer | Current persisted response to one Question on one Cover, including `selectedChoice` and nine evidence slots. |
 | AnswerLog | Append-only Answer state/verdict event. Greatest serial `id` wins. |

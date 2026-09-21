@@ -66,7 +66,7 @@ const specialsAllFullScore = (answers: AnswerWithCategory[], specials: readonly 
  * The Grade ladder, strictly top-down; the first match wins (docs/adr/0014).
  *
  *   consec-gold  the gold gate AND every `special == 2` Answer at "3" AND `history` holds gold in FY-3
- *   gold         every category > 80%, total >= 90%, every `special` 1 and 3 Answer at "3"
+ *   gold         every category > 80%, total >= 90%, every `special == 1` Answer at "3"
  *   silver       every category > 60% AND total >= 80%
  *   certificate  total >= 60%
  *   joined       otherwise
@@ -90,8 +90,9 @@ export const computeGrade = (
   const meetsGoldGate =
     categories.every((c) => c.percentage > 80) &&
     breakdown.total.percentage >= 90 &&
-    specialsAllFullScore(answers, [1, 3]);
+    specialsAllFullScore(answers, [1]);
 
+  // `special == 3` gates no tier: it only means one evidence file per choice (answerFileRules.ts).
   if (meetsGoldGate && specialsAllFullScore(answers, [2]) && history.heldGoldTierInFyMinus3)
     return "consec-gold";
 

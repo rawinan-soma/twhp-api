@@ -1,6 +1,6 @@
 # ADR 0014: The five-grade ladder, the FY − 3 rule, and the settled gold gate
 
-**Status:** Accepted (2026-09-21)
+**Status:** Accepted (2026-09-21); the `gold` special gate is corrected by the [Amendment](#amendment-2026-09-21-the-gold-gate-is-special--1-only) below — read that before the tables here.
 
 **Builds on:** [ADR-0001](0001-score-calculated-on-demand.md) (amended: the Grade is stored at finalize).
 The `Awards` table that this ADR reads is what that amendment introduced.
@@ -23,16 +23,16 @@ Five grades, evaluated strictly top-down, first match wins:
 | Grade | Gate |
 | --- | --- |
 | `consec-gold` | the `gold` gate **and** every `special == 2` Answer scored `"3"` **and** a gold-tier award in fiscal year FY − 3 |
-| `gold` | every category > 80%, total >= 90%, every `special == 1` and `special == 3` Answer scored `"3"` |
+| `gold` | every category > 80%, total >= 90%, every `special == 1` Answer scored `"3"` *(as amended; first accepted as `special` 1 and 3)* |
 | `silver` | every category > 60% and total >= 80% |
 | `certificate` | total >= 60% |
 | `joined` | otherwise |
 
-**The `gold` gate was settled in favour of `CONTEXT.md`; it was not invented.** Against the documented
-rule nothing changed. Against the *deployed code* `gold` becomes easier to reach, because the five
-`special == 2` Questions stop gating it. The `consec-gold` special gate — `special` in `{1, 2, 3}` — is
-exactly what the code gated `gold` on before, so the old behaviour moved up one tier and acquired a
-history check.
+**The `gold` gate was first settled in favour of `CONTEXT.md` (`special` 1 and 3), and the maintainer
+has since corrected it to `special == 1` only** — see the Amendment. Against the *deployed code*
+(`special > 0`) `gold` becomes easier to reach, because the five `special == 2` and the three
+`special == 3` Questions stop gating it. The `consec-gold` special gate is `special` in `{1, 2}`.
+`special == 3` gates no tier.
 
 **"Held a gold-tier award in FY − 3"** means the `Awards` table holds a row for that factory and that
 fiscal year whose grade is `gold` or `consec-gold`. Where the row came from does not matter — a
@@ -97,3 +97,32 @@ the Thai text. Only creation is guarded; there is no administrative override.
   per item on any list path.
 - **Consult FY − 1 and FY − 2 as well (rejected).** A gold winner cannot enrol in those years, so their
   absence carries no information.
+
+## Amendment 2026-09-21: the gold gate is `special == 1` only
+
+The maintainer stated the rule directly: **`gold` requires the literal choice `"3"` on every Question
+where `special == 1`, and on no other `special` value.** The decision above had read `CONTEXT.md`
+("`special` is `1` or `3`") as the intended rule and adopted it; the document itself was wrong, and
+the drift spread into BR-23, `CONTEXT.md`, the PRD, `CLAUDE.md`, `AGENTS.md` and the backfill SQL.
+
+| Grade | Special gate, as amended |
+| --- | --- |
+| `consec-gold` | every `special == 1` **and** every `special == 2` Answer at `"3"`, plus the FY − 3 award |
+| `gold` | every `special == 1` Answer at `"3"` |
+| `silver`, `certificate`, `joined` | none |
+
+- `special == 3` **gates no tier.** It keeps its unrelated meaning: one evidence file per choice
+  (`src/service/answerFileRules.ts`). A `special == 3` Answer below `"3"` blocks neither `gold` nor
+  `consec-gold`.
+- `n/a` still never satisfies a special gate, and a Cover with no gating Answers is graded on its
+  percentages alone. Percentage thresholds and the three lower rungs are unchanged.
+- **The FY2569 backfill uses this same rule** (`.scratch/consecutive-gold-award/backfill-fy2569.sql`),
+  replacing the earlier plan to reproduce the `special > 0` rule the auditors saw. It gates `gold` on
+  `special == 1` and checks `special == 2` explicitly for the `consec-gold` upgrade — the old comment
+  that the gold gate covers `special == 2` held only for `special > 0`.
+- **Effect.** The corrected gate is looser than `special > 0`, so a FY2569 Score Report can only move
+  up after the backfill. It is also looser than the `{1, 3}` gate that ran on `dev`.
+- **No re-grade.** The Grade is stored at finalize (ADR-0001, amended). An `Awards` row written by the
+  `{1, 3}` code on `dev` keeps that Grade; nothing rewrites it. `main` and production never ran `{1, 3}`,
+  so no production row exists. A staging database finalized against `dev` may hold such rows — list
+  them for the maintainer rather than rewriting them.

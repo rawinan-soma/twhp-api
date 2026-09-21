@@ -55,29 +55,28 @@ FY2572  may enrol; wins gold ──┴─> consec-gold
 | Grade | Gate |
 | --- | --- |
 | `consec-gold` | the `gold` gate, **AND** every Answer to a `special == 2` Question scored `"3"`, **AND** the factory held a gold-tier award in fiscal year **FY − 3** |
-| `gold` | every category > 80%, **AND** total >= 90%, **AND** every Answer to a `special == 1` or `special == 3` Question scored `"3"` |
+| `gold` | every category > 80%, **AND** total >= 90%, **AND** every Answer to a `special == 1` Question scored `"3"` |
 | `silver` | every category > 60% AND total >= 80% |
 | `certificate` | total >= 60% |
 | `joined` | otherwise |
 
+> **Corrected 2026-09-21 (ticket 05).** This PRD first specified the `gold` special gate as
+> `special` 1 **and** 3, reading `CONTEXT.md`. The maintainer's rule is **`special == 1` only**;
+> `consec-gold` gates on `special` `{1, 2}`, and `special == 3` gates no tier. See ADR-0014's
+> Amendment. The table above is the corrected rule; the history below is kept as written.
+
 Consequences of the gate change, stated so they are not rediscovered later:
 
-- The `gold` gate is **not a new rule.** `CONTEXT.md` already specifies *"full
-  score on every question where `special` is `1` or `3`"*. The deployed code
-  instead gates on `special > 0`. The conflict is recorded in BR-23
-  (`docs/business-rules.md`), in the conflict table in `docs/domain-model.md`,
-  and as an unsettled item in TD-06 (`docs/technical-debt.md`), which marks it
-  **Required before handover**. This change settles it in favour of `CONTEXT.md`.
-- Against the deployed code, `gold` therefore becomes easier to reach — the five
-  `special == 2` Questions (ids 7, 38, 39, 40, 41) stop gating it, and a Cover
-  that finishes `silver` today can finish `gold` afterwards. Against `CONTEXT.md`
-  nothing changes. Both are true; the first is what operations will observe.
-- `consec-gold`'s special gate — `special` in `{1, 2, 3}` — is exactly the gate
-  the deployed code applies to `gold` today. So current code behaviour moves up
-  one tier and gains a history check, and `gold` falls back to the documented
-  gate.
-- `special == 3` keeps its unrelated second meaning (one evidence file per
-  choice). That is untouched.
+- The `gold` gate was first settled in favour of `CONTEXT.md`'s *"`special` is `1` or `3`"*; the
+  maintainer has since said the rule is `special == 1` only, and `CONTEXT.md` was corrected. The
+  deployed code originally gated on `special > 0`. The conflict was recorded in BR-23
+  (`docs/business-rules.md`), in `docs/domain-model.md`, and as an unsettled item in TD-06.
+- Against the `special > 0` code, `gold` becomes easier to reach — the five `special == 2`
+  Questions (ids 7, 38, 39, 40, 41) and the three `special == 3` Questions (ids 14, 21, 37) stop
+  gating it, and a Cover that finishes `silver` today can finish `gold` afterwards.
+- `consec-gold`'s special gate is `special` in `{1, 2}`. Current code behaviour moves up one tier
+  (looser than before, not identical) and gains a history check.
+- `special == 3` keeps its unrelated meaning (one evidence file per choice). That is untouched.
 
 ### Enrolment lockout
 
@@ -139,14 +138,11 @@ Settled: the `consec-gold` email label is
 **"รางวัลเชิดชูเกียรติและประกาศนียบัตรระดับประเทศ ประเภท โล่ทองต่อเนื่อง"** - the plaque
 name is โล่ทองต่อเนื่อง, wrapped in the same form the gold and silver labels use.
 
-## Assumption resolved
+## Assumption withdrawn
 
-`special == 3` was specified as *"the same"*. Recorded as **folded into the
-`gold` gate**, keeping รักษาพยาบาลเบื้องต้น (id 14), การยศาสตร์ (id 21) and
-เห็นคุณค่าผู้ปฏิบัติงาน (id 37) as must-be-perfect for gold.
-
-This is no longer an assumption. `CONTEXT.md` independently specifies the gate as
-`special` `1` **or** `3`, which is the same reading.
+`special == 3` was specified as *"the same"* and recorded as folded into the `gold` gate. The
+maintainer withdrew that reading on 2026-09-21 (ticket 05): `special == 3` gates no tier, so ids 14,
+21 and 37 no longer need to be perfect for gold.
 
 ## Issues
 
@@ -156,6 +152,7 @@ This is no longer an assumption. `CONTEXT.md` independently specifies the gate a
 | 02 | Add consec-gold tier and settle the gold gate | ready-for-agent |
 | 03 | Block enrolment for two fiscal years after a gold-tier award | ready-for-agent |
 | 04 | Backfill award history, FY2566-FY2569 (manual) | ready-for-human |
+| 05 | The gold gate is `special == 1` only; the backfill uses the same rule | closed |
 
 01 must land first. 02 and 03 are then independent. 04 is done by hand, not by
 an agent: FY2566-FY2568 golds inserted by the maintainer, FY2569 by the SQL in

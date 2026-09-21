@@ -64,8 +64,8 @@ The award tier derived from a `finished` Cover's scores. One of `consec-gold`, `
 
 | Grade | Conditions (all must hold) |
 |-------|----------------------------|
-| `consec-gold` | The `gold` conditions · **and** full score (`"3"`) on every question where `special` is `2` · **and** the factory held a gold-tier award (`gold` or `consec-gold`) in fiscal year **FY − 3**, read from `Awards` (ADR-0014) |
-| `gold` | Every Category Score **> 80%** · overall `totalScore` **≥ 90%** · **full score** (live choice `"3"`) on every question where `special` is `1` or `3` |
+| `consec-gold` | The `gold` conditions · **and** full score (`"3"`) on every question where `special` is `2` (so `special` `1` and `2` in all) · **and** the factory held a gold-tier award (`gold` or `consec-gold`) in fiscal year **FY − 3**, read from `Awards` (ADR-0014) |
+| `gold` | Every Category Score **> 80%** · overall `totalScore` **≥ 90%** · **full score** (live choice `"3"`) on every question where `special` is `1` |
 | `silver` | Every Category Score **> 60%** · overall `totalScore` **≥ 80%** |
 | `certificate` | overall `totalScore` **≥ 60%** |
 | `joined` | overall `totalScore` **< 60%** |
@@ -89,7 +89,7 @@ The loop survives for **hard rejects**. A hard-rejected Answer returns to the Fa
 _Historical note:_ ADR-0004 designed this as an unbounded consensus loop covering score disputes, on the PO's instruction that the Factory must be able to object. ADR-0006 then deleted the files that `accept` validates against, so from 2026-07-07 the loop was **redo-only in production** — accept returned 400 for essentially every score change. ADR-0012 formalised finality and stopped the evidence destruction. The "a Cover may never settle" trade-off ADR-0004 accepted no longer arises for score changes.
 
 ### Question
-An assessment item with a `category` (QuestionCategory) and a `special` integer. `special` controls file-upload behavior and is the gold-grade gate: every `special` `1` or `3` question must have full score (`"3"`) for `gold`. It has no effect on the Score **formula** itself.
+An assessment item with a `category` (QuestionCategory) and a `special` integer. `special` controls file-upload behavior and is the gold-grade gate: every `special` `1` question must have full score (`"3"`) for `gold`, and every `special` `2` question as well for `consec-gold`. `special` `3` gates no tier; it only means one evidence file per choice. It has no effect on the Score **formula** itself.
 
 ### Answer Review
 The Evaluator's per-answer verdict on a submitted Cover. Each Answer is in exactly one state, derived from its latest `answerLogs` row. The `answerStatus` enum has **four** values (`in_review`, `recommended`, `rejected`, `finished`):

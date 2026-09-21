@@ -76,7 +76,7 @@ partial dependency-injection boundary.
   write route may appear under `provincialOfficers/**`. See
   [ADR-0013](docs/adr/0013-province-scoped-read-only-cover-review.md).
 - The Grade ladder is `consec-gold` → `gold` → `silver` → `certificate` → `joined`. `gold` gates on
-  `special` 1 and 3; `consec-gold` adds `special` 2 and a gold-tier `Awards` row in the Cover's fiscal
+  `special == 1` only; `consec-gold` adds `special == 2` and a gold-tier `Awards` row in the Cover's fiscal
   year − 3. "Did this factory hold gold in year Y" is answered only by `src/service/awardHistory.ts`; a
   second query over `Awards` for it is a review failure. See
   [ADR-0014](docs/adr/0014-consec-gold-and-the-gold-gate.md).

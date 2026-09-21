@@ -386,24 +386,36 @@ describe("Ticket 02 — consec-gold", () => {
   });
 });
 
-describe("Ticket 02 — the settled gold gate", () => {
-  it("AC: a special == 1 Answer below 3 cannot reach gold however high the percentages", () => {
-    expect(grade(cover({ ordinary: PERFECT, special1: "2" }))).not.toBe("gold");
-    expect(grade(cover({ ordinary: PERFECT, special1: "2" }), true)).toBe("silver");
+describe("Ticket 02 — the settled gold gate (corrected by ticket 05: special == 1 only)", () => {
+  /** Nine ordinary "3"s per category leave every percentage above 90 even with one special at "0". */
+  const DEEP = Array.from({ length: 9 }, () => "3");
+
+  it("AC: a special == 1 Answer below 3 cannot reach gold or consec-gold, whatever the percentages", () => {
+    for (const special1 of ["2", "1", "0", "n/a"]) {
+      const answers = cover({ ordinary: DEEP, special1 });
+      expect(grade(answers)).toBe("silver");
+      expect(grade(answers, true)).toBe("silver");
+    }
   });
 
-  it("AC: a special == 3 Answer below 3 cannot reach gold however high the percentages", () => {
-    expect(grade(cover({ ordinary: PERFECT, special3: "0" }))).not.toBe("gold");
-    expect(grade(cover({ ordinary: PERFECT, special3: "0" }), true)).toBe("silver");
+  it("AC: a special == 3 Answer below 3 does not block gold", () => {
+    for (const special3 of ["2", "1", "0", "n/a"]) {
+      expect(grade(cover({ ordinary: DEEP, special3 }))).toBe("gold");
+    }
   });
 
-  it("AC: a special == 2 Answer at 1 no longer blocks gold — the case that was silver before", () => {
+  it("AC: a special == 3 Answer below 3 does not block consec-gold", () => {
+    for (const special3 of ["2", "1", "0", "n/a"]) {
+      expect(grade(cover({ ordinary: DEEP, special3 }), true)).toBe("consec-gold");
+    }
+  });
+
+  it("AC: a special == 2 Answer at 1 does not block gold", () => {
     expect(grade(cover({ ordinary: PERFECT, special2: "1" }))).toBe("gold");
   });
 
-  it("AC: n/a on a special == 1 or 3 Answer does not satisfy the gold gate", () => {
+  it("AC: n/a on a special == 1 Answer does not satisfy the gold gate", () => {
     expect(grade(cover({ ordinary: PERFECT, special1: "n/a" }))).toBe("silver");
-    expect(grade(cover({ ordinary: PERFECT, special3: "n/a" }))).toBe("silver");
   });
 
   it("AC: a Cover with no special Answers is gated on percentages alone", () => {
