@@ -55,6 +55,9 @@ const currentYear = utilities().getFiscalYear().fiscalYear;
 
 const code = (r: unknown) => (r as { code: number }).code;
 
+/** Drizzle builders are lazy thenables; `expect(...).rejects` needs a real Promise. */
+const rejects = (query: PromiseLike<unknown>) => expect(Promise.resolve(query)).rejects.toThrow();
+
 const enrollValues = (factoryId: number, enrollDate?: string) => ({
   factoryId,
   ...(enrollDate ? { enrollDate } : {}),
@@ -212,16 +215,12 @@ afterAll(async () => {
 
 describe("Awards — schema constraints", () => {
   it("AC: a Buddhist Era year such as 2566 is rejected by the database", async () => {
-    await expect(
-      db.insert(awards).values({ factoryId: F_A, fiscalYear: 2566, grade: "gold" }),
-    ).rejects.toThrow();
+    await rejects(db.insert(awards).values({ factoryId: F_A, fiscalYear: 2566, grade: "gold" }));
   });
 
   it("AC: one factory may not hold two awards in the same fiscal year", async () => {
     await db.insert(awards).values({ factoryId: F_A, fiscalYear: 2023, grade: "gold" });
-    await expect(
-      db.insert(awards).values({ factoryId: F_A, fiscalYear: 2023, grade: "silver" }),
-    ).rejects.toThrow();
+    await rejects(db.insert(awards).values({ factoryId: F_A, fiscalYear: 2023, grade: "silver" }));
   });
 
   it("AC: two factories may hold awards in the same fiscal year", async () => {
@@ -250,15 +249,15 @@ describe("Awards — schema constraints", () => {
       grade: "gold",
       coverId,
     });
-    await expect(
+    await rejects(
       db.insert(awards).values({
         factoryId: F_B,
         fiscalYear: currentYear,
         grade: "gold",
         coverId,
       }),
-    ).rejects.toThrow();
-    await expect(db.delete(covers).where(eq(covers.id, coverId))).rejects.toThrow();
+    );
+    await rejects(db.delete(covers).where(eq(covers.id, coverId)));
   });
 });
 
