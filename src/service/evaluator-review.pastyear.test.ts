@@ -2,7 +2,15 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { accounts, coverLogs, covers, districts, enrolls, factories } from "../drizzle/schema";
+import {
+  accounts,
+  awards,
+  coverLogs,
+  covers,
+  districts,
+  enrolls,
+  factories,
+} from "../drizzle/schema";
 import { utilities } from "../utils";
 import { adminReviewerContext, createEvaluatorReviewService } from "./evaluator-review";
 
@@ -122,6 +130,7 @@ async function cleanup() {
     .from(enrolls)
     .where(eq(enrolls.factoryId, FACTORY));
 
+  await db.delete(awards).where(eq(awards.factoryId, FACTORY));
   for (const r of rows) {
     // CoverLogs references Covers with onDelete: "no action", so logs must be removed first.
     // A finalize that passes the year gate writes one — which is exactly what these tests exercise.

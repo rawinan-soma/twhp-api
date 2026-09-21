@@ -1,3 +1,5 @@
+import type { grades } from "../drizzle/schema";
+
 export type CategoryKey = "Collaborate" | "Disease" | "Safety" | "Mental" | "Outcome";
 export type AnswerWithCategory = {
   selectedChoice: string;
@@ -44,7 +46,7 @@ export const calculateBreakdown = (items: AnswerWithCategory[]) => ({
   outcome: scoreGroup(items.filter((a) => a.category === "Outcome")),
 });
 
-export type Grade = "gold" | "silver" | "certificate" | "joined";
+export type Grade = (typeof grades.enumValues)[number];
 
 export const computeGrade = (
   breakdown: ReturnType<typeof calculateBreakdown>,

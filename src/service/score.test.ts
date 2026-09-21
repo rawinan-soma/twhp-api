@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { Value } from "@sinclair/typebox/value";
-import { ScoreReportListSchema, ScoreReportSchema } from "../schema/score";
+import { grades } from "../drizzle/schema";
+import { GradeSchema, ScoreReportListSchema, ScoreReportSchema } from "../schema/score";
 import { calculateBreakdown, scoreGroup } from "./scoreHelpers";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -214,6 +215,16 @@ describe("Story 008/009 — Score Report Shape (nested scoring)", () => {
         }),
       ).toBe(true);
     }
+  });
+
+  it("AC: the Grades database enum holds exactly the wire values", () => {
+    expect([...grades.enumValues]).toEqual(["gold", "silver", "certificate", "joined"]);
+  });
+
+  it("AC: GradeSchema accepts every value of the Grades enum and nothing else", () => {
+    for (const grade of grades.enumValues) expect(Value.Check(GradeSchema, grade)).toBe(true);
+    expect(Value.Check(GradeSchema, "platinum")).toBe(false);
+    expect(Value.Check(GradeSchema, null)).toBe(false);
   });
 
   it("AC: values outside the Grade enum are rejected", () => {

@@ -1,4 +1,5 @@
 import { t } from "elysia";
+import { BaseAwardSelect } from "./index";
 import { Paginated } from "./pagination";
 
 export const ScoreGroupSchema = t.Object({
@@ -8,12 +9,9 @@ export const ScoreGroupSchema = t.Object({
   percentage: t.Integer({ minimum: 0, maximum: 100 }),
 });
 
-export const GradeSchema = t.Union([
-  t.Literal("gold"),
-  t.Literal("silver"),
-  t.Literal("certificate"),
-  t.Literal("joined"),
-]);
+// Derived from the `Grades` enum via the generated base schema, so the wire values cannot drift
+// from the database.
+export const GradeSchema = BaseAwardSelect.properties.grade;
 
 export const ScoreReportSchema = t.Object({
   factoryId: t.Number(),

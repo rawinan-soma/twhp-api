@@ -2,7 +2,15 @@ import { and, asc, count, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import type { PgSelectQueryBuilder } from "drizzle-orm/pg-core";
 import { status } from "elysia";
 import { db } from "../drizzle";
-import { answers, covers, enrolls, factories, provinces, questions } from "../drizzle/schema";
+import {
+  answers,
+  awards,
+  covers,
+  enrolls,
+  factories,
+  provinces,
+  questions,
+} from "../drizzle/schema";
 import { buildPage, type PaginationQueryDto, resolvePage } from "../schema/pagination";
 import { utilities } from "../utils";
 import { latestCoverLogFor, latestCoverLogLateral } from "./coverStatus";
@@ -10,7 +18,7 @@ import {
   type AnswerWithCategory,
   type CategoryKey,
   calculateBreakdown,
-  computeGrade,
+  type Grade,
 } from "./scoreHelpers";
 
 export { calculateBreakdown, computeGrade, scoreGroup } from "./scoreHelpers";
@@ -92,14 +100,32 @@ export const createScoreService = (database: typeof db) => {
   };
 
   /**
-   * Compute one Score Report. The scoring rules themselves are untouched by this bolt — only the
-   * size of their input changed.
+   * The stored Grade of each Cover, in one query however many Covers are asked for (ADR-0011).
+   * A Cover with no `Awards` row is simply absent from the map: its Grade reads as null.
+   */
+  const storedGrades = async (coverIds: number[]) => {
+    const byCover = new Map<number, Grade>();
+    if (coverIds.length === 0) return byCover;
+    const rows = await database
+      .select({ coverId: awards.coverId, grade: awards.grade })
+      .from(awards)
+      .where(inArray(awards.coverId, coverIds));
+    for (const row of rows) {
+      if (row.coverId !== null) byCover.set(row.coverId, row.grade);
+    }
+    return byCover;
+  };
+
+  /**
+   * Compute one Score Report. The scoring breakdown is computed on demand; the Grade is only read,
+   * from the `Awards` row finalize wrote (ADR-0001, amended).
    *
    * `grade` is non-null only for a `finished` Cover, per intent 011-finished-cover-reward-guard.
    */
   const toScoreReport = (
     cover: CoverWithFactoryInfo & { coverStatus: string },
     coverAnswers: AnswerWithCategory[],
+    storedGrade: Grade | undefined,
   ) => {
     const scoring = calculateBreakdown(coverAnswers);
     return {
@@ -108,7 +134,7 @@ export const createScoreService = (database: typeof db) => {
       coverId: cover.coverId,
       coverStatus: cover.coverStatus,
       enrollId: cover.enrollId,
-      grade: cover.coverStatus === "finished" ? computeGrade(scoring, coverAnswers) : null,
+      grade: cover.coverStatus === "finished" ? (storedGrade ?? null) : null,
       scoring,
     };
   };
@@ -166,11 +192,16 @@ export const createScoreService = (database: typeof db) => {
     ]);
 
     // Phase 2 — hydrate ONLY the page, then compute.
-    const answersByCover = await hydrateAnswers(coverPage.map((c) => c.coverId));
+    const pageCoverIds = coverPage.map((c) => c.coverId);
+    const [answersByCover, gradesByCover] = await Promise.all([
+      hydrateAnswers(pageCoverIds),
+      storedGrades(pageCoverIds),
+    ]);
     const items = coverPage.map((c) =>
       toScoreReport(
         { ...c, coverStatus: c.coverStatus as string },
         answersByCover.get(c.coverId) ?? [],
+        gradesByCover.get(c.coverId),
       ),
     );
 
@@ -232,7 +263,14 @@ export const createScoreService = (database: typeof db) => {
         category: a.category as CategoryKey,
       }));
       const scoring = calculateBreakdown(mappedAnswers);
-      const grade = coverStatus === "finished" ? computeGrade(scoring, mappedAnswers) : null;
+      const grade =
+        coverStatus === "finished"
+          ? await database
+              .select({ grade: awards.grade })
+              .from(awards)
+              .where(eq(awards.coverId, coverRow.coverId))
+              .then((rows) => rows[0]?.grade ?? null)
+          : null;
 
       return {
         factoryId: coverRow.factoryId,

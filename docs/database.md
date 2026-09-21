@@ -21,7 +21,7 @@ This is not a live-database inventory. `DATABASE_URL` was absent from the audit 
 
 **Verified.** PostgreSQL is the relational source of truth. Redis holds transient OTP/password-reset data and BullMQ state; MinIO holds evidence objects. PostgreSQL stores only MinIO UUID filenames. The application uses `drizzle-orm/node-postgres` through `db` in `src/drizzle/index.ts:1-4` and a single schema file, `src/drizzle/schema.ts`. TypeBox select/insert/update schemas are derived from the Drizzle tables in `src/schema/index.ts:1-87`.
 
-The schema contains 12 tables and 7 PostgreSQL enums. Scores and grades are calculated on demand and are not persisted (`docs/adr/0001-score-calculated-on-demand.md:9-22`, `src/service/score.ts:createScoreService`). Current Cover and Answer state is derived by “latest log wins,” ordered by descending serial `id`, not timestamp (`src/service/cover.ts:72-78`, `src/service/evaluator-review.ts:193-204`, `src/service/answer.ts:323-331`).
+The schema contains 13 tables and 8 PostgreSQL enums. Scores are calculated on demand; the Grade is stored in `Awards` at finalize (`docs/adr/0001-score-calculated-on-demand.md:9-22`, `src/service/score.ts:createScoreService`). Current Cover and Answer state is derived by “latest log wins,” ordered by descending serial `id`, not timestamp (`src/service/cover.ts:72-78`, `src/service/evaluator-review.ts:193-204`, `src/service/answer.ts:323-331`).
 
 ```mermaid
 erDiagram

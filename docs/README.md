@@ -38,7 +38,7 @@ review/finalization, evidence deletion, list pagination, or Cover-status resolut
 
 | ADR | Subject |
 |---|---|
-| [0001](adr/0001-score-calculated-on-demand.md) | Score and grade are computed on demand, never stored |
+| [0001](adr/0001-score-calculated-on-demand.md) | Score is computed on demand; the Grade is stored at finalize |
 | [0002](adr/0002-email-otp-2fa-for-staff.md) | Email OTP as staff 2FA, Redis-only challenge state |
 | [0003](adr/0003-hierarchical-odpc-gated-cover-review.md) | Hierarchical review with ODPC as the sole finalizer |
 | [0004](adr/0004-verdict-score-consensus-loop.md) | Verdict Score and the four-value answer status. **Its consensus loop is superseded in part by 0012.** |

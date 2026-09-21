@@ -4,6 +4,7 @@ import {
   adminsDoed,
   answerLogs,
   answers,
+  awards,
   coverLogs,
   covers,
   districts,
@@ -65,6 +66,10 @@ export const BaseProvincialOfficerUpdate = createUpdateSchema(provincialOfficers
 export const BaseCoverSelect = createSelectSchema(covers);
 export const BaseCoverInsert = createInsertSchema(covers);
 export const BaseCoverUpdate = createUpdateSchema(covers);
+
+// Awards
+export const BaseAwardSelect = createSelectSchema(awards);
+export const BaseAwardInsert = createInsertSchema(awards);
 
 // CoverLogs
 export const BaseCoverLogSelect = createSelectSchema(coverLogs);

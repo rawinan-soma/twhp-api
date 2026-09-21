@@ -24,7 +24,7 @@ Work is on `dev`, which is 6 commits ahead of `main` and identical to `staging`.
 - Filesystem route autoload, TypeBox DTOs, service factories, Drizzle schema, and role guards form consistent conventions.
 - The four account roles are `Factory`, `Provincial`, `Evaluator`, and `DOED`; evaluator levels further restrict category authority.
 - Fiscal-year queries consistently call `utilities().getFiscalYear()` rather than defining local date windows.
-- Score and grade are derived on demand from answer state; they are not stored.
+- Score is derived on demand from answer state; the Grade is stored in `Awards` at finalize.
 - The API prefix is `/twhp/api`, health is `/twhp/api/health`, and live OpenAPI is `/twhp/api/document` when not blocked by the production proxy.
 - Cover-status resolution has one owner, `src/service/coverStatus.ts`, and the nine staff lists share one pagination contract in `src/schema/pagination.ts`. Both are covered by isolated tests.
 
@@ -53,7 +53,7 @@ The prioritized evidence and remediation sequence are in [Technical debt](techni
 - Domain route files call services; TypeBox DTOs live in `src/schema/`; PostgreSQL shape lives only in `src/drizzle/schema.ts`.
 - Services return Elysia `status(code, body)` responses rather than throwing expected business errors.
 - Current application paths append to `coverLogs` and `answerLogs`; current state is “latest log wins,” normally by descending serial ID. Database immutability is not enforced.
-- Score and grade are calculated at read/finalize time and are not persisted.
+- Score is calculated at read time; the Grade is calculated once at finalize and stored.
 - File operations occur outside database transactions. That is an intentional boundary but not a distributed transaction.
 - Staff authentication uses password plus email OTP, except first-login staff; Factory accounts do not use OTP.
 - Review is two-phase: save one answer verdict, then ODPC/admin finalizes the whole Cover.

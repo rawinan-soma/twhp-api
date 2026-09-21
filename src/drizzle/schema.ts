@@ -1,14 +1,17 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   integer,
   pgEnum,
   pgTable,
   serial,
   text,
   timestamp,
+  unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { FISCAL_YEAR_MAX, FISCAL_YEAR_MIN } from "../schema/fiscal-year";
 
 export const evaluatorLevels = pgEnum("EvaluatorLevels", ["Mental", "DOH", "ODPC"]);
 export const roles = pgEnum("Roles", ["Factory", "Provincial", "Evaluator", "DOED"]);
@@ -300,6 +303,46 @@ export const answerStatus = pgEnum("answerStatus", [
   "recommended",
   "rejected",
 ]);
+
+/** The wire values of `GradeSchema` — the schema derives from this enum, not the reverse. */
+export const grades = pgEnum("Grades", ["gold", "silver", "certificate", "joined"]);
+
+/**
+ * The permanent record of what each factory has won: one row per factory per fiscal year, written
+ * by finalize (ADR-0001 amendment). `coverId` is null for imported history, which has no Cover here.
+ *
+ * `fiscalYear` is Common Era, the year the fiscal year ends in (FY2569 -> 2026). The check rejects a
+ * Buddhist Era year such as 2566 on the first bad write. The table, column and constraint names are
+ * a contract with the manual backfill SQL in .scratch/consecutive-gold-award/.
+ */
+export const awards = pgTable(
+  "Awards",
+  {
+    id: serial().primaryKey().notNull(),
+    factoryId: integer("factory_id")
+      .notNull()
+      .references(() => factories.accountId, { onDelete: "restrict", onUpdate: "cascade" }),
+    fiscalYear: integer("fiscal_year").notNull(),
+    grade: grades().notNull(),
+    // Restrict: an award is a public record and must not be silently orphaned. Postgres treats
+    // nulls as distinct, so many imported rows coexist while a real Cover is awarded at most once.
+    coverId: integer("cover_id").references(() => covers.id, {
+      onDelete: "restrict",
+      onUpdate: "cascade",
+    }),
+    awardedAt: timestamp("awarded_at", { precision: 3, mode: "string" })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    unique("Awards_factory_id_fiscal_year_key").on(table.factoryId, table.fiscalYear),
+    unique("Awards_cover_id_key").on(table.coverId),
+    check(
+      "Awards_fiscal_year_range",
+      sql`${table.fiscalYear} BETWEEN ${sql.raw(String(FISCAL_YEAR_MIN))} AND ${sql.raw(String(FISCAL_YEAR_MAX))}`,
+    ),
+  ],
+);
 
 export const coverLogs = pgTable("CoverLogs", {
   id: serial().primaryKey().notNull(),
