@@ -145,10 +145,10 @@ saw. `backfill-fy2569.sql` must:
 - **Pre-existing bug fixed in the SQL:** the preview (step 3) and insert (step 4) read
   `a.selected_choice`, but on a schema built by `db:push` the column is `"selectedChoice"`
   (`src/drizzle/schema.ts`), so those two statements errored. Steps 0, 1, 2, 5 and 6 never touch
-  `Answers` and were unaffected. Found only by running it. **Check before the real run:** the
-  rename is verified against the `db:push` schema only. `docs/database.md`'s ER diagram still says
-  `selected_choice`, and I could not inspect the production column. Run
-  `\d "Answers"` there first; if it is `selected_choice`, revert the rename.
+  `Answers` and were unaffected. Found only by running it. The name is not in doubt for production: `schema.ts` has declared
+  `selectedChoice` since its first commit, and the running API's Drizzle queries select that exact
+  column, so a production database serving this code has `"selectedChoice"`. (`docs/database.md`'s
+  ER sketch still writes `selected_choice`; that diagram is stale.)
 - **Verified on a disposable Postgres 17** (schema from `db:push`, 12 synthetic finished FY2569
   Covers, FY2566 gold history on some). SQL preview and insert output were diffed against
   `computeGrade` over the same Answers: identical for all 12. Covers per case: `special == 3` at
