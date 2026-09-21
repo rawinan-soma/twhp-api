@@ -125,7 +125,7 @@ All are **Verified** in `src/drizzle/schema.ts`.
 | `questionCategories` / `QuestionCategories` | `Collaborate`, `Disease`, `Safety`, `Mental`, `Outcome` | lines 316-322 |
 | `standardTypes` / `StandardTypes` | `standardHC`, `standardSAN`, `standardSANPlus`, `standardWellness`, `standardSafety`, `standardTIS18001`, `standardISO45001`, `standardISO14001`, `standardZero`, `standard5S`, `standardHAS` | lines 324-337 |
 | `choices` / `Choices` | `0`, `1`, `2`, `3`, `n/a` | line 351 |
-| `grades` / `Grades` | `gold`, `silver`, `certificate`, `joined` (`consec-gold` arrives with the consecutive-gold work) | `src/drizzle/schema.ts` |
+| `grades` / `Grades` | `consec-gold`, `gold`, `silver`, `certificate`, `joined` | `src/drizzle/schema.ts` |
 
 Several database type names are quoted/mixed-case, so raw SQL must quote them exactly. `AnswerLogs.verdict_choice` physically permits `n/a` because it uses `Choices`; the verdict API restricts score changes to `0`-`3` (`src/schema/evaluator-review.ts:77-85`). That narrower rule is application-only.
 

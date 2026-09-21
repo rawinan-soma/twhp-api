@@ -48,9 +48,36 @@ export const calculateBreakdown = (items: AnswerWithCategory[]) => ({
 
 export type { Grade };
 
+/**
+ * What the calculator needs to know about the factory's past. Resolved by the caller — the
+ * calculator stays pure and synchronous, and a list path can resolve a whole page's history in one
+ * batched query (ADR-0011). See `awardHistory.ts` for the one reader of the `Awards` table.
+ */
+export type GradeHistory = {
+  /** The factory held a gold-tier award in the Cover's fiscal year minus 3. */
+  heldGoldTierInFyMinus3: boolean;
+};
+
+/** A special gate: every Answer of the given `special` values is scored the literal choice "3". */
+const specialsAllFullScore = (answers: AnswerWithCategory[], specials: readonly number[]) =>
+  answers.filter((a) => specials.includes(a.special ?? 0)).every((a) => a.selectedChoice === "3");
+
+/**
+ * The Grade ladder, strictly top-down; the first match wins (docs/adr/0014).
+ *
+ *   consec-gold  the gold gate AND every `special == 2` Answer at "3" AND `history` holds gold in FY-3
+ *   gold         every category > 80%, total >= 90%, every `special` 1 and 3 Answer at "3"
+ *   silver       every category > 60% AND total >= 80%
+ *   certificate  total >= 60%
+ *   joined       otherwise
+ *
+ * A gate on the literal "3" is not met by "n/a", even though "n/a" is excluded from the percentages.
+ * A further tier is a new rung above `consec-gold`, not a rewrite of the ones below it.
+ */
 export const computeGrade = (
   breakdown: ReturnType<typeof calculateBreakdown>,
   answers: AnswerWithCategory[],
+  history: GradeHistory,
 ): Grade => {
   const categories = [
     breakdown.collaborate,
@@ -60,16 +87,15 @@ export const computeGrade = (
     breakdown.outcome,
   ];
 
-  const specialAnswers = answers.filter((a) => (a.special ?? 0) > 0);
-  const allSpecialFullScore =
-    specialAnswers.length === 0 || specialAnswers.every((a) => a.selectedChoice === "3");
-
-  if (
+  const meetsGoldGate =
     categories.every((c) => c.percentage > 80) &&
     breakdown.total.percentage >= 90 &&
-    allSpecialFullScore
-  )
-    return "gold";
+    specialsAllFullScore(answers, [1, 3]);
+
+  if (meetsGoldGate && specialsAllFullScore(answers, [2]) && history.heldGoldTierInFyMinus3)
+    return "consec-gold";
+
+  if (meetsGoldGate) return "gold";
 
   if (categories.every((c) => c.percentage > 60) && breakdown.total.percentage >= 80)
     return "silver";

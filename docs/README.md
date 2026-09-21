@@ -51,6 +51,7 @@ review/finalization, evidence deletion, list pagination, or Cover-status resolut
 | [0011](adr/0011-two-phase-read-for-computed-list-items.md) | Page-scoped hydration for computed list items |
 | [0012](adr/0012-score-changes-are-terminal.md) | A score change is terminal; the loop survives for hard rejects only |
 | [0013](adr/0013-province-scoped-read-only-cover-review.md) | Provincial Officers read Covers in their province; `in_progress` is invisible and verdicts are redacted while `in_review` |
+| [0014](adr/0014-consec-gold-and-the-gold-gate.md) | Five-grade ladder, the FY − 3 `consec-gold` rule, and the settled `gold` special gate |
 
 ## AI agent reading order
 
@@ -94,7 +95,7 @@ operations from the presence of a command in these documents.
 | --- | --- | --- |
 | Add or change an endpoint | [API conventions](api-conventions.md) | [Project structure](project-structure.md), [authentication](authentication-authorization.md), relevant domain guide |
 | Change login, cookies, OTP, password reset, or roles | [Authentication and authorization](authentication-authorization.md) | [API conventions](api-conventions.md), [ADR-0002](adr/0002-email-otp-2fa-for-staff.md), [troubleshooting](troubleshooting.md) |
-| Change enrollment, Cover, Answer, verdict, score, or grade behavior | [Business rules](business-rules.md) | [Domain model](domain-model.md), [database](database.md), [ADR-0012](adr/0012-score-changes-are-terminal.md), relevant [ADRs](adr/) |
+| Change enrollment, Cover, Answer, verdict, score, or grade behavior | [Business rules](business-rules.md) | [Domain model](domain-model.md), [database](database.md), [ADR-0012](adr/0012-score-changes-are-terminal.md), [ADR-0014](adr/0014-consec-gold-and-the-gold-gate.md) (grade ladder), relevant [ADRs](adr/) |
 | Add or change a paginated list | [API conventions](api-conventions.md#pagination) | [ADR-0007](adr/0007-pagination-envelope-scoped-exception.md), [ADR-0009](adr/0009-offset-pagination-for-staff-lists.md), [ADR-0011](adr/0011-two-phase-read-for-computed-list-items.md), `src/schema/pagination.ts` |
 | Change what a Provincial Officer can see, or any Cover read shared across reader roles | [ADR-0013](adr/0013-province-scoped-read-only-cover-review.md) | [Business rules](business-rules.md) (BR-28), [authentication](authentication-authorization.md), `src/service/evaluator-review.ts` (`getAnswers`) |
 | Filter, count, or paginate on Cover status | [ADR-0010](adr/0010-lateral-latest-cover-log-resolution.md) | `src/service/coverStatus.ts`, [ADR-0008](adr/0008-exists-subquery-for-enrolled-filter.md), [database](database.md) |

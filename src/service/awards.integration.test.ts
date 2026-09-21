@@ -14,6 +14,7 @@ import {
 } from "../drizzle/schema";
 import { emailQueue } from "../queue/email";
 import { utilities } from "../utils";
+import { createAwardHistory } from "./awardHistory";
 import { createEvaluatorReviewService } from "./evaluator-review";
 import { createScoreService } from "./score";
 
@@ -33,7 +34,13 @@ const F_PAST = 99962; // finalized from a past-year Cover
 const F_REVIEW = 99963; // Cover left in_review
 const F_A = 99964; // constraint fixtures
 const F_B = 99965;
-const ALL_FACTORIES = [F_FINISHED, F_PAST, F_REVIEW, F_A, F_B];
+const F_C1 = 99966; // consec-gold fixtures — one factory per scenario, one award per fiscal year
+const F_C2 = 99967;
+const F_C3 = 99968;
+const F_C4 = 99969;
+const F_C5 = 99970;
+const F_C6 = 99971;
+const ALL_FACTORIES = [F_FINISHED, F_PAST, F_REVIEW, F_A, F_B, F_C1, F_C2, F_C3, F_C4, F_C5, F_C6];
 
 const TEST_PROVINCE_ID = 10; // seeded province in health region 13
 const COVER_REGION = 13;
@@ -379,6 +386,122 @@ describe("Awards — read paths return the stored Grade", () => {
 
     expect((await scoreOf(F_FINISHED, currentYear)).grade).toBe("silver");
     expect((await awardsOf(coverId))[0].grade).toBe("silver");
+  });
+});
+
+// ─── Ticket 02: the FY-3 lookback ────────────────────────────────────────────
+
+/** A history row: an award with no Cover, as the FY2566 import writes them. */
+const seedHistory = (
+  factoryId: number,
+  fiscalYear: number,
+  grade: (typeof awards.$inferInsert)["grade"],
+) => db.insert(awards).values({ factoryId, fiscalYear, grade });
+
+/** Enrol a factory in the given fiscal year (mid-year, Bangkok-safe) and return its Cover. */
+const seedCoverIn = (factoryId: number, fiscalYear: number) => {
+  const { fiscalYearStart } = utilities().getFiscalYear(fiscalYear);
+  const enrollDate = new Date(fiscalYearStart.getTime() + 90 * 86_400_000).toISOString();
+  return seedCover(factoryId, { choice: "3", enrollDate });
+};
+
+const finalizedGrade = async (coverId: number) => {
+  const res = await reviewService.finalize(coverId, odpcCtx);
+  expect(code(res)).toBe(200);
+  return (res as unknown as { response: { grade: string } }).response.grade;
+};
+
+describe("Awards — the gold-tier history resolver", () => {
+  const history = createAwardHistory(db);
+  const year = currentYear - 10; // clear of every other fixture's fiscal years
+
+  beforeAll(async () => {
+    await seedHistory(F_A, year, "gold");
+    await seedHistory(F_B, year, "consec-gold");
+    await seedHistory(F_C1, year, "silver");
+    await seedHistory(F_C2, year - 1, "gold");
+  });
+
+  it("AC: gold and consec-gold count as gold-tier; silver, certificate, joined and absence do not", async () => {
+    expect(await history.heldGoldTierIn(F_A, year)).toBe(true);
+    expect(await history.heldGoldTierIn(F_B, year)).toBe(true);
+    expect(await history.heldGoldTierIn(F_C1, year)).toBe(false);
+    expect(await history.heldGoldTierIn(F_C3, year)).toBe(false);
+  });
+
+  it("AC: only the asked fiscal year is consulted", async () => {
+    expect(await history.heldGoldTierIn(F_C2, year)).toBe(false);
+    expect(await history.heldGoldTierIn(F_C2, year - 1)).toBe(true);
+    expect(await history.heldGoldTierIn(F_C2, year + 1)).toBe(false);
+  });
+
+  it("AC: a batch resolves every factory in one query however many are asked for", async () => {
+    let queries = 0;
+    const counting = createAwardHistory(
+      drizzle(pool, { logger: { logQuery: () => void queries++ } }),
+    );
+
+    const two = await counting.goldTierFactoriesIn([F_A, F_C1], year);
+    const queriesForTwo = queries;
+    queries = 0;
+    const five = await counting.goldTierFactoriesIn([F_A, F_B, F_C1, F_C2, F_C3], year);
+
+    expect([...two]).toEqual([F_A]);
+    expect([...five].sort()).toEqual([F_A, F_B].sort());
+    expect(queries).toBe(queriesForTwo);
+    expect(queries).toBe(1);
+  });
+
+  it("AC: an empty batch asks the database nothing", async () => {
+    let queries = 0;
+    const counting = createAwardHistory(
+      drizzle(pool, { logger: { logQuery: () => void queries++ } }),
+    );
+    expect((await counting.goldTierFactoriesIn([], year)).size).toBe(0);
+    expect(queries).toBe(0);
+  });
+});
+
+describe("Awards — finalize grades consec-gold from the FY-3 award", () => {
+  it("AC: a gold-gate Cover whose factory held gold in FY-3 finalizes as consec-gold, stored and returned", async () => {
+    await seedHistory(F_C1, currentYear - 3, "gold");
+    const { coverId } = await seedCoverIn(F_C1, currentYear);
+
+    expect(await finalizedGrade(coverId)).toBe("consec-gold");
+    expect((await awardsOf(coverId))[0].grade).toBe("consec-gold");
+    expect((await scoreOf(F_C1, currentYear)).grade).toBe("consec-gold");
+  });
+
+  it("AC: an FY-3 grade of consec-gold also qualifies", async () => {
+    await seedHistory(F_C2, currentYear - 3, "consec-gold");
+    const { coverId } = await seedCoverIn(F_C2, currentYear);
+    expect(await finalizedGrade(coverId)).toBe("consec-gold");
+  });
+
+  it("AC: an FY-3 silver, or no FY-3 award at all, finalizes as gold", async () => {
+    await seedHistory(F_C3, currentYear - 3, "silver");
+    const silverHistory = await seedCoverIn(F_C3, currentYear);
+    expect(await finalizedGrade(silverHistory.coverId)).toBe("gold");
+
+    const noHistory = await seedCoverIn(F_C4, currentYear);
+    expect(await finalizedGrade(noHistory.coverId)).toBe("gold");
+  });
+
+  it("AC: only FY-3 is consulted — a gold in FY-1 or FY-2 does not make consec-gold", async () => {
+    await seedHistory(F_C5, currentYear - 1, "gold");
+    await seedHistory(F_C5, currentYear - 2, "gold");
+    const { coverId } = await seedCoverIn(F_C5, currentYear);
+    expect(await finalizedGrade(coverId)).toBe("gold");
+  });
+
+  it("AC: a past-year Cover finalized after rollover looks back from its own fiscal year", async () => {
+    const past = currentYear - 1;
+    await seedHistory(F_C6, past - 3, "gold");
+    const { coverId } = await seedCoverIn(F_C6, past);
+
+    expect(await finalizedGrade(coverId)).toBe("consec-gold");
+    // FY-3 of the CURRENT year is not what was consulted.
+    expect(await createAwardHistory(db).heldGoldTierIn(F_C6, currentYear - 3)).toBe(false);
   });
 });
 

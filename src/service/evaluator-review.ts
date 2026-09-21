@@ -18,6 +18,7 @@ import {
 import { emailQueue } from "../queue/email";
 import type { StandardFileItem, VerdictSaveBody } from "../schema/evaluator-review";
 import { utilities } from "../utils";
+import { createAwardHistory } from "./awardHistory";
 import { latestCoverLogFor } from "./coverStatus";
 import { categoriesFor, type EvaluatorLevel, evaluatorService } from "./evaluator";
 import { provincialOfficerService } from "./provincialOfficer";
@@ -193,6 +194,7 @@ const createEvaluatorReviewHelper = (database: typeof db) => {
 
 export const createEvaluatorReviewService = (database: typeof db) => {
   const helper = createEvaluatorReviewHelper(database);
+  const awardHistory = createAwardHistory(database);
 
   /**
    * Resolve an evaluator caller into a ReviewerContext (level + region scope).
@@ -707,14 +709,20 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         category: a.category as CategoryKey,
         special: a.special,
       }));
+      // The Cover's own fiscal year, not the current one: a past-year Cover can be finalized after
+      // rollover (ODPC/DOED past-year authority, the Factory grace window). It is also the year the
+      // `consec-gold` lookback counts back from.
+      const awardFiscalYear = utilities().getFiscalYearOf(new Date(enrollData.enrollDate));
+
       const computedGrade =
         newCoverStatus === "finished"
-          ? computeGrade(calculateBreakdown(gradeAnswers), gradeAnswers)
+          ? computeGrade(calculateBreakdown(gradeAnswers), gradeAnswers, {
+              heldGoldTierInFyMinus3: await awardHistory.heldGoldTierAtConsecGoldLookback(
+                enrollData.factoryId,
+                awardFiscalYear,
+              ),
+            })
           : null;
-
-      // The Cover's own fiscal year, not the current one: a past-year Cover can be finalized after
-      // rollover (ODPC/DOED past-year authority, the Factory grace window).
-      const awardFiscalYear = utilities().getFiscalYearOf(new Date(enrollData.enrollDate));
 
       const grade = await database.transaction(async (tx) => {
         for (const row of promotionRows) {

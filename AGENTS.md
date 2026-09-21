@@ -75,6 +75,11 @@ partial dependency-injection boundary.
   `description` and per-Answer `status` are masked. Standard certificates are never masked, and no
   write route may appear under `provincialOfficers/**`. See
   [ADR-0013](docs/adr/0013-province-scoped-read-only-cover-review.md).
+- The Grade ladder is `consec-gold` → `gold` → `silver` → `certificate` → `joined`. `gold` gates on
+  `special` 1 and 3; `consec-gold` adds `special` 2 and a gold-tier `Awards` row in the Cover's fiscal
+  year − 3. "Did this factory hold gold in year Y" is answered only by `src/service/awardHistory.ts`; a
+  second query over `Awards` for it is a review failure. See
+  [ADR-0014](docs/adr/0014-consec-gold-and-the-gold-gate.md).
 - The `{ items, meta }` pagination envelope belongs to the nine staff list endpoints only; bounded
   collections stay bare arrays, and every paginated query must impose a total order. Compose
   `PaginationQuery` from `src/schema/pagination.ts` with `t.Composite` rather than replacing a

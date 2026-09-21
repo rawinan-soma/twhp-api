@@ -2,7 +2,8 @@ import { describe, expect, it } from "bun:test";
 import { Value } from "@sinclair/typebox/value";
 import { grades } from "../drizzle/schema";
 import { GradeSchema, ScoreReportListSchema, ScoreReportSchema } from "../schema/score";
-import { calculateBreakdown, scoreGroup } from "./scoreHelpers";
+import { GRADE_LABEL } from "../worker/gradeLabel";
+import { calculateBreakdown, computeGrade, scoreGroup } from "./scoreHelpers";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -206,7 +207,7 @@ describe("Story 008/009 — Score Report Shape (nested scoring)", () => {
   });
 
   it("AC: the existing contract accepts every Grade for a finished Cover", () => {
-    for (const grade of ["gold", "silver", "certificate", "joined"] as const) {
+    for (const grade of ["consec-gold", "gold", "silver", "certificate", "joined"] as const) {
       expect(
         Value.Check(ScoreReportSchema, {
           ...validReport,
@@ -218,7 +219,13 @@ describe("Story 008/009 — Score Report Shape (nested scoring)", () => {
   });
 
   it("AC: the Grades database enum holds exactly the wire values", () => {
-    expect([...grades.enumValues]).toEqual(["gold", "silver", "certificate", "joined"]);
+    expect([...grades.enumValues]).toEqual([
+      "consec-gold",
+      "gold",
+      "silver",
+      "certificate",
+      "joined",
+    ]);
   });
 
   it("AC: GradeSchema accepts every value of the Grades enum and nothing else", () => {
@@ -232,6 +239,7 @@ describe("Story 008/009 — Score Report Shape (nested scoring)", () => {
     // publish — deriving it from the database enum must not change it.
     expect(JSON.parse(JSON.stringify(GradeSchema))).toEqual({
       anyOf: [
+        { const: "consec-gold", type: "string" },
         { const: "gold", type: "string" },
         { const: "silver", type: "string" },
         { const: "certificate", type: "string" },
@@ -323,3 +331,149 @@ describe("Story 008/009 — Score Report Shape (nested scoring)", () => {
 // AC2: in_review cover  → ScoreReport (HTTP 200)
 // AC3: finished cover   → ScoreReport (HTTP 200)
 // AC4: no cover         → status(404, { message: "cover not found" })
+
+// ─── Ticket 02: the five-grade ladder ───────────────────────────────────────
+
+type GA = AC & { special?: number };
+
+const CATEGORIES: AC["category"][] = ["Collaborate", "Disease", "Safety", "Mental", "Outcome"];
+
+/**
+ * A Cover of ordinary Answers (`special` 0) plus one Answer per special value 1, 2 and 3. Every
+ * category holds `ordinary` ordinary Answers at the given choice, so percentages are easy to set.
+ * The specials are spread across categories so no category is made of specials alone.
+ */
+const cover = (opts: {
+  ordinary: string[];
+  special1?: string;
+  special2?: string;
+  special3?: string;
+}): GA[] => {
+  const out: GA[] = [];
+  for (const category of CATEGORIES) {
+    for (const selectedChoice of opts.ordinary) out.push({ selectedChoice, category, special: 0 });
+  }
+  out.push({ selectedChoice: opts.special1 ?? "3", category: "Collaborate", special: 1 });
+  out.push({ selectedChoice: opts.special2 ?? "3", category: "Outcome", special: 2 });
+  out.push({ selectedChoice: opts.special3 ?? "3", category: "Disease", special: 3 });
+  return out;
+};
+
+const grade = (answers: GA[], heldGoldTierInFyMinus3 = false) =>
+  computeGrade(calculateBreakdown(answers), answers, { heldGoldTierInFyMinus3 });
+
+const PERFECT = ["3", "3", "3", "3"];
+
+describe("Ticket 02 — consec-gold", () => {
+  it("AC: the gold gate, every special == 2 at 3, and gold held in FY-3 grades consec-gold", () => {
+    expect(grade(cover({ ordinary: PERFECT }), true)).toBe("consec-gold");
+  });
+
+  it("AC: the same Cover grades gold when FY-3 gold is not held", () => {
+    expect(grade(cover({ ordinary: PERFECT }), false)).toBe("gold");
+  });
+
+  it('AC: a special == 2 Answer at "2" grades gold, not consec-gold, given the history', () => {
+    expect(grade(cover({ ordinary: PERFECT, special2: "2" }), true)).toBe("gold");
+  });
+
+  it("AC: an n/a on a special == 2 Question grades gold, not consec-gold", () => {
+    expect(grade(cover({ ordinary: PERFECT, special2: "n/a" }), true)).toBe("gold");
+  });
+
+  it("AC: history alone never grants consec-gold to a Cover below the gold gate", () => {
+    expect(grade(cover({ ordinary: ["3", "3", "2", "2"] }), true)).toBe("silver");
+  });
+});
+
+describe("Ticket 02 — the settled gold gate", () => {
+  it("AC: a special == 1 Answer below 3 cannot reach gold however high the percentages", () => {
+    expect(grade(cover({ ordinary: PERFECT, special1: "2" }))).not.toBe("gold");
+    expect(grade(cover({ ordinary: PERFECT, special1: "2" }), true)).toBe("silver");
+  });
+
+  it("AC: a special == 3 Answer below 3 cannot reach gold however high the percentages", () => {
+    expect(grade(cover({ ordinary: PERFECT, special3: "0" }))).not.toBe("gold");
+    expect(grade(cover({ ordinary: PERFECT, special3: "0" }), true)).toBe("silver");
+  });
+
+  it("AC: a special == 2 Answer at 1 no longer blocks gold — the case that was silver before", () => {
+    expect(grade(cover({ ordinary: PERFECT, special2: "1" }))).toBe("gold");
+  });
+
+  it("AC: n/a on a special == 1 or 3 Answer does not satisfy the gold gate", () => {
+    expect(grade(cover({ ordinary: PERFECT, special1: "n/a" }))).toBe("silver");
+    expect(grade(cover({ ordinary: PERFECT, special3: "n/a" }))).toBe("silver");
+  });
+
+  it("AC: a Cover with no special Answers is gated on percentages alone", () => {
+    const plain = CATEGORIES.map((category) => ({ selectedChoice: "3", category }));
+    expect(grade(plain)).toBe("gold");
+  });
+});
+
+describe("Ticket 02 — boundaries and the lower tiers are unchanged", () => {
+  /** Every category holds `threes` Answers at "3" and `zeros` at "0"; no special Answers. */
+  const uniform = (threes: number, zeros: number): GA[] =>
+    CATEGORIES.flatMap((category) => [
+      ...Array.from({ length: threes }, () => ({ selectedChoice: "3", category })),
+      ...Array.from({ length: zeros }, () => ({ selectedChoice: "0", category })),
+    ]);
+
+  const gradeOf = (answers: GA[]) => {
+    const breakdown = calculateBreakdown(answers);
+    return {
+      breakdown,
+      // History held: any tier short of the gold gate must ignore it.
+      grade: computeGrade(breakdown, answers, { heldGoldTierInFyMinus3: true }),
+    };
+  };
+
+  it("AC: a category at exactly 80.0% is not gold", () => {
+    const { breakdown, grade } = gradeOf(uniform(4, 1));
+    expect(breakdown.collaborate.percentage).toBe(80);
+    expect(grade).toBe("silver");
+  });
+
+  it("AC: a category at exactly 60.0% is not silver", () => {
+    const { breakdown, grade } = gradeOf(uniform(3, 2));
+    expect(breakdown.collaborate.percentage).toBe(60);
+    expect(grade).toBe("certificate");
+  });
+
+  it("AC: totals use >=, so a total of exactly 90% with every category above 80% is gold", () => {
+    const { breakdown, grade } = gradeOf(uniform(9, 1));
+    expect(breakdown.total.percentage).toBe(90);
+    expect(grade).toBe("consec-gold");
+    expect(computeGrade(breakdown, uniform(9, 1), { heldGoldTierInFyMinus3: false })).toBe("gold");
+  });
+
+  it("AC: every category above 80% but a total below 90% is silver", () => {
+    const answers: GA[] = CATEGORIES.flatMap((category) => [
+      ...Array.from({ length: 17 }, () => ({ selectedChoice: "3", category })),
+      ...Array.from({ length: 3 }, () => ({ selectedChoice: "0", category })),
+    ]);
+    const { breakdown, grade } = gradeOf(answers);
+    expect(breakdown.total.percentage).toBe(85);
+    expect(grade).toBe("silver");
+  });
+
+  it("AC: a total at exactly 60% is a certificate and below 60% is joined", () => {
+    expect(gradeOf(uniform(3, 2)).grade).toBe("certificate");
+    expect(gradeOf(uniform(1, 1)).grade).toBe("joined");
+  });
+});
+
+describe("Ticket 02 — the result email label", () => {
+  it("AC: consec-gold renders the plaque label, not the raw grade key", () => {
+    expect(GRADE_LABEL["consec-gold"]).toBe(
+      "รางวัลเชิดชูเกียรติและประกาศนียบัตรระดับประเทศ ประเภท โล่ทองต่อเนื่อง",
+    );
+  });
+
+  it("AC: every Grade has a label of its own, none of them a raw key", () => {
+    const labels = grades.enumValues.map((g) => GRADE_LABEL[g]);
+    expect(new Set(labels).size).toBe(grades.enumValues.length);
+    for (const g of grades.enumValues) expect(GRADE_LABEL[g]).not.toBe(g);
+  });
+});

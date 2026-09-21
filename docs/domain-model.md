@@ -47,7 +47,7 @@ The three evaluator IDs stored on an Enrollment are not authorization boundaries
 | Live Choice | The value used by Score and Grade: `Answers.selectedChoice`. Finalize writes each settled Verdict Score into that column, so the corrected value and the live choice converge at finalize. |
 | Evidence | PDF up to 10 MB stored in MinIO; the Answer or Enrollment stores only its filename. |
 | Score | Rounded, on-demand percentage calculated from current Answer choices; never persisted. |
-| Grade | Finished-Cover award, computed once at finalize and stored in `Awards` (never recomputed): `gold`, `silver`, `certificate`, or `joined`. |
+| Grade | Finished-Cover award, computed once at finalize and stored in `Awards` (never recomputed): `consec-gold`, `gold`, `silver`, `certificate`, or `joined`. |
 | 2FA Challenge | Redis-only pending staff login containing account ID, hashed OTP, and attempts. |
 
 ## Entities and relationships
@@ -132,7 +132,6 @@ These are not alternative interpretations; the left side is current behavior.
 |---|---|
 | Finalize overwrites `Answers.selectedChoice` with the settled Verdict Score; Score reads that column only. The Factory's original claim is preserved nowhere. | ADR-0004 says the Factory claim is never overwritten and the accepted verdict is reconstructed separately. Superseded in part by [ADR-0012](adr/0012-score-changes-are-terminal.md), which records the reversal deliberately. |
 | `accept` and `redo` are both refused on a settled score change (`answer.ts` — "a settled score change admits no factory response"). The `accept` branch is retained but unreachable for score changes, pending confirmation that no deployed frontend still calls it. | ADR-0004's negotiation prose, and any frontend written against it, expect the Factory to be able to accept or object. |
-| Gold requires full score on every `special > 0` Question (`scoreHelpers.ts:61-63`). | `CONTEXT.md` says only `special` 1 or 3. |
 | Factory answer create/update and evaluator verdict save lack a Cover-state guard. | `CONTEXT.md` says Factory and evaluators do not hold/write the Cover concurrently and tier-1 edits only while Cover is `in_review`. |
 | Finalize has no already-finished, idempotency, version, or locking guard. | ADR/CONTEXT prose claims there is no Cover-status race. |
 | `n/a` is accepted for every Question. | Question data exposes an N/A option only selectively. |

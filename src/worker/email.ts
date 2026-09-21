@@ -1,7 +1,9 @@
 import { Worker } from "bullmq";
 import * as nodemailer from "nodemailer";
 import { env } from "../config";
+import type { Grade } from "../drizzle/grades";
 import { adminService } from "../service/admin";
+import { GRADE_LABEL } from "./gradeLabel";
 
 export const emailWorker = new Worker(
   "email",
@@ -130,20 +132,13 @@ const sendPasswordResetEmail = async (data: { email: string; token: string }) =>
   }
 };
 
-const GRADE_LABEL: Record<string, string> = {
-  gold: "รางวัลเชิดชูเกียรติและประกาศนียบัตรระดับประเทศ ประเภท โล่ทอง",
-  silver: "รางวัลเชิดชูเกียรติและประกาศนียบัตรระดับประเทศ ประเภท โล่เงิน",
-  certificate: "ใบประกาศเกียรติคุณระดับจังหวัด",
-  joined: "ใบประกาศเกียรติคุณเข้าร่วมโครงการฯ",
-};
-
 const sendVerdictResultFinishedEmail = async (data: {
   email: string;
   cc?: string;
   grade: string | null;
   factoryNameTh: string;
 }) => {
-  const gradeLabel = data.grade ? (GRADE_LABEL[data.grade] ?? data.grade) : "-";
+  const gradeLabel = data.grade ? (GRADE_LABEL[data.grade as Grade] ?? data.grade) : "-";
   try {
     await sendAndLog("verdict-result-finished", {
       from: `Total Worker health support <${env.SMTP_USER}>`,
