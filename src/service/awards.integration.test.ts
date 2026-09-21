@@ -319,6 +319,29 @@ describe("Awards — finalize writes exactly one row", () => {
 // ─── Read paths return the stored Grade ──────────────────────────────────────
 
 describe("Awards — read paths return the stored Grade", () => {
+  it("AC: the staff list resolves a page's grades in a number of queries that does not grow with page size", async () => {
+    let queries = 0;
+    const countingDb = drizzle(pool, { logger: { logQuery: () => void queries++ } });
+    const countingService = createScoreService(countingDb);
+
+    const queriesFor = async (limit: number) => {
+      queries = 0;
+      const page = await countingService.getScoresByProvince(TEST_PROVINCE_ID, {
+        page: 1,
+        limit,
+        fiscalYear: currentYear,
+      });
+      return { queries, items: page.items.length };
+    };
+
+    // The current year holds at least F_FINISHED and F_REVIEW in this province.
+    const one = await queriesFor(1);
+    const many = await queriesFor(100);
+    expect(one.items).toBe(1);
+    expect(many.items).toBeGreaterThan(1);
+    expect(many.queries).toBe(one.queries);
+  });
+
   it("AC: a Cover that is in_review has no award and every read path reports grade null", async () => {
     const { coverId } = await seedCover(F_REVIEW, { choice: "3", coverStatus: "in_review" });
 

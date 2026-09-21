@@ -1,4 +1,5 @@
 import { type Static, t } from "elysia";
+import { FISCAL_YEAR_MAX, FISCAL_YEAR_MIN } from "../drizzle/fiscal-year-bounds";
 
 /**
  * Shared fiscal-year addressing contract for the fiscal-scoped read endpoints.
@@ -16,8 +17,9 @@ import { type Static, t } from "elysia";
  * present behaviour byte-for-byte.
  */
 
-export const FISCAL_YEAR_MIN = 2000;
-export const FISCAL_YEAR_MAX = 2100;
+// Declared in the database layer (the Awards CHECK constraint needs them); re-exported so every
+// existing importer keeps this module as its entry point.
+export { FISCAL_YEAR_MAX, FISCAL_YEAR_MIN };
 
 /**
  * Compose into a route's existing query schema with `t.Composite`; do not replace it, so existing

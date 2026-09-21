@@ -11,7 +11,8 @@ import {
   unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { FISCAL_YEAR_MAX, FISCAL_YEAR_MIN } from "../schema/fiscal-year";
+import { FISCAL_YEAR_MAX, FISCAL_YEAR_MIN } from "./fiscal-year-bounds";
+import { GRADE_VALUES } from "./grades";
 
 export const evaluatorLevels = pgEnum("EvaluatorLevels", ["Mental", "DOH", "ODPC"]);
 export const roles = pgEnum("Roles", ["Factory", "Provincial", "Evaluator", "DOED"]);
@@ -305,7 +306,7 @@ export const answerStatus = pgEnum("answerStatus", [
 ]);
 
 /** The wire values of `GradeSchema` — the schema derives from this enum, not the reverse. */
-export const grades = pgEnum("Grades", ["gold", "silver", "certificate", "joined"]);
+export const grades = pgEnum("Grades", GRADE_VALUES);
 
 /**
  * The permanent record of what each factory has won: one row per factory per fiscal year, written
