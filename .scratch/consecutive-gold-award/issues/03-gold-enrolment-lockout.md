@@ -2,7 +2,7 @@
 
 # 03 — Block enrolment for two fiscal years after a gold-tier award
 
-**Status:** ready-for-agent
+**Status:** closed
 **Category:** enhancement
 **Depends on:** 01
 
@@ -107,3 +107,7 @@ Is there any override — an admin or evaluator re-opening enrolment for a
 locked-out factory? Built as specified there is none: a gold winner cannot enrol
 for two years under any circumstance. Worth confirming before release, because
 it is easier to add an override than to retract one.
+
+## Comments
+
+Merged in #14 (cce5e909bd7de12d9804e6e82a4a3c41be77b69c).

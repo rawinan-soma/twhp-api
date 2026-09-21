@@ -2,7 +2,7 @@
 
 # 02 — Add the consec-gold tier and settle the gold gate
 
-**Status:** ready-for-agent
+**Status:** closed
 **Category:** enhancement
 **Depends on:** 01
 
@@ -181,3 +181,7 @@ Current special-Question distribution in `seed_data/questions.json` — 3 at
 `special == 2`, so under this change the Outcome category is all-or-nothing for
 consec-gold specifically. Treat these as data, not constants — the gates read
 the `special` column.
+
+## Comments
+
+Merged in #14 (cce5e909bd7de12d9804e6e82a4a3c41be77b69c).

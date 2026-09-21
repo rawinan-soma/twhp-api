@@ -2,7 +2,7 @@
 
 # 01 — Record every award in an Awards table at finalize
 
-**Status:** ready-for-agent
+**Status:** closed
 **Category:** enhancement
 
 ## Agent Brief
@@ -138,3 +138,7 @@ the seed captures FY2569's true grades before the new gate goes live.
 
 `enroll.integration.test.ts` deletes enrolments during cleanup. Once the Cover
 reference restricts deletion, that teardown must clear awards first.
+
+## Comments
+
+Merged in #14 (cce5e909bd7de12d9804e6e82a4a3c41be77b69c).
