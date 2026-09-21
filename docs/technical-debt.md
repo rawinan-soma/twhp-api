@@ -18,7 +18,7 @@ Reviewed on 2026-09-02 against branch `dev`. The 2026-07-15 evidence still holds
 
 | Item | Movement |
 |---|---|
-| TD-06 | Partly narrowed. ADR-0012 settled the accepted-change-score conflict and the change-score/evidence conflict; the remaining conflicts are unchanged. One new residue was added. |
+| TD-06 | Partly narrowed. ADR-0012 settled the accepted-change-score conflict and the change-score/evidence conflict; ADR-0014 settled the Gold `special` set; the remaining conflicts are unchanged. One new residue was added. |
 | TD-10 | Inventory refreshed: 18 files / 315 declared cases, 201 isolated tests passing, Biome down to 3 errors. The gate itself is unchanged and still absent. |
 | TD-13 | The README boilerplate item is closed; the rest stands. |
 | TD-15 | Cover latest-log duplication is closed by `src/service/coverStatus.ts` (ADR-0010). Answer latest-log duplication, standard mapping, queue-name duplication, and the index question stand. |
@@ -99,6 +99,7 @@ Nothing here is safe to treat as fixed on the strength of a document date. Re-ve
 - **Operational / business impact:** Assessments may be edited in an unintended phase, historical decisions may not be reconstructable, and grades/evidence retention may differ from policy.
 - **Remediation:** Product owners must settle the conflict list, then encode one transition matrix and invariant layer shared by commands. Preserve immutable claim/verdict provenance if auditability is required. Add rule-focused boundary tests for state, N/A, standards, grade thresholds, fiscal dates, and post-submit mutability.
 - **Update 2026-09-02:** ADR-0012 settled two of the listed conflicts — the immutable-factory-choice versus overwriting `selectedChoice` question (finalize now performs the write, deliberately, and the original claim is preserved nowhere), and evidence retention on a change score (preserved; only hard rejects delete). Standard auto-credit acceptance, N/A eligibility, the Gold `special` set, assignment meaning, and the absent transition matrix are unchanged. One residue was added: a `finished` Answer can keep a score whose backing certificate a later hard reject deleted, because the reset is bounded to non-`finished` Answers to preserve immutability.
+- **Update 2026-09-21:** ADR-0014 settled the Gold `special` set: `gold` gates on `special` 1 and 3, as `CONTEXT.md` said, and the `special=2` Questions gate only the new `consec-gold` tier. Standard auto-credit acceptance, N/A eligibility, assignment meaning, and the absent transition matrix are unchanged and still required before handover.
 - **Required before handover:** Yes — decisions are required even if implementation follows later
 - **Confidence:** High on implementation/document divergence; intended behavior is partly Unknown
 
@@ -257,7 +258,7 @@ The receiving team should not infer answers to these from source:
 2. **Finalizer race:** CONTEXT/ADRs claim a single finalizer removes races or that a second call is guarded; source has no cover-state/locking/idempotency guard. Choose repeat-call and concurrency semantics.
 3. **Review/edit state:** CONTEXT restricts evaluator/factory activity by cover phase; services use partial answer-state checks. Approve one transition matrix.
 4. **Accepted choice and score:** CONTEXT/ADR-0004 says factory choice remains immutable and score uses accepted choice; negotiation source overwrites `selectedChoice`, and score reads it. Choose the audit model.
-5. **Standards/N/A/grade:** source, seed metadata, and domain prose disagree on accepted standard score, N/A eligibility, and which `special` values gate Gold. Product decision and boundary tests are required.
+5. **Standards/N/A/grade:** source, seed metadata, and domain prose disagree on accepted standard score, N/A eligibility. (The Gold `special` set is settled — ADR-0014.) Product decision and boundary tests are required.
 6. **Evidence deletion:** ADR-0006/source delete evidence for every rejected answer at finalize; older CONTEXT/ADR-0005 prose says hard rejects only. Treat ADR-0006 as authority or reverse the code, then update all stale material.
 7. **Cardinality:** domain language treats one enrollment/year, cover/enrollment, and answer/cover/question as guarantees; the database does not. Confirm keys and cleanup before constraints.
 8. **Assignment and scope:** enrollment stores named evaluator IDs, while review authorization uses any same-region/level actor. Decide whether assignment is authorization, routing, or audit-only.

@@ -133,7 +133,7 @@ bun test src/config.test.ts src/routes/authentication/index.test.ts \
 - **Current Cover/Answer state is the latest log row by serial `id`**, never by timestamp. Import
   `latestCoverLogLateral` from `src/service/coverStatus.ts`; do not write a second subquery
   ([ADR-0010](docs/adr/0010-lateral-latest-cover-log-resolution.md)).
-- **Score and grade are computed on demand** and never persisted
+- **Score is computed on demand**; the **Grade is stored** in `Awards` at finalize and never recomputed
   ([ADR-0001](docs/adr/0001-score-calculated-on-demand.md)).
 - **A fiscal year runs Oct 1 → Oct 1.** Always call `utilities().getFiscalYear()`.
 - **File I/O happens outside database transactions** — upload or delete first, then run the

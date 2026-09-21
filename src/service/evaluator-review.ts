@@ -5,6 +5,7 @@ import {
   accounts,
   answerLogs,
   answers,
+  awards,
   coverLogs,
   covers,
   enrolls,
@@ -17,6 +18,7 @@ import {
 import { emailQueue } from "../queue/email";
 import type { StandardFileItem, VerdictSaveBody } from "../schema/evaluator-review";
 import { utilities } from "../utils";
+import { createAwardHistory } from "./awardHistory";
 import { latestCoverLogFor } from "./coverStatus";
 import { categoriesFor, type EvaluatorLevel, evaluatorService } from "./evaluator";
 import { provincialOfficerService } from "./provincialOfficer";
@@ -192,6 +194,7 @@ const createEvaluatorReviewHelper = (database: typeof db) => {
 
 export const createEvaluatorReviewService = (database: typeof db) => {
   const helper = createEvaluatorReviewHelper(database);
+  const awardHistory = createAwardHistory(database);
 
   /**
    * Resolve an evaluator caller into a ReviewerContext (level + region scope).
@@ -482,6 +485,8 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           email: accounts.email,
           ccEmail: enrolls.safetyOfficerEmail,
           factoryNameTh: factories.nameTh,
+          factoryId: enrolls.factoryId,
+          enrollDate: enrolls.enrollDate,
           enrollId: enrolls.id,
           // The eleven (claimed, certificate) pairs. Enumerated rather than spread from
           // STANDARD_ENROLL_COLUMNS because a computed select object loses Drizzle's column
@@ -516,6 +521,10 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         .where(eq(covers.id, coverId))
         .limit(1)
         .then((r) => r[0]);
+
+      // The Cover's enrolment is what the award is written against; without it there is nothing to
+      // finalize. Unreachable once `assertCoverAccess` has passed, but it keeps the type honest.
+      if (!enrollData) return status(404, { message: "cover not found" });
 
       // Every answer in the cover + grading inputs + files
       const allCoverAnswers = await database
@@ -691,7 +700,31 @@ export const createEvaluatorReviewService = (database: typeof db) => {
       const hasHardReject = hardRejectIds.size > 0;
       const newCoverStatus = hasHardReject ? ("in_progress" as const) : ("finished" as const);
 
-      await database.transaction(async (tx) => {
+      // The Grade is computed once, here, and stored by the transaction below (ADR-0001, amended).
+      // `allCoverAnswers` was read before the transaction, so it still holds pre-correction
+      // choices; overlay the settled Verdict Scores. The overlay and the DB write below derive
+      // from the same map, so they cannot disagree.
+      const gradeAnswers = allCoverAnswers.map((a) => ({
+        selectedChoice: settledChoiceById.get(a.answerId) ?? a.selectedChoice,
+        category: a.category as CategoryKey,
+        special: a.special,
+      }));
+      // The Cover's own fiscal year, not the current one: a past-year Cover can be finalized after
+      // rollover (ODPC/DOED past-year authority, the Factory grace window). It is also the year the
+      // `consec-gold` lookback counts back from.
+      const awardFiscalYear = utilities().getFiscalYearOf(new Date(enrollData.enrollDate));
+
+      const computedGrade =
+        newCoverStatus === "finished"
+          ? computeGrade(calculateBreakdown(gradeAnswers), gradeAnswers, {
+              heldGoldTierInFyMinus3: await awardHistory.heldGoldTierAtConsecGoldLookback(
+                enrollData.factoryId,
+                awardFiscalYear,
+              ),
+            })
+          : null;
+
+      const grade = await database.transaction(async (tx) => {
         for (const row of promotionRows) {
           await tx.insert(answerLogs).values(row);
         }
@@ -749,19 +782,30 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         await tx
           .insert(coverLogs)
           .values({ coverId, status: newCoverStatus, evaluatorId: accountId });
-      });
 
-      // Grade (on-demand, not persisted — ADR-0001). `allCoverAnswers` was read before the
-      // transaction, so it still holds pre-correction choices; overlay the settled Verdict
-      // Scores here. The overlay and the DB write above derive from the same map, so they
-      // cannot disagree.
-      const gradeAnswers = allCoverAnswers.map((a) => ({
-        selectedChoice: settledChoiceById.get(a.answerId) ?? a.selectedChoice,
-        category: a.category as CategoryKey,
-        special: a.special,
-      }));
-      const scoring = calculateBreakdown(gradeAnswers);
-      const grade = newCoverStatus === "finished" ? computeGrade(scoring, gradeAnswers) : null;
+        if (computedGrade === null) return null;
+
+        // Same transaction as the `finished` log, so a Cover cannot be finished without an award.
+        // A repeat finalize keeps the first stored Grade: the conflict target is the Cover only, so
+        // a clash on (factory, fiscal year) with a different row still aborts loudly.
+        const [inserted] = await tx
+          .insert(awards)
+          .values({
+            factoryId: enrollData.factoryId,
+            fiscalYear: awardFiscalYear,
+            grade: computedGrade,
+            coverId,
+          })
+          .onConflictDoNothing({ target: awards.coverId })
+          .returning({ grade: awards.grade });
+        if (inserted) return inserted.grade;
+
+        const [existing] = await tx
+          .select({ grade: awards.grade })
+          .from(awards)
+          .where(eq(awards.coverId, coverId));
+        return existing?.grade ?? computedGrade;
+      });
 
       // Enqueue exactly one factory email after the committed txn; swallow queue failures.
       if (enrollData?.email) {

@@ -119,9 +119,16 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 ### BR-07 — One Enrollment per Factory per fiscal year
 
 - **Rule:** Enrollment creation pre-checks for an existing row for that Factory in the current fiscal interval.
-- **Implementation:** `enrollService.create` at `src/service/enroll.ts:181-245`; `Enrolls` schema.
+- **Implementation:** `enrollService.create` in `src/service/enroll.ts`; `Enrolls` schema.
 - **Inputs/conditions:** authenticated Factory and no matching row.
 - **Result:** creation proceeds; detected duplicate returns 400.
+- **Gold-tier lockout:** creation is also rejected with 400 when `Awards` holds a `gold` or
+  `consec-gold` row for the Factory in fiscal year Y − 1 or Y − 2 (Y = the enrolment's fiscal year,
+  Common Era). The Gold plaque is valid for three fiscal years, so an award in A closes A + 1 and
+  A + 2 and A + 3 is open. The message names the next eligible fiscal year (Common Era). The check
+  runs after the duplicate guard and before any upload, through `awardHistory.firstEligibleEnrolmentYear`
+  (ADR-0014). `silver`/`certificate`/`joined` and no row carry no lockout; update and delete are
+  unguarded, and there is no override.
 - **Edges/failure:** no database uniqueness or fiscal-year key. Concurrent/direct writes can duplicate; owner lookups use nondeterministic `.limit(1)`.
 - **Risk of change:** Very high—constraint introduction requires timezone policy and duplicate cleanup.
 - **Confidence:** Application rule **Verified**; durable cardinality absent.
@@ -295,19 +302,19 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Rule:** Points are 3/2/1/0; N/A is excluded. Percentage is `Math.round(achieved / (3 × scoredCount) × 100)`. Total combines raw Answers, not category percentages. Score is available for `in_review` and `finished`; list endpoints omit `in_progress`.
 - **Implementation:** `scoreHelpers.CHOICE_POINTS/scoreGroup/calculateBreakdown`; `scoreService`; ADR-0001; score tests.
 - **Inputs/conditions:** current-fiscal accessible Cover and current `Answers.selectedChoice` rows.
-- **Result:** on-demand nested Score Report; grade null unless finished.
-- **Edges/failure:** all-N/A/empty group returns zeros. AnswerLogs are not consulted. No completeness gate exists beyond Cover status, and rule changes retroactively rescore history.
+- **Result:** on-demand nested Score Report; `grade` is the stored `Awards` value, null unless finished (or not yet awarded).
+- **Edges/failure:** all-N/A/empty group returns zeros. AnswerLogs are not consulted. No completeness gate exists beyond Cover status. The breakdown is recomputed from current Answers, but the Grade is not: it is stored at finalize and does not change when rules or Answers later change.
 - **Failure behavior:** own missing Cover 404; own in-progress Cover 400; list path silently omits non-ready Covers.
 - **Risk of change:** Very high—published and historical results.
 - **Confidence:** **Verified.**
 
 ### BR-23 — Grade tiers
 
-- **Rule:** Evaluate top-down: gold when every category is >80, total ≥90, and every `special > 0` Answer is `3`; silver when every category is >60 and total ≥80; certificate when total ≥60; otherwise joined. Grade exists only for finished Covers.
-- **Implementation:** `scoreHelpers.computeGrade`; `scoreService`; `evaluatorReviewService.finalize`.
-- **Inputs/conditions:** rounded score groups and current choices.
-- **Result:** one on-demand award tier.
-- **Edges/failure:** code's gold gate includes `special=2`; `CONTEXT.md` says only 1 or 3. Code is authoritative. Empty categories score 0 and prevent gold/silver. Direct grade boundary/special tests are absent.
+- **Rule:** Evaluate top-down, first match wins: **consec-gold** when the gold gate holds, every `special=2` Answer is `3`, and the factory held a gold-tier award (`gold` or `consec-gold`) in the Cover's fiscal year minus 3; **gold** when every category is >80, total ≥90, and every `special=1` and `special=3` Answer is `3`; silver when every category is >60 and total ≥80; certificate when total ≥60; otherwise joined. A special gate needs the literal choice `3` — `n/a` does not satisfy it. Grade exists only for finished Covers. See [ADR-0014](adr/0014-consec-gold-and-the-gold-gate.md).
+- **Implementation:** `scoreHelpers.computeGrade`; `awardHistory.ts` (the one reader of the FY − 3 question); `scoreService`; `evaluatorReviewService.finalize`.
+- **Inputs/conditions:** rounded score groups, current choices, and whether the factory held a gold-tier `Awards` row three fiscal years before the Cover's own (a missing row, or a `silver`/`certificate`/`joined` row, means it did not).
+- **Result:** one award tier, computed once at finalize and stored in `Awards` (ADR-0001, amended); read paths return the stored value.
+- **Edges/failure:** Empty categories score 0 and prevent gold/silver. The `gold` special set was settled on 2026-09-21 in favour of `CONTEXT.md` (`special` 1 and 3); the five `special=2` Questions now gate only `consec-gold`. Covers finalized before that change keep their stored Grade (ADR-0014).
 - **Failure behavior:** no explicit error; a prose-based implementation would silently award a different grade.
 - **Risk of change:** Very high—award eligibility and prior reports.
 - **Confidence:** **Verified.**

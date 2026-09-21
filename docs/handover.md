@@ -24,7 +24,7 @@ Work is on `dev`, which is 6 commits ahead of `main` and identical to `staging`.
 - Filesystem route autoload, TypeBox DTOs, service factories, Drizzle schema, and role guards form consistent conventions.
 - The four account roles are `Factory`, `Provincial`, `Evaluator`, and `DOED`; evaluator levels further restrict category authority.
 - Fiscal-year queries consistently call `utilities().getFiscalYear()` rather than defining local date windows.
-- Score and grade are derived on demand from answer state; they are not stored.
+- Score is derived on demand from answer state; the Grade is stored in `Awards` at finalize.
 - The API prefix is `/twhp/api`, health is `/twhp/api/health`, and live OpenAPI is `/twhp/api/document` when not blocked by the production proxy.
 - Cover-status resolution has one owner, `src/service/coverStatus.ts`, and the nine staff lists share one pagination contract in `src/schema/pagination.ts`. Both are covered by isolated tests.
 
@@ -36,7 +36,7 @@ These statements describe consistent repository structure, not production availa
 - File presigning checks authentication but not resource ownership — any authenticated role can presign any filename it knows. (Evaluator/Provincial Officer detail routes were fixed to scope by region/province on 2026-09-03; presigning was explicitly left out of that work.)
 - Enrollment/cover/answer cardinalities are pre-checked in services but not enforced by database uniqueness; concurrent requests can violate them.
 - Finalize has no cover-state, lock, version, or idempotency guard and may repeat transitions and emails.
-- Business policy documents conflict with code on standard-question acceptance, Gold special-question gating, `n/a`, and some state gates.
+- Business policy documents conflict with code on standard-question acceptance, `n/a`, and some state gates (Gold special-question gating is settled — ADR-0014).
 - ADR-0012 withdrew the factory's right to contest a score. The `accept` branch in `answer.ts` is retained but unreachable for score changes, pending confirmation that no deployed frontend still calls it — confirm this with the frontend owner before removing it.
 - Covers finalized between 2026-07-07 and 2026-08-25 lost evidence under ADR-0006. A production backfill was deferred by explicit decision and its exposure was never measured; no code change recovers those files.
 - MinIO changes and PostgreSQL transactions are not atomic; failures can leave missing or orphaned evidence.
@@ -53,7 +53,7 @@ The prioritized evidence and remediation sequence are in [Technical debt](techni
 - Domain route files call services; TypeBox DTOs live in `src/schema/`; PostgreSQL shape lives only in `src/drizzle/schema.ts`.
 - Services return Elysia `status(code, body)` responses rather than throwing expected business errors.
 - Current application paths append to `coverLogs` and `answerLogs`; current state is “latest log wins,” normally by descending serial ID. Database immutability is not enforced.
-- Score and grade are calculated at read/finalize time and are not persisted.
+- Score is calculated at read time; the Grade is calculated once at finalize and stored.
 - File operations occur outside database transactions. That is an intentional boundary but not a distributed transaction.
 - Staff authentication uses password plus email OTP, except first-login staff; Factory accounts do not use OTP.
 - Review is two-phase: save one answer verdict, then ODPC/admin finalizes the whole Cover.
@@ -84,7 +84,7 @@ Two follow-ups were deliberately deferred and remain open: the ADR-0006 evidence
 - Intended cardinalities are one enrollment per Factory/fiscal year, one Cover per Enrollment, and one Answer per Cover/Question. They are not currently durable database constraints.
 - Evaluator scope combines health region and level/category ownership: Mental → Mental; DOH → Disease/Safety; ODPC → all categories and finalization.
 - A save verdict is `approve`, `change_score`, or `reject`. Per-answer saves do not move the Cover; finalize is the sole evaluator/admin Cover transition and sole writer of `finished`. Cover creation and Factory submission also append Cover transitions.
-- Scores use the live selected choice and exclude `n/a` from numerator and denominator. Grade evaluation is ordered Gold → Silver → Certificate → Joined.
+- Scores use the live selected choice and exclude `n/a` from numerator and denominator. Grade evaluation is ordered Consec-gold → Gold → Silver → Certificate → Joined ([ADR-0014](adr/0014-consec-gold-and-the-gold-gate.md)).
 - Evidence requirements depend on choice and question metadata; changing standard mappings or `seed_data/questions.json` can change validation and scoring together.
 
 The current-code rule cards, contradictions, edge cases, and change risks are in [Business rules](business-rules.md).
@@ -191,7 +191,7 @@ Every item below is **Unknown / Requires Organizational Knowledge**:
 - What are the recovery objectives, retention requirements, audit obligations, and personal-data classification?
 - Are all frontends same-origin/same-site with the API, and what CORS/CSRF/security-header policy is required?
 - Evaluator detail access is now strictly regional and Provincial Officer detail/cover-review access is strictly province-scoped (2026-09-03); what exact ownership rules must still apply to every presigned evidence file remains open.
-- What are the canonical intended rules for Standard Question acceptance, `n/a`, Gold `special` values, post-submit edits, and evidence retention? _(Score-change finality is answered — see [ADR-0012](adr/0012-score-changes-are-terminal.md).)_
+- What are the canonical intended rules for Standard Question acceptance, `n/a`, post-submit edits, and evidence retention? _(Score-change finality is answered — see [ADR-0012](adr/0012-score-changes-are-terminal.md).)_
 - Should the evidence lost to ADR-0006 between 2026-07-07 and 2026-08-25 be measured and remediated, and is a frontend confirmation step required before a hard reject deletes a real-world certificate?
 - What timezone is authoritative for fiscal-year queries and stored timestamps?
 - What are the maximum data volumes, email delivery SLOs, and acceptable presigned URL lifetime? _(The pagination and ordering contract is answered for the nine staff lists — see [API conventions](api-conventions.md#pagination). The data-volume question remains open.)_

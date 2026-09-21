@@ -8,12 +8,14 @@ import {
   accounts,
   answerLogs,
   answers,
+  awards,
   coverLogs,
   covers,
   enrolls,
   factories,
   questions,
 } from "../drizzle/schema";
+import { utilities } from "../utils";
 import { createScoreService } from "./score";
 
 // ─── Test DB ─────────────────────────────────────────────────────────────────
@@ -58,6 +60,23 @@ const GRADES = ["gold", "silver", "certificate", "joined"] as const;
 
 const asScoreReport = (result: unknown) => result as ScoreReport;
 
+/**
+ * A `finished` Cover reads its Grade from the `Awards` row finalize writes, so a fixture that
+ * inserts the `finished` log directly must insert the award too. Idempotent: the shared fixture
+ * Cover is finished more than once across this file.
+ */
+const awardFixtureCover = async (grade: (typeof GRADES)[number] = "silver") => {
+  await db
+    .insert(awards)
+    .values({
+      factoryId: TEST_FACTORY_ACCOUNT_ID,
+      fiscalYear: utilities().getFiscalYear().fiscalYear,
+      grade,
+      coverId,
+    })
+    .onConflictDoNothing();
+};
+
 async function mintJwt(sub: number, role: string) {
   return new SignJWT({ sub: String(sub), username: "test", role })
     .setProtectedHeader({ alg: "HS256" })
@@ -98,6 +117,7 @@ beforeAll(async () => {
       if (aIds.length > 0) await db.delete(answerLogs).where(inArray(answerLogs.answerId, aIds));
       await db.delete(answers).where(eq(answers.coverId, c.id));
       await db.delete(coverLogs).where(eq(coverLogs.coverId, c.id));
+      await db.delete(awards).where(eq(awards.coverId, c.id));
       await db.delete(covers).where(eq(covers.id, c.id));
     }
     await db.delete(enrolls).where(eq(enrolls.id, e.id));
@@ -222,6 +242,7 @@ afterAll(async () => {
   }
   await db.delete(answers).where(eq(answers.coverId, coverId));
   await db.delete(coverLogs).where(eq(coverLogs.coverId, coverId));
+  await db.delete(awards).where(eq(awards.factoryId, TEST_FACTORY_ACCOUNT_ID));
   await db.delete(covers).where(eq(covers.id, coverId));
   await db.delete(enrolls).where(eq(enrolls.id, enrollId));
   // factories must be deleted after enrolls (FK constraint)
@@ -279,9 +300,10 @@ describe("Story 003 + 004 — getScoreByFactory (service level)", () => {
 
   it("AC 003-AC3: finished cover → 200 with ScoreReport", async () => {
     await db.insert(coverLogs).values({ coverId, status: "finished" });
+    await awardFixtureCover();
     const result = asScoreReport(await scoreService.getScoreByFactory(TEST_FACTORY_ACCOUNT_ID));
     expect(result.coverStatus).toBe("finished");
-    expect(GRADES).toContain(result.grade);
+    expect(result.grade).toBe("silver"); // the stored award, not a recomputation
     expect(typeof result.scoring.total.percentage).toBe("number");
   });
 });
@@ -408,17 +430,18 @@ describe("Intent 011 — latest CoverLog gates Grade across every score surface"
       status: "finished",
       updatedAt: "2099-01-01T00:00:00.000Z",
     });
+    await awardFixtureCover();
 
     const finishedFactoryReport = asScoreReport(
       await scoreService.getScoreByFactory(TEST_FACTORY_ACCOUNT_ID),
     );
     expect(finishedFactoryReport.coverStatus).toBe("finished");
-    expect(GRADES).toContain(finishedFactoryReport.grade);
+    expect(finishedFactoryReport.grade).toBe("silver");
 
     for (const reports of await getStaffReports()) {
       const report = findFixture(reports);
       expect(report?.coverStatus).toBe("finished");
-      expect(GRADES).toContain(report?.grade);
+      expect(report?.grade).toBe("silver");
     }
 
     await db.insert(coverLogs).values({

@@ -54,8 +54,9 @@ partial dependency-injection boundary.
   [authentication and authorization](docs/authentication-authorization.md).
 - Enrollment/Cover queries are fiscal-year scoped from Oct 1 through Sep 30. Always use
   `utilities().getFiscalYear()`; do not hand-roll date boundaries or infer host timezone semantics.
-- Current Cover and Answer state is latest-log-wins by greatest log ID. Scores and grades are
-  calculated on demand, not persisted. Workflow transitions, reviewer authority, standard
+- Current Cover and Answer state is latest-log-wins by greatest log ID. Scores are
+  calculated on demand; the Grade is stored in `Awards` at finalize and never recomputed
+  ([ADR-0001](docs/adr/0001-score-calculated-on-demand.md), amended). Workflow transitions, reviewer authority, standard
   auto-credit, N/A eligibility, evidence requirements, and grade gates are load-bearing and have
   known prose/code conflicts. Read [business rules](docs/business-rules.md) before changing them.
 - Cover status is resolved only through `src/service/coverStatus.ts`. Writing a second correlated
@@ -74,6 +75,11 @@ partial dependency-injection boundary.
   `description` and per-Answer `status` are masked. Standard certificates are never masked, and no
   write route may appear under `provincialOfficers/**`. See
   [ADR-0013](docs/adr/0013-province-scoped-read-only-cover-review.md).
+- The Grade ladder is `consec-gold` → `gold` → `silver` → `certificate` → `joined`. `gold` gates on
+  `special` 1 and 3; `consec-gold` adds `special` 2 and a gold-tier `Awards` row in the Cover's fiscal
+  year − 3. "Did this factory hold gold in year Y" is answered only by `src/service/awardHistory.ts`; a
+  second query over `Awards` for it is a review failure. See
+  [ADR-0014](docs/adr/0014-consec-gold-and-the-gold-gate.md).
 - The `{ items, meta }` pagination envelope belongs to the nine staff list endpoints only; bounded
   collections stay bare arrays, and every paginated query must impose a total order. Compose
   `PaginationQuery` from `src/schema/pagination.ts` with `t.Composite` rather than replacing a

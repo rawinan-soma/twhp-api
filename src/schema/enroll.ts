@@ -176,3 +176,11 @@ export const EnrollWithCoverListSchema = t.Array(EnrollWithCoverSelect);
  * See docs/adr/0007-pagination-envelope-scoped-exception.md.
  */
 export const EnrollWithCoverPageSchema = Paginated(EnrollWithCoverSelect);
+
+/**
+ * The 400 message when the gold-tier enrolment lockout rejects a create (docs/adr/0014). Names the
+ * next fiscal year, Common Era, the factory may enrol in. English placeholder until the maintainer
+ * supplies the Thai wording; the service and the OpenAPI example both build it here.
+ */
+export const goldEnrolmentLockoutMessage = (eligibleFiscalYear: number) =>
+  `enrollment is closed after a gold-tier award; next eligible fiscal year is ${eligibleFiscalYear}`;

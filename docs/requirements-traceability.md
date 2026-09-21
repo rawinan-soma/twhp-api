@@ -43,7 +43,7 @@ The Evaluation module accumulated its requirements across six intents. Each late
 | `010-change-score-file-deletion` | Widened deletion predicate | 3 | `change_score` now deletes evidence at finalize, like a hard reject |
 | `011-finished-cover-reward-guard` | Finished-only Grade | 5 | Makes "Grade only when the latest CoverLog is `finished`" an explicit, tested contract |
 
-Governing decisions: ADR-0001 (score on demand), ADR-0002 (email-worker scope), ADR-0003 (hierarchical ODPC-gated review), ADR-0004 (verdict-score consensus loop), ADR-0005 (per-answer save + separate finalize), ADR-0006 (widened deletion, superseding ADR-0005's preservation clause).
+Governing decisions: ADR-0001 (score on demand; Grade stored at finalize per its 2026-09-21 amendment), ADR-0002 (email-worker scope), ADR-0003 (hierarchical ODPC-gated review), ADR-0004 (verdict-score consensus loop), ADR-0005 (per-answer save + separate finalize), ADR-0006 (widened deletion, superseding ADR-0005's preservation clause).
 
 ## 3. Requirement Summary by Intent
 
