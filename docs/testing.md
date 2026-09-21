@@ -1,6 +1,6 @@
 # Testing
 
-This project uses Bun's built-in `bun:test` runner for isolated, HTTP-component, schema, and PostgreSQL integration tests. This page describes the repository as verified on 2026-09-02 on branch `dev`; it does not imply that the full suite is green.
+This project uses Bun's built-in `bun:test` runner for isolated, HTTP-component, schema, and PostgreSQL integration tests. This page describes the repository as verified on 2026-09-02 on branch `dev`; it does not imply that the full suite is green. Fiscal-year coverage (`src/utils.fiscal-year.test.ts`, `src/service/fiscal-year-routes.test.ts`, `src/service/factory-grace.test.ts`, `src/service/evaluator-review.pastyear.test.ts`, and two integration files) was added on `feat/fiscal-year` and merged into `dev` on 2026-09-21.
 
 For environment setup and service ports, see [Development](./development.md). For database lifecycle and schema guidance, see [Database](./database.md). Unresolved quality risks are tracked in [Technical debt](./technical-debt.md).
 
@@ -144,7 +144,7 @@ The integration bullet describes existing test source, not a current passing res
 | Authentication and authorization | Real `jwtPlugin`, access/refresh verification and rotation, cookie attributes/clearing, refresh revocation, `requireRoles`, all composed guards, cross-role 401/403, and autoload/lifecycle scoping |
 | Password/session flows | Password reset, password change, logout, token expiry/replay/account binding, and session invalidation |
 | Full application behavior | Global 400/404/500 mapping, logging, response validation, route autoload, and OpenAPI completeness; the auth component test sees raw Elysia 422 rather than exercising the app's claimed 400 mapping |
-| Fiscal year | Bangkok-time Sep 30/Oct 1 boundaries, leap-year behavior, host-timezone independence, and correct query scoping across enroll/Cover/answer/score/factory services |
+| Fiscal year | **Covered.** `src/utils.fiscal-year.test.ts` asserts the Bangkok Sep 30/Oct 1 boundaries, leap-year spans, host-timezone independence, single clock read, and parity with the pre-2026 algorithm. `src/service/fiscal-year-addressing.integration.test.ts` covers query scoping and role scoping for an addressed year; `src/service/fiscal-year-routes.test.ts` proves all 13 fiscal-scoped endpoints compose the shared parameter |
 | Updates and concurrency | Double-submit, concurrent finalizers, idempotency, stale writes, uniqueness/conflict paths, and transaction rollback under races |
 | Files and external services | Answer/enrollment upload replacement and compensation, real MinIO behavior, Redis integration, BullMQ processing/retry, SMTP failure, and repeat-job scheduling |
 | Untested domains | Standalone behavior for admin, Cover, evaluator, factory, file, location, provincial-officer, and question services and guarded routes |

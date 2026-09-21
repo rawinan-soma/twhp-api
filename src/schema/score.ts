@@ -21,6 +21,12 @@ export const ScoreReportSchema = t.Object({
   coverId: t.Number(),
   coverStatus: t.String(),
   enrollId: t.Number(),
+  /**
+   * Common Era fiscal year of this record. Optional because the Factory list with
+   * `enrolled=false` disables fiscal-year filtering entirely, so its rows may span years and no
+   * single value would be truthful. See docs/api-conventions.md.
+   */
+  fiscalYear: t.Optional(t.Number()),
   grade: t.Optional(t.Nullable(GradeSchema)),
   scoring: t.Object({
     total: ScoreGroupSchema,

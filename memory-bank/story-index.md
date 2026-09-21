@@ -2,9 +2,9 @@
 
 ## Overview
 
-- **Total stories**: 64
+- **Total stories**: 76
 - **Completed**: 33
-- **Planned**: 26
+- **Planned**: 38
 - **Generated**: 5
 - **Last updated**: 2026-08-20
 
@@ -131,11 +131,31 @@ Unit: `001-list-pagination` — depends on `001-score-calculator-and-report`, `0
 - [x] **010-pagination-contract-documentation** ✅ COMPLETE — Correct `docs/api-conventions.md` "no pagination contract" + OpenAPI — Must — bolt `028-list-pagination`
 - [x] **011-pagination-regression-coverage** ✅ COMPLETE — Contract regression coverage: route composition, unwrapped 404s, cross-role envelope parity, OpenAPI — Must — bolt `028-list-pagination`
 
+### 013-fiscal-year-addressing
+
+Unit: `001-fiscal-year-reads` — depends on `001-score-calculator-and-report`, `007-cover-status-filter`, `012-list-pagination`
+
+- [ ] **001-fiscal-year-resolver** 📋 PLANNED — Parameterised, single-clock, `Asia/Bangkok`-pinned `getFiscalYear(year?)`; 16 call sites unchanged — Must — bolt `029-fiscal-year-reads`
+- [ ] **002-fiscal-year-query-contract** 📋 PLANNED — Shared optional `fiscalYear` query param (CE, `t.Numeric`, `multipleOf: 1`) — Must — bolt `029-fiscal-year-reads`
+- [ ] **003-staff-list-fiscal-year-addressing** 📋 PLANNED — `fiscalYear` on the 9 enrollment/factory/score staff lists; scoping and filters unchanged — Must — bolt `030-fiscal-year-reads`
+- [ ] **004-factory-self-read-fiscal-year-addressing** 📋 PLANNED — `fiscalYear` on factory enrollment, cover, answers, score self-reads — Must — bolt `030-fiscal-year-reads`
+- [ ] **005-fiscal-year-in-responses** 📋 PLANNED — CE `fiscalYear` on fiscal-scoped responses; frontend renders BE (+543) — Should — bolt `030-fiscal-year-reads`
+- [ ] **006-fiscal-year-boundary-coverage** 📋 PLANNED — Sep 30/Oct 1 Bangkok boundaries, leap years, TZ independence, omitted-param parity — Must — bolt `031-fiscal-year-reads`
+
+Unit: `002-out-of-year-writes` — depends on `001-fiscal-year-reads`, `008-per-answer-verdict-save`, `011-finished-cover-reward-guard`
+
+- [ ] **001-evaluator-level-guard** 📋 PLANNED — Level-scoped middleware reading `Evaluators.level`; `evalGuard` cannot express ODPC vs Mental/DOH — Must — bolt `032-out-of-year-writes`
+- [ ] **002-past-year-write-authority** 📋 PLANNED — Past-year writes for DOED + ODPC; region-scoped, non-expiring, target year from the record — Must — bolt `032-out-of-year-writes`
+- [ ] **003-factory-grace-window-policy** 📋 PLANNED — One declared 31-day window (2026-10-01 → 10-31), expressed relative to the rollover boundary — Must — bolt `033-out-of-year-writes`
+- [ ] **004-grace-window-cover-completion** 📋 PLANNED — Factory answer save/update + submit during grace; enrollment stays immutable — Must — bolt `033-out-of-year-writes`
+- [ ] **005-concurrent-open-year-disambiguation** 📋 PLANNED — Two open years resolve unambiguously; audit every `.limit(1)` self-read — Must — bolt `034-out-of-year-writes`
+- [ ] **006-out-of-year-write-audit** 📋 PLANNED — Attribution + distinguishable refusals; expiry mutates nothing, Cover stays `in_progress` — Must — bolt `034-out-of-year-writes`
+
 ---
 
 ## Stories by Status
 
-- **Planned**: 26
+- **Planned**: 38
 - **Generated**: 5
 - **In Progress**: 0
 - **Completed**: 33

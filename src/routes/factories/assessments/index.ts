@@ -7,6 +7,7 @@ import {
   NegotiateAnswerSchema,
   UpdateAnswerWithFilesSchema,
 } from "../../../schema/answer";
+import { FiscalYearQuery } from "../../../schema/fiscal-year";
 import { answerService } from "../../../service/answer";
 import { coverService } from "../../../service/cover";
 import { questionService } from "../../../service/question";
@@ -17,18 +18,23 @@ export default (app: App) =>
       .use(factoryGuard)
       .get(
         "covers",
-        async ({ jwtPayload }) => {
+        async ({ jwtPayload, query }) => {
           const id = Number(jwtPayload.sub);
-          return await coverService.getCoverById(id);
+          return await coverService.getCoverById(id, query.fiscalYear);
         },
         {
           detail: {
             description: "เรียกดูข้อมูลหน้าปกแบบประเมินพร้อมสถานะล่าสุด",
           },
+          query: FiscalYearQuery,
           response: {
             200: t.Composite([
               BaseCoverSelect,
-              t.Object({ status: t.String(), update_date: t.String() }),
+              t.Object({
+                status: t.String(),
+                update_date: t.String(),
+                fiscalYear: t.Optional(t.Number()),
+              }),
             ]),
             404: t.Object({
               message: t.String({ default: "cover not found" }),
@@ -74,12 +80,13 @@ export default (app: App) =>
       )
       .get(
         "/answers",
-        async ({ jwtPayload }) => {
+        async ({ jwtPayload, query }) => {
           const factoryId = Number(jwtPayload.sub);
-          return await answerService.getAnswerByFactoryId(factoryId);
+          return await answerService.getAnswerByFactoryId(factoryId, query.fiscalYear);
         },
         {
           detail: { description: "ดึงข้อมูลคำตอบ" },
+          query: FiscalYearQuery,
           response: {
             200: t.Array(
               t.Composite([
@@ -110,12 +117,13 @@ export default (app: App) =>
       )
       .post(
         "/answers",
-        async ({ jwtPayload, body }) => {
+        async ({ jwtPayload, body, query }) => {
           const factoryId = Number(jwtPayload.sub);
-          return await answerService.saveAnswer(factoryId, body);
+          return await answerService.saveAnswer(factoryId, body, query.fiscalYear);
         },
         {
           detail: { description: "บันทึกคำตอบ" },
+          query: FiscalYearQuery,
           body: CreateAnswerWithFilesSchema,
           parse: "multipart/form-data",
           response: {
@@ -182,12 +190,13 @@ export default (app: App) =>
       )
       .patch(
         "/answers",
-        async ({ jwtPayload, body }) => {
+        async ({ jwtPayload, body, query }) => {
           const factoryId = Number(jwtPayload.sub);
-          return await answerService.update(factoryId, body);
+          return await answerService.update(factoryId, body, query.fiscalYear);
         },
         {
           detail: { description: "แก้ไขคำตอบของแบบประเมิน" },
+          query: FiscalYearQuery,
           body: UpdateAnswerWithFilesSchema,
           parse: "multipart/form-data",
           response: {
@@ -236,12 +245,13 @@ export default (app: App) =>
       )
       .post(
         "/answers/negotiate",
-        async ({ jwtPayload, body }) => {
+        async ({ jwtPayload, body, query }) => {
           const factoryId = Number(jwtPayload.sub);
-          return await answerService.negotiate(factoryId, body);
+          return await answerService.negotiate(factoryId, body, query.fiscalYear);
         },
         {
           detail: { description: "รับหรือปฏิเสธคำตัดสินของผู้ตรวจประเมิน (accept/redo)" },
+          query: FiscalYearQuery,
           body: NegotiateAnswerSchema,
           parse: "multipart/form-data",
           response: {
@@ -272,12 +282,13 @@ export default (app: App) =>
       )
       .post(
         "/submission",
-        async ({ jwtPayload }) => {
+        async ({ jwtPayload, query }) => {
           const factoryId = Number(jwtPayload.sub);
-          return await answerService.submit(factoryId);
+          return await answerService.submit(factoryId, query.fiscalYear);
         },
         {
           detail: { description: "ส่งคำตอบทั้งชุด" },
+          query: FiscalYearQuery,
           response: {
             200: t.Object({ message: t.String({ default: "answers submit" }) }),
             400: t.Union([

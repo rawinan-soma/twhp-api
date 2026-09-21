@@ -65,14 +65,56 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 
 ### BR-06 — Fiscal-year membership
 
-- **Rule:** Current fiscal year is the half-open range `[Oct 1 00:00, next Oct 1 00:00)`, calculated from application host-local dates and compared in SQL using ISO UTC strings.
-- **Implementation:** `src/utils.ts:getFiscalYear`; all `gte/lt(enrolls.enrollDate)` callers.
-- **Inputs/conditions:** host clock/timezone and timezone-less `Enrolls.enroll_date`.
-- **Result:** current Enrollment/Cover/Answer/Score selection.
-- **Edges/failure:** API containers set Asia/Bangkok, PostgreSQL does not explicitly do so, and columns are `timestamp without time zone`. Live boundary interpretation is therefore **Unknown**. Two separate `new Date()` calls add a small rollover race.
-- **Failure behavior:** no explicit error; a boundary record may be silently included/excluded.
+- **Rule:** A fiscal year is the half-open range `[Oct 1 00:00, next Oct 1 00:00)` in **Asia/Bangkok**, labelled by its **ending** Common Era year: FY2026 runs 2025-10-01 to 2026-09-30. The boundary is pinned to a fixed UTC+7 offset in application code and does **not** depend on the host timezone.
+- **Implementation:** `src/utils.ts:getFiscalYear(fiscalYear?)`; all `gte/lt(enrolls.enrollDate)` callers. Reads the clock exactly once. A nominated year may be supplied; omitting it selects the current fiscal year.
+- **Inputs/conditions:** an optional Common Era year (2000–2100, validated at the route) and the timezone-less `Enrolls.enroll_date`.
+- **Result:** Enrollment/Cover/Answer/Score selection for the resolved year.
+- **Edges/failure:** none known at the boundary. The former host-timezone dependency and the two-`new Date()` rollover race were both removed.
+- **Failure behavior:** an out-of-range or fractional year is rejected with 400 before any query runs; the resolver throws `RangeError` as a backstop.
 - **Risk of change:** Very high—annual identity and historical selection.
-- **Confidence:** Algorithm **Verified**; database-boundary behavior **Unknown**. See [database](database.md).
+- **Confidence:** Boundary interpretation **Verified** (2026-08-21). Evidence: production PostgreSQL reports `TimeZone = UTC` with no per-database or per-role override; no production code sets `enrollDate` explicitly, so every value comes from `CURRENT_TIMESTAMP` and is UTC wall-clock; the resolver emits `2025-09-30T17:00:00.000Z` for the FY2026 boundary, which **is** midnight on 1 October in Bangkok. Verified by test under `TZ=UTC`, `TZ=Asia/Bangkok`, and `TZ=America/New_York`.
+- **Still open:** fiscal-year identity is **not persisted** — it is re-derived from `enroll_date` on every read. Correctness therefore rests on this one function rather than on stored data. Rows imported directly from CSV (see `CLAUDE.md`, production data import) carry dates that did not originate from `CURRENT_TIMESTAMP` and are outside the verified chain. See [database](database.md).
+
+### BR-06a — Fiscal-year write authority
+
+- **Rule:** Writes target the current fiscal year. A closed year is writable by `Role.DOED` and by
+  `Role.Evaluator` at level `ODPC` without expiry, and by a Factory only during a 31-day grace window
+  following the rollover boundary.
+- **Implementation:** `assertYearWritable` in `src/service/evaluator-review.ts` (review and finalize);
+  `factoryGraceApplies` and `resolveWritableYear` for the four Factory completion paths.
+- **Inputs/conditions:** the target Cover's Enrollment date, the caller's role and evaluator level,
+  and the current instant.
+- **Result:** the write proceeds, or is refused with a message naming the closed year.
+- **Edges/failure:** an out-of-region caller receives the existing `404 cover not found`, never a
+  year-related message, so the existence of a Cover in a given year is not disclosed. Only the
+  immediately preceding fiscal year is ever admitted by grace.
+- **Failure behavior:** `403` with a distinct message per authority path.
+- **Risk of change:** High—governs who may alter a closed year.
+- **Confidence:** **Verified.** Evaluator authority: a DOED admin is modelled as a national ODPC
+  (`adminReviewerContext`), so the rule reduces to `level === "ODPC"`. Grace: asserted at the window
+  boundaries, in a later fiscal year, and for a year two back.
+- **Not attributable in the database.** Grace-window Factory writes are **not** recorded with an
+  acting identity. `CoverLogs.evaluator_id` is semantically an evaluator reference and a Factory is
+  not an evaluator; writing a factory id there would corrupt every query reading that column. Adding
+  a column was out of scope for the intent. Refusals and grants are distinguishable in request logs
+  by their distinct messages, but **per-actor attribution of Factory writes requires a schema change
+  and does not exist.**
+
+### BR-06b — Fiscal-year expiry
+
+- **Rule:** A Cover still `in_progress` when the grace window closes remains `in_progress`,
+  permanently.
+- **Implementation:** none — expiry is evaluated at write time by `factoryGraceApplies`. No sweep, no
+  scheduled job, no persisted marker.
+- **Result:** the Cover stays readable by every role in scope, writable by DOED/ODPC without
+  deadline, and non-scorable exactly as any `in_progress` Cover already was
+  (`SCORABLE_STATUSES`, unchanged).
+- **Edges/failure:** such Covers accumulate indefinitely and are indistinguishable from any other
+  unfinished Cover. This is intended, not an oversight — `coverStatus` has three values and no
+  terminal state was invented for it.
+- **Risk of change:** Medium—introducing a status later would be a schema change.
+- **Confidence:** **Verified** by test: the log count for an untouched Cover is invariant, and its
+  latest status remains `in_progress`.
 
 ### BR-07 — One Enrollment per Factory per fiscal year
 
@@ -83,6 +125,11 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Edges/failure:** no database uniqueness or fiscal-year key. Concurrent/direct writes can duplicate; owner lookups use nondeterministic `.limit(1)`.
 - **Risk of change:** Very high—constraint introduction requires timezone policy and duplicate cleanup.
 - **Confidence:** Application rule **Verified**; durable cardinality absent.
+- **Unchanged by intent `013-fiscal-year-addressing`.** That intent added no unique constraint, so
+  `.limit(1)` owner lookups remain arbitrary where duplicates exist. What it *did* add is that a
+  Factory may now legitimately hold two open fiscal years at once during the grace window; every
+  self-read was asserted under that condition and resolves the intended year, but that is
+  year-disambiguation, not cardinality enforcement.
 
 ### BR-08 — Enrollment fields and standard certificates
 

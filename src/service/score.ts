@@ -120,10 +120,15 @@ export const createScoreService = (database: typeof db) => {
   const listScoreReports = async ({
     region,
     provinceId,
+    fiscalYear,
     page,
     limit,
-  }: { region?: number; provinceId?: number } & PaginationQueryDto) => {
-    const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+  }: { region?: number; provinceId?: number; fiscalYear?: number } & PaginationQueryDto) => {
+    const {
+      fiscalYear: resolvedFiscalYear,
+      fiscalYearStart,
+      fiscalYearEnd,
+    } = utilities().getFiscalYear(fiscalYear);
     const resolved = resolvePage({ page, limit });
     const latest = latestCoverLogLateral(database);
 
@@ -169,12 +174,18 @@ export const createScoreService = (database: typeof db) => {
       ),
     );
 
-    return buildPage(items, total, resolved.page, resolved.limit);
+    const withFiscalYear = items.map((item) => ({ ...item, fiscalYear: resolvedFiscalYear }));
+
+    return buildPage(withFiscalYear, total, resolved.page, resolved.limit);
   };
 
   return {
-    getScoreByFactory: async (factoryId: number) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+    getScoreByFactory: async (factoryId: number, fiscalYear?: number) => {
+      const {
+        fiscalYear: resolvedFiscalYear,
+        fiscalYearStart,
+        fiscalYearEnd,
+      } = utilities().getFiscalYear(fiscalYear);
 
       const coverRow = await database
         .select({
@@ -229,20 +240,25 @@ export const createScoreService = (database: typeof db) => {
         coverId: coverRow.coverId,
         coverStatus,
         enrollId: coverRow.enrollId,
+        fiscalYear: resolvedFiscalYear,
         grade,
         scoring,
       };
     },
 
-    getScoresByRegion: async (region: number, pagination?: PaginationQueryDto) =>
-      listScoreReports({ region, ...pagination }),
+    getScoresByRegion: async (
+      region: number,
+      pagination?: PaginationQueryDto & { fiscalYear?: number },
+    ) => listScoreReports({ region, ...pagination }),
 
-    getScoresByProvince: async (provinceId: number, pagination?: PaginationQueryDto) =>
-      listScoreReports({ provinceId, ...pagination }),
+    getScoresByProvince: async (
+      provinceId: number,
+      pagination?: PaginationQueryDto & { fiscalYear?: number },
+    ) => listScoreReports({ provinceId, ...pagination }),
 
     getAllScores: async (
       filters?: { region?: number; provinceId?: number },
-      pagination?: PaginationQueryDto,
+      pagination?: PaginationQueryDto & { fiscalYear?: number },
     ) => listScoreReports({ ...filters, ...pagination }),
   };
 };

@@ -369,11 +369,25 @@ No outbox, compensating cleanup, reconciliation job, object versioning, request 
 
 All persisted timestamps use PostgreSQL `timestamp(3)` **without time zone**, Drizzle string mode, and `CURRENT_TIMESTAMP`: `Enrolls.enroll_date`, `Covers.enroll_date`, `CoverLogs.updated_at`, and `AnswerLogs.updated_at` (`src/drizzle/schema.ts:152-154,291-293,310-312,381-383`). Latest state is ordered by log `id`, avoiding timestamp-tie ambiguity.
 
-`utilities().getFiscalYear()` constructs local JavaScript dates for October 1 00:00 through the next October 1 00:00, then callers compare ISO UTC strings against the timezone-less column (`src/utils.ts:53-61`). API/worker Compose services set `TZ=Asia/Bangkok`, but the PostgreSQL container and `migrate-dev` do not explicitly set it (`docker-compose.yaml:28-30,78-80,111-113,130-132,143-162`).
+`utilities().getFiscalYear(fiscalYear?)` constructs the October 1 00:00 boundaries against a **fixed UTC+7 offset**, not host-local dates, then callers compare ISO UTC strings against the timezone-less column. The FY2026 start therefore serialises to `2025-09-30T17:00:00.000Z` regardless of where the process runs. API/worker Compose services set `TZ=Asia/Bangkok`, and the PostgreSQL container does not set `TZ` — but the resolver no longer depends on either.
 
-### Uncertainty and risk
+### Observed behavior
 
-Server/session timezone was not observed. Comparing timezone-aware ISO strings with `timestamp without time zone` can shift fiscal-boundary membership when application, local shell, migration process, and PostgreSQL session timezone differ. `CURRENT_TIMESTAMP` stored into a timezone-less column also uses database session interpretation.
+Server timezone **was** observed on 2026-08-21. PostgreSQL reports `TimeZone = UTC`, sourced from the configuration file, with no per-database or per-role override; `docker.env` sets no `TZ` or `PGTZ`, and the same `postgres` service definition backs the `dev`, `staging`, and `production` profiles. `LOCALTIMESTAMP` matches host UTC exactly.
+
+Consequently `enroll_date` holds UTC wall-clock, and `2025-09-30T17:00:00.000Z` is exactly midnight on 1 October in Bangkok. Fiscal-boundary membership is correct, and is now covered by tests that run under `TZ=UTC`, `TZ=Asia/Bangkok`, and `TZ=America/New_York`.
+
+### Remaining risk
+
+Fiscal-year identity is **derived, not stored** — every historical read re-computes its own boundary through `getFiscalYear`. Rows imported directly from CSV rather than written by `CURRENT_TIMESTAMP` (see `CLAUDE.md`) carry dates outside that verified chain. To check an environment:
+
+```sql
+SELECT count(*) FROM "Enrolls"
+WHERE (extract(month from enroll_date)=9  AND extract(day from enroll_date)=30)
+   OR (extract(month from enroll_date)=10 AND extract(day from enroll_date)=1);
+```
+
+An empty result means no existing row sits close enough to a boundary to be reclassified.
 
 This is **Inferred risk** with **Unknown live configuration**, not proof that current production rows are wrong. Establish one canonical timezone, verify session settings, test Sep-30/Oct-1 Bangkok boundaries, and consider `timestamptz` for instants. If fiscal membership must be unique, use an enforceable fiscal-year key or equivalent database design rather than only a time-range pre-check.
 
