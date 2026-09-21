@@ -23,7 +23,7 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 There are 18 test files: 8 isolated and 10 PostgreSQL integration.
 
 ```bash
-# Isolated only — safe anywhere. 221 pass / 0 fail as of 2026-09-21.
+# Isolated only — safe anywhere. 222 pass / 0 fail as of 2026-09-21.
 bun test src/config.test.ts src/routes/authentication/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
@@ -139,8 +139,8 @@ only writer of `finished`. See `docs/adr/0012-score-changes-are-terminal.md`.
 ### Grade ladder
 
 Five grades, first match wins: `consec-gold` → `gold` → `silver` → `certificate` → `joined`. `gold`
-gates on `special` 1 and 3 (full score = the literal `"3"`; `n/a` never satisfies a gate).
-`consec-gold` adds `special == 2` and a gold-tier `Awards` row (`gold` or `consec-gold`) in the
+gates on `special == 1` only (full score = the literal `"3"`; `n/a` never satisfies a gate;
+`special == 3` gates no tier). `consec-gold` adds `special == 2` and a gold-tier `Awards` row (`gold` or `consec-gold`) in the
 **Cover's own** fiscal year − 3. `computeGrade` is pure and takes that history as an input; the one
 reader of `Awards` for "did this factory hold gold in year Y" is `src/service/awardHistory.ts` — a
 second ad-hoc query over `Awards` for it is a review failure. The Grade is stored at finalize, so

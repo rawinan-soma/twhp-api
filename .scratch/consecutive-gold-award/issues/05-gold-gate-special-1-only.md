@@ -2,7 +2,7 @@
 
 # 05 — The gold gate is `special == 1` only; the backfill uses the same rule
 
-**Status:** ready-for-agent
+**Status:** closed
 **Category:** bug
 **Depends on:** 02 (closed, merged in #14)
 **Blocks:** 04
@@ -133,3 +133,29 @@ saw. `backfill-fy2569.sql` must:
   `main` and production do not have #14, so no production row exists. If a
   staging database was finalized against `dev`, list those rows in the PR for
   the maintainer. Do not rewrite them.
+
+## Comments
+
+**2026-09-21 — implemented on `tkt-05`.**
+
+- `computeGrade` gates `gold` on `special == 1` only; `consec-gold` on `{1, 2}`. `score.test.ts`'s
+  `special == 3` cases are inverted, with new cases for `special == 3` not blocking `consec-gold`.
+- `backfill-fy2569.sql` preview and insert gate `gold` on `special == 1` and check `special == 2`
+  explicitly for `consec-gold`. Header comment and rule table rewritten.
+- **Pre-existing bug fixed in the SQL:** the preview (step 3) and insert (step 4) read
+  `a.selected_choice`, but on a schema built by `db:push` the column is `"selectedChoice"`
+  (`src/drizzle/schema.ts`), so those two statements errored. Steps 0, 1, 2, 5 and 6 never touch
+  `Answers` and were unaffected. Found only by running it. The name is not in doubt for production: `schema.ts` has declared
+  `selectedChoice` since its first commit, and the running API's Drizzle queries select that exact
+  column, so a production database serving this code has `"selectedChoice"`. (`docs/database.md`'s
+  ER sketch still writes `selected_choice`; that diagram is stale.)
+- **Verified on a disposable Postgres 17** (schema from `db:push`, 12 synthetic finished FY2569
+  Covers, FY2566 gold history on some). SQL preview and insert output were diffed against
+  `computeGrade` over the same Answers: identical for all 12. Covers per case: `special == 3` at
+  `0`/`n/a` → `gold` / `consec-gold`; `special == 2` at `2`/`n/a` with history → `gold`;
+  `special == 1` at `2`/`n/a`/`0`/`1` → `silver`; plus perfect, no-history, all-zero and 69% Covers.
+- Docs updated: `CONTEXT.md`, BR-23, ADR-0014 (Amendment section, history kept), PRD, `CLAUDE.md`,
+  `AGENTS.md`, `docs/domain-model.md`, `docs/technical-debt.md`, `docs/evaluation-features-th.html`.
+  `docs/api/*` states no gate (only the `Grade` enum), so it was not regenerated.
+- No re-grade of `Awards` rows. Nothing in this repo can say whether a staging database holds rows
+  finalized by the `{1, 3}` code from `dev`; the maintainer should check staging.

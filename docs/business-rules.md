@@ -310,11 +310,11 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 
 ### BR-23 — Grade tiers
 
-- **Rule:** Evaluate top-down, first match wins: **consec-gold** when the gold gate holds, every `special=2` Answer is `3`, and the factory held a gold-tier award (`gold` or `consec-gold`) in the Cover's fiscal year minus 3; **gold** when every category is >80, total ≥90, and every `special=1` and `special=3` Answer is `3`; silver when every category is >60 and total ≥80; certificate when total ≥60; otherwise joined. A special gate needs the literal choice `3` — `n/a` does not satisfy it. Grade exists only for finished Covers. See [ADR-0014](adr/0014-consec-gold-and-the-gold-gate.md).
+- **Rule:** Evaluate top-down, first match wins: **consec-gold** when the gold gate holds, every `special=2` Answer is `3`, and the factory held a gold-tier award (`gold` or `consec-gold`) in the Cover's fiscal year minus 3; **gold** when every category is >80, total ≥90, and every `special=1` Answer is `3`; silver when every category is >60 and total ≥80; certificate when total ≥60; otherwise joined. A special gate needs the literal choice `3` — `n/a` does not satisfy it. Grade exists only for finished Covers. See [ADR-0014](adr/0014-consec-gold-and-the-gold-gate.md).
 - **Implementation:** `scoreHelpers.computeGrade`; `awardHistory.ts` (the one reader of the FY − 3 question); `scoreService`; `evaluatorReviewService.finalize`.
 - **Inputs/conditions:** rounded score groups, current choices, and whether the factory held a gold-tier `Awards` row three fiscal years before the Cover's own (a missing row, or a `silver`/`certificate`/`joined` row, means it did not).
 - **Result:** one award tier, computed once at finalize and stored in `Awards` (ADR-0001, amended); read paths return the stored value.
-- **Edges/failure:** Empty categories score 0 and prevent gold/silver. The `gold` special set was settled on 2026-09-21 in favour of `CONTEXT.md` (`special` 1 and 3); the five `special=2` Questions now gate only `consec-gold`. Covers finalized before that change keep their stored Grade (ADR-0014).
+- **Edges/failure:** Empty categories score 0 and prevent gold/silver. The `gold` special set is `special=1` only (maintainer's rule, ADR-0014 as amended 2026-09-21); the five `special=2` Questions gate only `consec-gold`, and `special=3` gates no tier. Covers finalized before that change keep their stored Grade (ADR-0014).
 - **Failure behavior:** no explicit error; a prose-based implementation would silently award a different grade.
 - **Risk of change:** Very high—award eligibility and prior reports.
 - **Confidence:** **Verified.**

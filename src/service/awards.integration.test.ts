@@ -53,7 +53,8 @@ const odpcCtx = {
   scope: { kind: "region" as const, region: COVER_REGION },
 };
 
-// One Question per category. Question 38 is `special == 2`, so a gold Cover must score it "3".
+// One Question per category. Question 38 is `special == 2`, so a consec-gold Cover must score it "3"
+// (a `special == 2` Answer gates only that tier, never plain gold).
 const CATEGORY_QUESTION = [1, 12, 23, 36, 38];
 
 const currentYear = utilities().getFiscalYear().fiscalYear;

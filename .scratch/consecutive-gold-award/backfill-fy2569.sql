@@ -19,15 +19,20 @@
 --      Score Report reads its grade from "Awards"; until this runs, FY2569
 --      reports would show grade = null.
 --
--- Grading rule = the rule deployed while the auditors worked, i.e. exactly what
--- the Score Report and the finalize email showed:
---   gold        every category > 80, total >= 90, every special > 0 answer = '3'
+-- Grading rule = computeGrade in src/service/scoreHelpers.ts (ADR-0014, as
+-- corrected by ticket 05). One rule, in code and here. Top-down, first match wins:
+--   consec-gold the gold gate, every special == 2 answer = '3', and a gold-tier
+--               award in FY2566 (the Cover's fiscal year - 3)
+--   gold        every category > 80, total >= 90, every special == 1 answer = '3'
 --   silver      every category > 60, total >= 80
 --   certificate total >= 60
 --   joined      otherwise
--- plus one upgrade: gold + a gold-tier award in FY2566  =>  consec-gold.
--- (The FY2569 gold gate already requires every special == 2 answer = '3', so
--- the consec-gold special condition is satisfied automatically.)
+-- special == 3 gates no tier. 'n/a' never satisfies a special gate. A Cover with
+-- no gating answers is graded on its percentages alone.
+--
+-- Effect against what the auditors saw (they worked under special > 0): the gate
+-- is looser, so a FY2569 grade can only move up (silver -> gold / consec-gold, or
+-- gold -> consec-gold). Nothing moves down.
 --
 -- Percentages reproduce scoreHelpers.ts exactly: float division, then
 -- Math.round. 'n/a' is excluded from both numerator and denominator. An empty
@@ -109,20 +114,22 @@ sums AS (
     fc.cover_id,
     fc.factory_id,
     -- achieved points and scored count, per group ('n/a' excluded)
-    sum(a.selected_choice::text::int) FILTER (WHERE a.selected_choice <> 'n/a')                                  AS t_sum,
-    count(*)                          FILTER (WHERE a.selected_choice <> 'n/a')                                  AS t_cnt,
-    sum(a.selected_choice::text::int) FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Collaborate')   AS c_sum,
-    count(*)                          FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Collaborate')   AS c_cnt,
-    sum(a.selected_choice::text::int) FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Disease')       AS d_sum,
-    count(*)                          FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Disease')       AS d_cnt,
-    sum(a.selected_choice::text::int) FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Safety')        AS s_sum,
-    count(*)                          FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Safety')        AS s_cnt,
-    sum(a.selected_choice::text::int) FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Mental')        AS m_sum,
-    count(*)                          FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Mental')        AS m_cnt,
-    sum(a.selected_choice::text::int) FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Outcome')       AS o_sum,
-    count(*)                          FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Outcome')       AS o_cnt,
-    -- old gold gate: every special > 0 answer is '3' ('n/a' fails); no special answers => true
-    coalesce(bool_and(a.selected_choice = '3') FILTER (WHERE q.special > 0), true)                               AS special_ok
+    sum(a."selectedChoice"::text::int) FILTER (WHERE a."selectedChoice" <> 'n/a')                                  AS t_sum,
+    count(*)                          FILTER (WHERE a."selectedChoice" <> 'n/a')                                  AS t_cnt,
+    sum(a."selectedChoice"::text::int) FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Collaborate')   AS c_sum,
+    count(*)                          FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Collaborate')   AS c_cnt,
+    sum(a."selectedChoice"::text::int) FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Disease')       AS d_sum,
+    count(*)                          FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Disease')       AS d_cnt,
+    sum(a."selectedChoice"::text::int) FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Safety')        AS s_sum,
+    count(*)                          FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Safety')        AS s_cnt,
+    sum(a."selectedChoice"::text::int) FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Mental')        AS m_sum,
+    count(*)                          FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Mental')        AS m_cnt,
+    sum(a."selectedChoice"::text::int) FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Outcome')       AS o_sum,
+    count(*)                          FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Outcome')       AS o_cnt,
+    -- gold gate: every special == 1 answer is '3' ('n/a' fails); no special answers => true
+    coalesce(bool_and(a."selectedChoice" = '3') FILTER (WHERE q.special = 1), true)                               AS special1_ok,
+    -- extra consec-gold gate: every special == 2 answer is '3' ('n/a' fails). special == 3 gates nothing.
+    coalesce(bool_and(a."selectedChoice" = '3') FILTER (WHERE q.special = 2), true)                               AS special2_ok
   FROM fy_covers fc
   LEFT JOIN "Answers"   a ON a.cover_id = fc.cover_id
   LEFT JOIN "Questions" q ON q.id = a.question_id
@@ -131,7 +138,7 @@ sums AS (
 pct AS (
   -- Math.round((achieved / (3 * count)) * 100), in IEEE double like JavaScript
   SELECT
-    cover_id, factory_id, special_ok,
+    cover_id, factory_id, special1_ok, special2_ok,
     CASE WHEN t_cnt = 0 THEN 0 ELSE floor((t_sum::float8 / (3 * t_cnt)::float8) * 100 + 0.5) END AS total,
     CASE WHEN c_cnt = 0 THEN 0 ELSE floor((c_sum::float8 / (3 * c_cnt)::float8) * 100 + 0.5) END AS collaborate,
     CASE WHEN d_cnt = 0 THEN 0 ELSE floor((d_sum::float8 / (3 * d_cnt)::float8) * 100 + 0.5) END AS disease,
@@ -144,8 +151,8 @@ graded AS (
   SELECT
     p.*,
     CASE
-      WHEN least(collaborate, disease, safety, mental, outcome) > 80 AND total >= 90 AND special_ok
-        THEN CASE WHEN EXISTS (
+      WHEN least(collaborate, disease, safety, mental, outcome) > 80 AND total >= 90 AND special1_ok
+        THEN CASE WHEN special2_ok AND EXISTS (
                     SELECT 1 FROM "Awards" aw
                     WHERE aw.factory_id = p.factory_id
                       AND aw.fiscal_year = 2023   -- FY2566
@@ -157,7 +164,7 @@ graded AS (
     END AS grade
   FROM pct p
 )
-SELECT factory_id, cover_id, total, collaborate, disease, safety, mental, outcome, special_ok, grade
+SELECT factory_id, cover_id, total, collaborate, disease, safety, mental, outcome, special1_ok, special2_ok, grade
 FROM graded
 ORDER BY factory_id;
 
@@ -187,19 +194,20 @@ sums AS (
   SELECT
     fc.cover_id,
     fc.factory_id,
-    sum(a.selected_choice::text::int) FILTER (WHERE a.selected_choice <> 'n/a')                                  AS t_sum,
-    count(*)                          FILTER (WHERE a.selected_choice <> 'n/a')                                  AS t_cnt,
-    sum(a.selected_choice::text::int) FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Collaborate')   AS c_sum,
-    count(*)                          FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Collaborate')   AS c_cnt,
-    sum(a.selected_choice::text::int) FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Disease')       AS d_sum,
-    count(*)                          FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Disease')       AS d_cnt,
-    sum(a.selected_choice::text::int) FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Safety')        AS s_sum,
-    count(*)                          FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Safety')        AS s_cnt,
-    sum(a.selected_choice::text::int) FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Mental')        AS m_sum,
-    count(*)                          FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Mental')        AS m_cnt,
-    sum(a.selected_choice::text::int) FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Outcome')       AS o_sum,
-    count(*)                          FILTER (WHERE a.selected_choice <> 'n/a' AND q.category = 'Outcome')       AS o_cnt,
-    coalesce(bool_and(a.selected_choice = '3') FILTER (WHERE q.special > 0), true)                               AS special_ok
+    sum(a."selectedChoice"::text::int) FILTER (WHERE a."selectedChoice" <> 'n/a')                                  AS t_sum,
+    count(*)                          FILTER (WHERE a."selectedChoice" <> 'n/a')                                  AS t_cnt,
+    sum(a."selectedChoice"::text::int) FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Collaborate')   AS c_sum,
+    count(*)                          FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Collaborate')   AS c_cnt,
+    sum(a."selectedChoice"::text::int) FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Disease')       AS d_sum,
+    count(*)                          FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Disease')       AS d_cnt,
+    sum(a."selectedChoice"::text::int) FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Safety')        AS s_sum,
+    count(*)                          FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Safety')        AS s_cnt,
+    sum(a."selectedChoice"::text::int) FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Mental')        AS m_sum,
+    count(*)                          FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Mental')        AS m_cnt,
+    sum(a."selectedChoice"::text::int) FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Outcome')       AS o_sum,
+    count(*)                          FILTER (WHERE a."selectedChoice" <> 'n/a' AND q.category = 'Outcome')       AS o_cnt,
+    coalesce(bool_and(a."selectedChoice" = '3') FILTER (WHERE q.special = 1), true)                               AS special1_ok,
+    coalesce(bool_and(a."selectedChoice" = '3') FILTER (WHERE q.special = 2), true)                               AS special2_ok
   FROM fy_covers fc
   LEFT JOIN "Answers"   a ON a.cover_id = fc.cover_id
   LEFT JOIN "Questions" q ON q.id = a.question_id
@@ -207,7 +215,7 @@ sums AS (
 ),
 pct AS (
   SELECT
-    cover_id, factory_id, special_ok,
+    cover_id, factory_id, special1_ok, special2_ok,
     CASE WHEN t_cnt = 0 THEN 0 ELSE floor((t_sum::float8 / (3 * t_cnt)::float8) * 100 + 0.5) END AS total,
     CASE WHEN c_cnt = 0 THEN 0 ELSE floor((c_sum::float8 / (3 * c_cnt)::float8) * 100 + 0.5) END AS collaborate,
     CASE WHEN d_cnt = 0 THEN 0 ELSE floor((d_sum::float8 / (3 * d_cnt)::float8) * 100 + 0.5) END AS disease,
@@ -221,8 +229,8 @@ graded AS (
     p.factory_id,
     p.cover_id,
     CASE
-      WHEN least(collaborate, disease, safety, mental, outcome) > 80 AND total >= 90 AND special_ok
-        THEN CASE WHEN EXISTS (
+      WHEN least(collaborate, disease, safety, mental, outcome) > 80 AND total >= 90 AND special1_ok
+        THEN CASE WHEN special2_ok AND EXISTS (
                     SELECT 1 FROM "Awards" aw
                     WHERE aw.factory_id = p.factory_id
                       AND aw.fiscal_year = 2023   -- FY2566
