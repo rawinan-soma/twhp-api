@@ -33,14 +33,14 @@ const SNIPPET =
   ".then(m=>process.stdout.write(JSON.stringify({skip:m.env.DEV_SKIP_OTP,secret:m.env.DEV_BYPASS_SECRET})))" +
   ".catch(e=>{process.stderr.write(String((e&&e.message)||e));process.exit(1)})";
 
-async function loadConfig(overrides: Record<string, string | undefined>) {
+async function loadConfig(overrides: Record<string, string | undefined>, snippet = SNIPPET) {
   const env: Record<string, string> = { ...BASE_ENV };
   for (const [k, v] of Object.entries(overrides)) {
     if (v === undefined) delete env[k];
     else env[k] = v;
   }
   // Use the running bun binary by absolute path — a custom `env` drops PATH.
-  const proc = Bun.spawn([process.execPath, "-e", SNIPPET], {
+  const proc = Bun.spawn([process.execPath, "-e", snippet], {
     env,
     stdout: "pipe",
     stderr: "pipe",
@@ -80,5 +80,45 @@ describe("config — 001 dev bypass env vars", () => {
     });
     expect(exitCode).toBe(0);
     expect(JSON.parse(out)).toEqual({ skip: true, secret: "" });
+  });
+});
+
+// TEMPORARY (FY2026 extension, revert 2026-10-16)
+const PERIOD_SNIPPET =
+  "import('./src/config.ts')" +
+  ".then(m=>process.stdout.write(JSON.stringify({end:m.env.EVALUATION_PERIOD_END?.toISOString()??null})))" +
+  ".catch(e=>{process.stderr.write(String((e&&e.message)||e));process.exit(1)})";
+
+describe("config — EVALUATION_PERIOD_END (FY2026 extension)", () => {
+  const load = (value: string | undefined) =>
+    loadConfig({ TZ: "Asia/Bangkok", EVALUATION_PERIOD_END: value }, PERIOD_SNIPPET);
+
+  it("unset → null", async () => {
+    const { exitCode, out } = await load(undefined);
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(out)).toEqual({ end: null });
+  });
+
+  it("empty → null", async () => {
+    const { exitCode, out } = await load("");
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(out)).toEqual({ end: null });
+  });
+
+  it("2026-10-16 → local (Bangkok) midnight at the start of that day", async () => {
+    const { exitCode, out } = await load("2026-10-16");
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(out)).toEqual({ end: "2026-10-15T17:00:00.000Z" });
+  });
+
+  it.each([
+    "16/10/2026",
+    "2026-10-16T00:00",
+    "2026-02-30",
+    "soon",
+  ])("malformed %p → startup throws naming the var", async (value) => {
+    const { exitCode, err } = await load(value);
+    expect(exitCode).not.toBe(0);
+    expect(err).toContain("EVALUATION_PERIOD_END");
   });
 });

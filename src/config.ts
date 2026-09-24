@@ -38,6 +38,21 @@ function optionalEnvBoolean(key: string, defaultValue: boolean): boolean {
   return val === "true";
 }
 
+// TEMPORARY (FY2026 extension, revert 2026-10-16)
+/** `YYYY-MM-DD` → host-local midnight at the start of that day; unset or empty → null. */
+function optionalEnvDate(key: string): Date | null {
+  const val = Bun.env[key];
+  if (val === undefined || val === "") return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(val);
+  if (match) {
+    const [y, m, d] = match.slice(1).map(Number);
+    const date = new Date(y, m - 1, d);
+    // Round-trip rejects dates JavaScript silently rolls over, e.g. 2026-02-30 → Mar 2.
+    if (date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d) return date;
+  }
+  throw new Error(`Environment variable ${key} must be a YYYY-MM-DD date, got: "${val}"`);
+}
+
 function optionalEnv(key: string, defaultValue: string): string {
   return Bun.env[key] ?? defaultValue;
 }
@@ -90,6 +105,10 @@ export const env = {
   MINIO_SECRET_KEY: requireEnv("MINIO_SECRET_KEY"),
   MINIO_BUCKET_NAME: requireEnv("MINIO_BUCKET_NAME"),
   MINIO_PUBLIC_URL: requireEnv("MINIO_PUBLIC_URL"),
+
+  // TEMPORARY (FY2026 extension, revert 2026-10-16) — exclusive end of the Evaluation Period.
+  // See .scratch/fiscal-year-extension-2026/issues/01-extend-fy2026-evaluation-period.md
+  EVALUATION_PERIOD_END: optionalEnvDate("EVALUATION_PERIOD_END"),
 } as const;
 
 export type Env = typeof env;

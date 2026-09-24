@@ -51,9 +51,11 @@ const deleteFileStrict = async (fileName: string | null) => {
 };
 
 export const utilities = () => ({
-  getFiscalYear: () => {
-    const currentYear = new Date().getFullYear();
-    const now = new Date();
+  // TEMPORARY (FY2026 extension, revert 2026-10-16): `at` lets the Evaluation Period resolve
+  // the reviewer fiscal year at another instant. Every other caller passes nothing.
+  getFiscalYear: (at: Date = new Date()) => {
+    const currentYear = at.getFullYear();
+    const now = at;
     const fiscalYearStart =
       now >= new Date(currentYear, 9, 1)
         ? new Date(currentYear, 9, 1)
