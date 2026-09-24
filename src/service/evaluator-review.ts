@@ -18,6 +18,7 @@ import { emailQueue } from "../queue/email";
 import type { StandardFileItem, VerdictSaveBody } from "../schema/evaluator-review";
 import { utilities } from "../utils";
 import { latestCoverLogFor } from "./coverStatus";
+import { type EvaluationPeriod, evaluationPeriod } from "./evaluationPeriod";
 import { categoriesFor, type EvaluatorLevel, evaluatorService } from "./evaluator";
 import { provincialOfficerService } from "./provincialOfficer";
 import { type CategoryKey, calculateBreakdown, computeGrade } from "./scoreHelpers";
@@ -135,7 +136,11 @@ const createEvaluatorReviewHelper = (database: typeof db) => {
   return { assertCoverInRegion, assertCoverInProvince, assertCoverExists, assertCoverAccess };
 };
 
-export const createEvaluatorReviewService = (database: typeof db) => {
+export const createEvaluatorReviewService = (
+  database: typeof db,
+  // TEMPORARY (FY2026 extension, revert 2026-10-16)
+  period: EvaluationPeriod = evaluationPeriod,
+) => {
   const helper = createEvaluatorReviewHelper(database);
 
   /**
@@ -362,6 +367,14 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         });
       }
 
+      // TEMPORARY (FY2026 extension, revert 2026-10-16): after the Oct 1 rollover the factory can
+      // no longer see this Cover, so a hard reject would strand it.
+      if (entry.decision === "reject" && period.isExtensionWindow()) {
+        return status(400, {
+          message: `answer ${answerId}: hard reject is closed during the evaluation extension; approve or change the score instead`,
+        });
+      }
+
       // A change_score to the factory's current choice is a no-op — reject it; use "approve".
       if (entry.decision === "change_score" && entry.verdictChoice === answerRow.selectedChoice) {
         return status(400, {
@@ -536,6 +549,14 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           .map((r) => r.answerId),
       );
 
+      // TEMPORARY (FY2026 extension, revert 2026-10-16): catches rejects saved before the Oct 1
+      // rollover. Refused before any file deletion, DB write or email.
+      if (hardRejectIds.size > 0 && period.isExtensionWindow()) {
+        return status(400, {
+          message: `hard reject is closed during the evaluation extension; re-save answers ${[...hardRejectIds].join(", ")} as approve or change_score`,
+        });
+      }
+
       // Standard certificates behind a hard-rejected question. A standard-backed Answer holds
       // no per-answer files — `selectedChoice` was forced to "3" from the certificate — so
       // without this a hard reject deletes nothing and the redo re-derives the same "3".
@@ -709,7 +730,13 @@ export const createEvaluatorReviewService = (database: typeof db) => {
             ? enrollData.ccEmail
             : undefined;
         try {
-          if (newCoverStatus === "finished") {
+          if (newCoverStatus === "finished" && period.isOpen()) {
+            // TEMPORARY (FY2026 extension, revert 2026-10-16): factories are not told their
+            // Grade until the Evaluation Period ends; a follow-up on `dev` sends these later.
+            console.info(
+              `verdict-result-finished withheld for cover ${coverId} (evaluation period open)`,
+            );
+          } else if (newCoverStatus === "finished") {
             await emailQueue.add("verdict-result-finished", {
               email: enrollData.email,
               cc,
