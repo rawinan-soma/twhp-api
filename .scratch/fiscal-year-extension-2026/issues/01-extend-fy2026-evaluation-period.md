@@ -1,6 +1,6 @@
 # 01 — Extend the FY2026 evaluation period to 15 Oct and withhold grades until it ends
 
-Status: ready-for-agent
+Status: closed
 Category: enhancement
 Delivery: **temporary hotfix**. Branch off `main`, PR into `main`. The code is **one commit**. Do **not** merge it
 into `dev`. Must be deployed before 2026-10-01 00:00 Bangkok. It is reverted on 2026-10-16 (see Revert plan).
@@ -164,3 +164,5 @@ The setting is inert from 2026-10-16 00:00 regardless, so a late revert is harml
 FY2027, factory grades show again, and hard rejects are allowed again.
 
 ## Comments
+
+Merged in #16 (acda11a).
