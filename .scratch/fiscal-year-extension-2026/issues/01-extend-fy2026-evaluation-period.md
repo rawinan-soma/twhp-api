@@ -126,7 +126,10 @@ The auditors cannot finish FY2026 evaluation by 30 Sep. They need the evaluation
       the answers, the evidence files and the email queue are all untouched. Once those Answers are re-saved as
       approve or change_score, finalize succeeds.
 - [ ] Every code site this change touches carries a one-line `TEMPORARY (FY2026 extension, revert 2026-10-16)`
-      comment. No ADR, `CONTEXT.md`, business-rules, API-conventions or `CLAUDE.md` edits, since the change is reverted
+      comment. **Exception** (amended 2026-09-24 after clearance, accepted in code review `5d025a7`): import lines,
+      call sites that only forward the period to a helper that carries the comment (e.g. `enrollExists(..., period)`),
+      and test-helper plumbing need no comment of their own; the single-commit revert removes them regardless.
+      No ADR, `CONTEXT.md`, business-rules, API-conventions or `CLAUDE.md` edits, since the change is reverted
       in two weeks and its record lives in this issue.
 - [ ] The whole code change is a single commit, so `git revert <sha>` removes it cleanly. This issue file is
       committed separately so the revert keeps the record.
