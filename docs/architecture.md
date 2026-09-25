@@ -35,7 +35,7 @@ flowchart LR
 | Object storage | MinIO | `src/utils.ts` |
 | Jobs and temporary state | BullMQ and Redis | `src/queue/email.ts`, `src/workers.ts` |
 | Email | Nodemailer in a separate worker | `src/worker/email.ts` |
-| Logging | `@bogeychan/elysia-logger`; console logging remains in worker/utilities | `src/index.ts`, `src/worker/email.ts` |
+| Logging | `@bogeychan/elysia-logger`; console logging remains in worker/utilities | `src/logging.ts`, `src/worker/email.ts` |
 
 The checkout lockfile fixes current dependency resolution. The exact production Bun runtime is **Unknown / Requires Organizational Knowledge**: Docker uses the floating `oven/bun:1` family, while `elysia` and `bun-types` are declared as `latest`.
 

@@ -14,7 +14,8 @@ maintainer rather than silently choosing.
 
 ## Repository boundaries
 
-- `src/index.ts`: API bootstrap, global errors/logging, route autoload, and request-size limit.
+- `src/index.ts`: API bootstrap, route autoload, and request-size limit.
+- `src/logging.ts`: pino logger, request logging, and global error classification (`onError`/`onAfterResponse`).
 - `src/routes/**`: HTTP groups, guards, TypeBox/OpenAPI contracts. Nested paths are autoloaded; do
   not manually register routes or create a controller layer.
 - `src/service/*.ts`: business and database behavior. Most modules expose a database-taking factory

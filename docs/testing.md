@@ -6,13 +6,13 @@ For environment setup and service ports, see [Development](./development.md). Fo
 
 ## Current status
 
-- **19 test files and 324 declared test cases** were found.
-- **9 files are isolated** unit, configuration, schema, pagination, or in-process route tests.
+- **20 test files and 326 declared test cases** were found.
+- **10 files are isolated** unit, configuration, schema, pagination, or in-process route tests.
 - **10 files are PostgreSQL integration tests.**
 - The eight isolated files were run together on 2026-09-02 with Bun 1.3.6: **201 passed, 0 failed,
   489 `expect()` calls, 408 ms**. The run count exceeds the declared count because several files
-  generate cases from tables. On 2026-09-25, with `src/routes/index.test.ts` added, the nine isolated
-  files gave **222 passed, 0 failed, 526 `expect()` calls**.
+  generate cases from tables. On 2026-09-25, with `src/routes/index.test.ts` and `src/logging.test.ts`
+  added, the ten isolated files gave **228 passed, 0 failed, 538 `expect()` calls**.
 - The integration tests were **not run** during this refresh. Their setup performs real inserts and
   deletes against `DATABASE_URL`, whose test preload fallback names the ordinary local `twhp`
   database.
@@ -31,7 +31,7 @@ Do not summarize the repository as having "no tests," and do not describe the fu
 
 Counts are declared `it(...)`/`test(...)` cases in each file.
 
-### Isolated tests (9 files, 149 declared / 222 executed)
+### Isolated tests (10 files, 151 declared / 228 executed)
 
 | File | Cases | Scope |
 |---|---:|---|
@@ -42,6 +42,7 @@ Counts are declared `it(...)`/`test(...)` cases in each file.
 | `src/service/coverStatus.test.ts` | 17 | Shared latest-cover-log resolution: ordering by serial `id`, `LIMIT 1`, and both query shapes (ADR-0010) |
 | `src/service/pagination.test.ts` | 25 | `PaginationQuery`/`PaginatedResponse` contract, coercion, bounds, and `meta` arithmetic (ADR-0007, ADR-0009) |
 | `src/service/pagination-routes.test.ts` | 9 | Route-level composition of the envelope, unwrapped 404s, and envelope parity across the nine staff lists |
+| `src/logging.test.ts` | 2 | Request-logging plugin from `src/logging.ts` with a captured pino stream: health routes (including the 503) write no line; ordinary 200/400/404 requests still do |
 | `src/routes/index.test.ts` | 9 | Health routes: `/health` and `/health/live` liveness, `/health/ready` 200/503 with injected fake PostgreSQL/Redis/MinIO clients and the 1 s timeout, and the log-exclusion path set |
 | `src/service/score.test.ts` | 27 | Score arithmetic, category breakdown, `n/a` handling, boundaries, and TypeBox response shape |
 
@@ -62,10 +63,10 @@ Counts are declared `it(...)`/`test(...)` cases in each file.
 
 ## Safely running the isolated tests
 
-All nine isolated files run cleanly in one process:
+All ten isolated files run cleanly in one process:
 
 ```bash
-bun test src/config.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
+bun test src/config.test.ts src/logging.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
   src/service/pagination.test.ts src/service/score.test.ts

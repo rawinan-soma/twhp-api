@@ -180,7 +180,7 @@ Nothing here is safe to treat as fixed on the strength of a document date. Re-ve
 - **Severity:** Medium
 - **Category:** Confirmed debt
 - **Evidence:** Four operations document 201 but return the default 200. Root validation maps errors to 400 while route-only tests expect 422. JWT/domain failures are JSON but RBAC 403 is a bare string. OpenAPI lacks cookie security schemes and common middleware failures, advertises the development bypass header, and has no reproducible source-commit/freshness check. The presign description says five minutes while source signs for five seconds.
-- **Path / symbol:** factory registration, enrollment, cover, and reset-request routes; `src/index.ts#onError`; `src/middleware/jwt.ts`; `src/middleware/rbac.ts`; `docs/api/openapi.json`; `docs/api/API.md`.
+- **Path / symbol:** factory registration, enrollment, cover, and reset-request routes; `src/logging.ts#onError`; `src/middleware/jwt.ts`; `src/middleware/rbac.ts`; `docs/api/openapi.json`; `docs/api/API.md`.
 - **Engineering impact:** Clients, tests, and generated schemas encode different contracts; integrators must learn behavior through runtime failures.
 - **Operational / business impact:** Client error handling, creation flows, and file retrieval can fail unexpectedly; security requirements can be omitted by generated clients.
 - **Update 2026-09-02:** the root `README.md` was rewritten as a real project entry point, closing that sub-item. The OpenAPI snapshot has not been regenerated since the pagination and score-change work, so its drift is now wider: the nine staff lists return an `{ items, meta }` envelope the snapshot does not describe, and the verdict semantics it documents predate ADR-0012.
