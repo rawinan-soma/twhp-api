@@ -175,7 +175,8 @@ BullMQ + Redis. Queue in `src/queue/email.ts`, worker in `src/worker/email.ts`, 
 OpenTelemetry, hand-written per ADR-0014 — `@elysiajs/opentelemetry` is not approved. Every API
 command runs `bun --preload ./src/telemetry.api.ts …` (package scripts, Dockerfile, Compose) so `pg`
 is patched before Drizzle loads it; it is deliberately not a `bunfig.toml` preload, which would also
-run in the worker and `db:*`. `src/telemetry.ts` holds the provider (OTLP export only when
+run in the worker and `db:*`. Never write `--preload <file> … run`: Bun then prints its help and
+exits. Use `bun --watch --preload ./src/telemetry.api.ts src/index.ts`, with no `run`. `src/telemetry.ts` holds the provider (OTLP export only when
 `OTEL_EXPORTER_OTLP_ENDPOINT` is set). `src/tracing.ts` is the request-span plugin mounted before
 autoload: one SERVER span per request named `<METHOD> <route>`, an **allow-list** of attributes
 (method, route, path without query, status, `enduser.id`), inbound `traceparent` ignored, health not

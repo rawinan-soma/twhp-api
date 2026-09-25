@@ -33,5 +33,8 @@ datasources:
         datasourceUid: loki
         spanStartTimeShift: "-5m"
         spanEndTimeShift: "5m"
-        filterByTraceID: true
-        tags: ["service"]
+        # A custom query, not `tags`: spans carry `service.name=twhp-api` but Loki's `service` label is
+        # the Compose service (`api`, `api-dev`, …), so no tag mapping matches and Grafana would hide the
+        # link. Every app line carries `trace_id` in its JSON body and every stream has an `env` label.
+        customQuery: true
+        query: '{env=~".+"} |= "$${__trace.traceId}"'

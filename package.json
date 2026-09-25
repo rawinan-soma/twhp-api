@@ -9,7 +9,7 @@
     "format": "biome format --write src/",
     "lint": "biome lint --write src/",
     "check": "biome check --write src/",
-    "dev": "bun --preload ./src/telemetry.api.ts --watch run src/index.ts | pino-pretty",
+    "dev": "bun --watch --preload ./src/telemetry.api.ts src/index.ts | pino-pretty",
     "start": "bun --preload ./src/telemetry.api.ts src/index.ts",
     "worker": "bun src/workers.ts",
     "db:push": "bunx drizzle-kit push",

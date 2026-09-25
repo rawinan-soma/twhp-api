@@ -63,7 +63,7 @@ services:
     # `bun run dev` (host) still pipes through pino-pretty for a human terminal;
     # the container runs the underlying watch command directly so its stdout
     # stays raw JSON for Alloy/Loki, matching worker-dev and the prod `api` command.
-    command: bun --preload ./src/telemetry.api.ts --watch run src/index.ts
+    command: bun --watch --preload ./src/telemetry.api.ts src/index.ts
 
   # Prod Migration (one-shot: runs db:push + db:seed then exits)
   migrate-prod:
