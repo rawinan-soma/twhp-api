@@ -16,8 +16,8 @@ For environment setup and service ports, see [Development](./development.md). Fo
   `src/service/health.test.ts` added, the eleven isolated files gave **234 passed, 0 failed, 544
   `expect()` calls**. With `src/logger.test.ts` and `src/worker/email.test.ts` added the same day,
   the thirteen isolated files give **251 passed, 0 failed, 598 `expect()` calls**. With the five
-  tracing files added the same day (issue 05), the eighteen isolated files give **286 passed, 0
-  failed, 735 `expect()` calls**.
+  tracing files added the same day (issue 05), the eighteen isolated files give **294 passed, 0
+  failed, 757 `expect()` calls**.
 - The integration tests were **not run** during this refresh. Their setup performs real inserts and
   deletes against `DATABASE_URL`, whose test preload fallback names the ordinary local `twhp`
   database.
@@ -36,11 +36,11 @@ Do not summarize the repository as having "no tests," and do not describe the fu
 
 Counts are declared `it(...)`/`test(...)` cases in each file.
 
-### Isolated tests (18 files, 286 executed)
+### Isolated tests (18 files, 294 executed)
 
 | File | Cases | Scope |
 |---|---:|---|
-| `src/config.test.ts` | 12 | Import-time configuration validation for development OTP bypass, `EVALUATION_PERIOD_END` and telemetry variables |
+| `src/config.test.ts` | 14 | Import-time configuration validation for development OTP bypass, `EVALUATION_PERIOD_END`, telemetry variables and the `DATABASE_URL` shape (never echoed) |
 | `src/service/auth-dev-bypass.test.ts` | 6 | Fail-closed and constant-time development bypass decision logic |
 | `src/service/authentication.2fa.test.ts` | 30 | OTP generation, hashing, TTL, attempts, resend, masking, and role routing with mocked DB/Redis/queue |
 | `src/routes/authentication/index.test.ts` | 22 | In-process Elysia login, OTP, bypass, error, and request-validation behavior with mocked authentication/JWT modules |
@@ -94,7 +94,7 @@ that finds no server; they do not fail the run.
 Observed on 2026-09-25 with Bun 1.3.6, after `src/logger.test.ts` (7) and
 `src/worker/email.test.ts` (4) were added and five request-line cases moved into
 `src/logging.test.ts`: **251 pass, 0 fail, 598 expect() calls** across the thirteen files. After
-the five tracing files were added: **286 pass, 0 fail, 735 expect() calls** across eighteen. The test
+the five tracing files were added: **294 pass, 0 fail, 757 expect() calls** across eighteen. The test
 preload also starts tracing with an in-memory exporter (`src/test/spans.ts`) and no OTLP export.
 `src/tracing.test.ts` prints `ECONNREFUSED` traces from its deliberately unreachable pg client.
 

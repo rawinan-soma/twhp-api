@@ -165,3 +165,38 @@ describe("config — telemetry", () => {
     expect(err).toContain("OTEL_EXPORTER_OTLP_ENDPOINT");
   });
 });
+
+// A malformed DATABASE_URL is parsed by `pg` as one long database name, password included, which
+// the pg instrumentation then puts on every span as `db.namespace`. Reject it at startup instead,
+// without echoing the value.
+const DB_SNIPPET =
+  "import('./src/config.ts')" +
+  ".then(m=>process.stdout.write(m.env.DATABASE_URL))" +
+  ".catch(e=>{process.stderr.write(String((e&&e.message)||e));process.exit(1)})";
+
+describe("config — DATABASE_URL shape", () => {
+  const load = (value: string) => loadConfig({ DATABASE_URL: value }, DB_SNIPPET);
+
+  it.each([
+    "postgres://u:p@localhost:5432/db",
+    "postgresql://admin:pw@postgres:5432/twhp",
+  ])("accepts %p", async (value) => {
+    const { exitCode, out } = await load(value);
+    expect(exitCode).toBe(0);
+    expect(out).toBe(value);
+  });
+
+  it.each([
+    ['"postgresql://admin:s3cretpw@postgres:5432/twhp"', "quoted"],
+    ["'postgresql://admin:s3cretpw@postgres:5432/twhp'", "single-quoted"],
+    ["mysql://admin:s3cretpw@postgres:5432/twhp", "another scheme"],
+    ["postgresql://admin:s3cretpw@postgres:5432", "no database"],
+    ["postgresql://admin:s3cretpw@postgres:5432/", "empty database"],
+    ["admin:s3cretpw@postgres:5432/twhp", "no scheme"],
+  ])("rejects %p (%s) without echoing it", async (value) => {
+    const { exitCode, err } = await load(value);
+    expect(exitCode).not.toBe(0);
+    expect(err).toContain("DATABASE_URL");
+    expect(err).not.toContain("s3cretpw");
+  });
+});

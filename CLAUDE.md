@@ -23,7 +23,7 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 There are 32 test files: 13 PostgreSQL integration and 19 isolated — the 18 below plus the temporary `src/service/evaluationPeriod.test.ts`.
 
 ```bash
-# Isolated only — safe anywhere. 286 pass / 0 fail as of 2026-09-25.
+# Isolated only — safe anywhere. 294 pass / 0 fail as of 2026-09-25.
 bun test src/config.test.ts src/logging.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/health.test.ts src/service/pagination-routes.test.ts \
@@ -188,7 +188,7 @@ from `testSpans` (`src/test/spans.ts`), registered by the test preload.
 
 ### Config
 
-All env vars are validated at startup in `src/config.ts`. Missing or malformed vars throw immediately. Required: `DATABASE_URL`, `APP_PORT`, `AUTH_JWT_SECRET`, `AUTH_TOKEN_EXP`, `REFRESH_JWT_SECRET`, `REFRESH_TOKEN_EXP`, `COOKIE_SECURE`, `REDIS_HOST`, `REDIS_PORT`, `SMTP_*`, `FRONTEND_URL`, `MINIO_*`. Optional telemetry: `OTEL_EXPORTER_OTLP_ENDPOINT` (http(s) URL; unset exports nothing) and `DEPLOYMENT_ENV` (default `development`). Add new env vars here — don't reach for `Bun.env` directly elsewhere.
+All env vars are validated at startup in `src/config.ts`. Missing or malformed vars throw immediately. Required: `DATABASE_URL`, `APP_PORT`, `AUTH_JWT_SECRET`, `AUTH_TOKEN_EXP`, `REFRESH_JWT_SECRET`, `REFRESH_TOKEN_EXP`, `COOKIE_SECURE`, `REDIS_HOST`, `REDIS_PORT`, `SMTP_*`, `FRONTEND_URL`, `MINIO_*`. `DATABASE_URL` must parse as a `postgres://` URL with a host and database, or `pg` puts the whole string, password included, on every span. Optional telemetry: `OTEL_EXPORTER_OTLP_ENDPOINT` (http(s) URL; unset exports nothing) and `DEPLOYMENT_ENV` (default `development`). Add new env vars here — don't reach for `Bun.env` directly elsewhere.
 
 ### Logging
 

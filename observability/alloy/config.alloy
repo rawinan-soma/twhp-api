@@ -87,7 +87,8 @@ otelcol.receiver.otlp "default" {
 }
 
 // Defense in depth: delete any header/cookie/query-string span attributes
-// before export, even though issue 05 never sets them.
+// before export, even though issue 05 never sets them, and redact a
+// connection string that reaches `db.namespace`.
 otelcol.processor.transform "scrub" {
   error_mode = "ignore"
 
@@ -99,6 +100,9 @@ otelcol.processor.transform "scrub" {
       "delete_key(attributes, \"http.request.cookie\")",
       "delete_key(attributes, \"url.query\")",
       "delete_key(attributes, \"url.full\")",
+      // pg copies its parsed database name here; a malformed DATABASE_URL makes that the whole
+      // connection string, password included. src/config.ts rejects such a URL at startup.
+      "set(attributes[\"db.namespace\"], \"[redacted]\") where IsMatch(attributes[\"db.namespace\"], \"://|@\")",
     ]
   }
 

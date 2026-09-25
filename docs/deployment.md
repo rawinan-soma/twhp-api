@@ -198,7 +198,7 @@ This inventory lists keys and safe shapes only. It does not reproduce values fro
 
 | Key | Requirement/default | Purpose and read site | Safe shape | Secret classification |
 | --- | --- | --- | --- | --- |
-| `DATABASE_URL` | Required | PostgreSQL connection; config, runtime Drizzle, Drizzle Kit, seed | PostgreSQL URL with user, password, host, port, database | Secret |
+| `DATABASE_URL` | Required; startup fails unless it parses as a `postgres://`/`postgresql://` URL with a host and a database (the error never echoes the value) | PostgreSQL connection; config, runtime Drizzle, Drizzle Kit, seed. A malformed value (e.g. quotes kept by `docker run --env-file`) would otherwise reach spans as `db.namespace`; Alloy also redacts a `db.namespace` containing `://` or `@` | PostgreSQL URL with user, password, host, port, database | Secret |
 | `APP_PORT` | Required; must be 3000 in Compose | Elysia listen port; config and API entry point | Integer TCP port | Public configuration |
 | `AUTH_JWT_SECRET` | Required | Access-token signing and verification; auth/JWT middleware | High-entropy random string | Secret |
 | `AUTH_TOKEN_EXP` | Required | Access-token and cookie lifetime | Positive integer seconds | Public configuration |

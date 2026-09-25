@@ -6,6 +6,21 @@ function requireEnv(key: string): string {
   return val;
 }
 
+/**
+ * A `postgres://` or `postgresql://` URL naming a host and a database. Anything else `pg` would read
+ * as one long database name, password included, which the pg instrumentation copies onto every
+ * span as `db.namespace` (ADR-0014). The value is a secret, so the error never echoes it.
+ */
+function requireEnvPostgresUrl(key: string): string {
+  const val = requireEnv(key);
+  const url = URL.parse(val);
+  const isPostgres = url?.protocol === "postgres:" || url?.protocol === "postgresql:";
+  if (isPostgres && url?.hostname && url.pathname.length > 1) return val;
+  throw new Error(
+    `Environment variable ${key} must be a postgres:// URL with a host and a database (value not shown; check for stray quotes)`,
+  );
+}
+
 function requireEnvNumber(key: string): number {
   const val = requireEnv(key);
   const num = Number(val);
@@ -68,7 +83,7 @@ function optionalEnv(key: string, defaultValue: string): string {
 
 export const env = {
   // Database
-  DATABASE_URL: requireEnv("DATABASE_URL"),
+  DATABASE_URL: requireEnvPostgresUrl("DATABASE_URL"),
 
   // App
   APP_PORT: requireEnvNumber("APP_PORT"),
