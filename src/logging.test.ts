@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Elysia, status } from "elysia";
+import type { LogMixin } from "./logger";
 import { createLogging } from "./logging";
 import { createHealthRoutes } from "./routes";
 import { createHealthService } from "./service/health";
@@ -70,11 +71,13 @@ const capture = () => {
   };
 };
 
-const buildApp = (sink: ReturnType<typeof capture>, mixin?: () => Record<string, unknown>) =>
+const buildApp = (sink: ReturnType<typeof capture>, mixin?: LogMixin) =>
   new Elysia({ prefix: "/twhp/api" })
     .use(createLogging(sink.stream, mixin).requestLogging)
-    .get("/health", () => "ok")
     .get("/file/presigned", () => "url")
+    .get("/boom", () => {
+      throw new Error("Failed query: select 1\nparams: someone@example.com");
+    })
     .group("/factories", (app) =>
       app
         .derive(() => ({ jwtPayload: { sub: "42", role: "Factory" } }))
@@ -142,12 +145,25 @@ describe("request line", () => {
 
     expect(sink.lines()[0]).toMatchObject({ probe: 1, route: "/twhp/api/factories/:id" });
   });
+});
 
-  it("does not log /health", async () => {
+describe("error lines", () => {
+  it.each([
+    ["/twhp/api/boom", 500],
+    ["/twhp/api/nope", 404],
+  ])("log %s (%i) as method and path only, with no query, cookie, user-agent or params", async (path, expected) => {
     const sink = capture();
-    await buildApp(sink).handle(new Request("http://api.local/twhp/api/health"));
+    const response = await buildApp(sink).handle(
+      new Request(`http://api.local${path}?fileName=secret`, {
+        headers: { cookie: "Authentication=cookie-value", "user-agent": "curl/8.0" },
+      }),
+    );
     await settle();
 
-    expect(sink.raw).toHaveLength(0);
+    expect(response.status).toBe(expected);
+    expect(sink.raw).toHaveLength(1);
+    const [raw] = sink.raw;
+    for (const leak of ["secret", "cookie-value", "curl", "@"]) expect(raw).not.toContain(leak);
+    expect(sink.lines()[0]).toMatchObject({ status: expected, request: { method: "GET", path } });
   });
 });

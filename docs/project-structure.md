@@ -26,6 +26,8 @@ src/
 ├── workers.ts                worker composition root and repeat schedule
 ├── config.ts                 eager environment parser/validator
 ├── utils.ts                  fiscal-year, Redis, and MinIO utilities
+├── logger.ts                 shared pino config for API and worker (time, service, redaction)
+├── logging.ts                API request-log plugin and error classification hooks
 ├── drizzle/
 │   ├── index.ts              production Drizzle client
 │   ├── schema.ts             all tables, enums, and foreign keys

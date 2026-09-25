@@ -36,16 +36,18 @@ const requestLine = (ctx: RequestContext) => ({
  * - one light line per successful request (method, path, route, status, durationMs, userId);
  * - error classification in `onError`;
  * - a line for any 4xx/5xx `onError` didn't log, in `onAfterResponse`.
- * Health routes are excluded from all three. `stream` defaults to stdout and `mixin` to
+ * Health routes are excluded from the request line and the `onAfterResponse` line; a health
+ * handler that throws still reaches `onError`. `stream` defaults to stdout and `mixin` to
  * `logMixin`; tests pass their own.
  */
 export const createLogging = (stream?: LogStream, mixin: LogMixin = logMixin) => {
-  const globalLogger = createLogger("twhp-api", { stream, mixin });
+  const setup = { stream, mixin };
+  const globalLogger = createLogger("twhp-api", setup);
 
   const requestLogging = new Elysia()
     .use(
       logger({
-        ...createLoggerOptions("twhp-api", { mixin, stream }),
+        ...createLoggerOptions("twhp-api", setup),
         // The plugin logs the whole Elysia context. pino has already merged the mixin into it, but
         // the plugin's default formatter would throw those fields away, so rebuild the line here.
         formatters: {

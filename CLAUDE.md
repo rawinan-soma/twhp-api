@@ -23,7 +23,7 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 There are 23 test files: 13 isolated and 10 PostgreSQL integration.
 
 ```bash
-# Isolated only — safe anywhere. 250 pass / 0 fail as of 2026-09-25.
+# Isolated only — safe anywhere. 251 pass / 0 fail as of 2026-09-25.
 bun test src/config.test.ts src/logging.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/health.test.ts src/service/pagination-routes.test.ts \

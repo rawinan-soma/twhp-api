@@ -1,8 +1,8 @@
 import { createPinoLogger, pino } from "@bogeychan/elysia-logger";
 
 /**
- * The one pino configuration shared by the API's request logger, the API's standalone logger and
- * the worker. Lines are JSON for Loki, stamped in Bangkok ISO time, and tagged with `service`.
+ * The one pino configuration shared by the API (its logger and the request plugin in
+ * `src/logging.ts`) and the worker. It must not import routes or services: the worker loads it. Lines are JSON for Loki, stamped in Bangkok ISO time, and tagged with `service`.
  *
  * No secrets and no personal data in logs: people are referred to by internal IDs only
  * (`userId`, `factoryId`). `redact` below is a safety net, not permission to log objects that

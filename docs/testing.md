@@ -7,13 +7,14 @@ For environment setup and service ports, see [Development](./development.md). Fo
 ## Current status
 
 - **23 test files and 346 declared test cases** were found.
-- **11 files are isolated** unit, configuration, schema, pagination, or in-process route tests.
+- **13 files are isolated** unit, configuration, schema, pagination, or in-process route tests.
 - **10 files are PostgreSQL integration tests.**
 - The eight isolated files were run together on 2026-09-02 with Bun 1.3.6: **201 passed, 0 failed,
   489 `expect()` calls, 408 ms**. The run count exceeds the declared count because several files
   generate cases from tables. On 2026-09-25, with `src/routes/index.test.ts`, `src/logging.test.ts` and
   `src/service/health.test.ts` added, the eleven isolated files gave **234 passed, 0 failed, 544
-  `expect()` calls**.
+  `expect()` calls**. With `src/logger.test.ts` and `src/worker/email.test.ts` added the same day,
+  the thirteen isolated files give **251 passed, 0 failed, 598 `expect()` calls**.
 - The integration tests were **not run** during this refresh. Their setup performs real inserts and
   deletes against `DATABASE_URL`, whose test preload fallback names the ordinary local `twhp`
   database.
@@ -32,7 +33,7 @@ Do not summarize the repository as having "no tests," and do not describe the fu
 
 Counts are declared `it(...)`/`test(...)` cases in each file.
 
-### Isolated tests (13 files)
+### Isolated tests (13 files, 171 declared / 251 executed)
 
 | File | Cases | Scope |
 |---|---:|---|
@@ -44,7 +45,7 @@ Counts are declared `it(...)`/`test(...)` cases in each file.
 | `src/service/health.test.ts` | 4 | MinIO readiness probe through the real minio-js client against local HTTP servers: S3 200/404 are up; 403 and non-S3 servers (empty 404, HTML 404, plain 200) are down |
 | `src/service/pagination.test.ts` | 25 | `PaginationQuery`/`PaginatedResponse` contract, coercion, bounds, and `meta` arithmetic (ADR-0007, ADR-0009) |
 | `src/service/pagination-routes.test.ts` | 9 | Route-level composition of the envelope, unwrapped 404s, and envelope parity across the nine staff lists |
-| `src/logging.test.ts` | 7 | Request-logging plugin from `src/logging.ts` with a captured pino stream: health routes (including the 503) write no line; ordinary 200/400/404 requests still do; the light request line (no query/cookie/user-agent, `route`, `userId`, mixin fields) |
+| `src/logging.test.ts` | 7 | Request-logging plugin from `src/logging.ts` with a captured pino stream: health routes (including the 503) write no line; ordinary 200/400/404 requests still do; the light request line (no query/cookie/user-agent, `route`, `userId`, mixin fields); 404/500 error lines carry only method and path and no Drizzle params |
 | `src/routes/index.test.ts` | 9 | Health routes: `/health` and `/health/live` liveness, `/health/ready` 200/503 with injected fake PostgreSQL/Redis/MinIO clients and the 1 s timeout, and the log-exclusion path set |
 | `src/service/score.test.ts` | 27 | Score arithmetic, category breakdown, `n/a` handling, boundaries, and TypeBox response shape |
 | `src/logger.test.ts` | 7 | Shared pino config: Bangkok ISO time, Drizzle param scrubbing, `service`, redaction, the `{ method, path }` request serializer |
@@ -83,7 +84,7 @@ that finds no server; they do not fail the run.
 
 Observed on 2026-09-25 with Bun 1.3.6, after `src/logger.test.ts` (7) and
 `src/worker/email.test.ts` (4) were added and five request-line cases moved into
-`src/logging.test.ts`: **250 pass, 0 fail, 585 expect() calls** across the thirteen files.
+`src/logging.test.ts`: **251 pass, 0 fail, 598 expect() calls** across the thirteen files.
 
 If mock contamination reappears, fall back to one process per file — repository history records that
 the authentication files register overlapping top-level `mock.module(...)` replacements and once
