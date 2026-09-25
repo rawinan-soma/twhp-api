@@ -2,7 +2,7 @@
 
 # 03 — Split health into live and ready
 
-Status: ready-for-agent
+Status: closed
 Category: enhancement
 
 ## Agent Brief
@@ -51,3 +51,7 @@ or MinIO.
 - SMTP and worker checks. The worker's liveness comes from metrics in issue 07.
 - Exposing health through nginx differently from today.
 - Graceful shutdown.
+
+## Comments
+
+Merged in #18 (5ae9b3f).
