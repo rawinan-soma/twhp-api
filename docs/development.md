@@ -53,7 +53,7 @@ The API routes are:
 
 `APP_PORT` controls the native listen port. In the current Compose topology it must be `3000`, because the Docker health checks, Nginx upstreams, and Dockerfile exposure all use port 3000 directly.
 
-The health endpoint returns a static response. It is a **liveness** check only and does not establish PostgreSQL, Redis, MinIO, or SMTP readiness.
+`/health` and `/health/live` return a static response and check nothing. `/health/ready` checks PostgreSQL, Redis and MinIO, each with a 1 s timeout, and answers 503 when any is down. Neither checks SMTP or the worker.
 
 ## Database setup
 

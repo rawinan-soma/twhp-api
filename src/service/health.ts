@@ -1,18 +1,10 @@
 import { sql } from "drizzle-orm";
+import { status } from "elysia";
 import type { Client as MinioClient } from "minio";
 import { env } from "../config";
 import { db } from "../drizzle";
-import type { Readiness } from "../schema/health";
+import type { CheckStatus, ReadinessChecks } from "../schema/health";
 import { minioClient, redisConnector } from "../utils";
-
-type CheckStatus = Readiness["checks"]["postgres"];
-export type ReadinessChecks = Readiness["checks"];
-
-const HEALTH_PATH = "/twhp/api/health";
-
-/** `/health`, `/health/live` and `/health/ready` — all excluded from request logs. */
-export const isHealthPath = (pathname: string) =>
-  pathname === HEALTH_PATH || pathname.startsWith(`${HEALTH_PATH}/`);
 
 /** Resolves "up" if `probe` settles truthy within `timeoutMs`; any error, falsy result or timeout is "down". */
 const check = async (probe: () => Promise<unknown>, timeoutMs: number): Promise<CheckStatus> => {
@@ -31,23 +23,40 @@ const check = async (probe: () => Promise<unknown>, timeoutMs: number): Promise<
 
 export const createHealthService = (
   database: Pick<typeof db, "execute">,
-  redis: { ping(): Promise<unknown> },
-  minio: Pick<MinioClient, "bucketExists">,
-  { bucket, timeoutMs = 1000 }: { bucket: string; timeoutMs?: number },
-) => ({
+  // `status` is ioredis's connection state. The shared connector has `maxRetriesPerRequest: null`,
+  // so a PING sent while disconnected would sit in its offline queue forever — one per poll.
+  redis: { status: string; ping(): Promise<unknown> },
+  storage: { client: Pick<MinioClient, "bucketExists">; bucket: string },
+  timeoutMs = 1000,
+) => {
   /** Probes PostgreSQL, Redis and MinIO in parallel, each bounded by `timeoutMs`. */
-  checkReadiness: async (): Promise<ReadinessChecks> => {
-    const [postgres, redisStatus, minioStatus] = await Promise.all([
+  const checkReadiness = async (): Promise<ReadinessChecks> => {
+    const [postgres, redisCheck, minio] = await Promise.all([
       check(() => database.execute(sql`select 1`).then(() => true), timeoutMs),
-      check(() => redis.ping().then(() => true), timeoutMs),
-      check(() => minio.bucketExists(bucket), timeoutMs),
+      check(
+        async () => redis.status === "ready" && (await redis.ping().then(() => true)),
+        timeoutMs,
+      ),
+      check(() => storage.client.bucketExists(storage.bucket), timeoutMs),
     ]);
-    return { postgres, redis: redisStatus, minio: minioStatus };
-  },
-});
+    return { postgres, redis: redisCheck, minio };
+  };
+
+  return {
+    checkReadiness,
+    /** 200 when every dependency is up, otherwise 503 with the same body. */
+    getReadiness: async () => {
+      const checks = await checkReadiness();
+      return Object.values(checks).every((c) => c === "up")
+        ? ({ status: "ready", checks } as const)
+        : status(503, { status: "not_ready", checks } as const);
+    },
+  };
+};
 
 export type HealthService = ReturnType<typeof createHealthService>;
 
-export const healthService = createHealthService(db, redisConnector, minioClient, {
+export const healthService = createHealthService(db, redisConnector, {
+  client: minioClient,
   bucket: env.MINIO_BUCKET_NAME,
 });

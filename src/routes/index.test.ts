@@ -1,25 +1,25 @@
 import { describe, expect, it } from "bun:test";
 import { Elysia } from "elysia";
-import type { Readiness } from "../schema/health";
-import { createHealthService, isHealthPath } from "../service/health";
-import { createHealthRoutes } from "./index";
+import type { ReadinessChecks } from "../schema/health";
+import { createHealthService } from "../service/health";
+import { createHealthRoutes, isHealthPath } from "./index";
 
 // No mocks: the route factory takes a health service built from injected fake clients, so these
 // tests neither touch real dependencies nor leak a process-global `mock.module`.
 
 const up = {
   postgres: { execute: async () => ({ rows: [{ "?column?": 1 }] }) },
-  redis: { ping: async () => "PONG" },
+  redis: { status: "ready", ping: async () => "PONG" as unknown },
   minio: { bucketExists: async () => true },
 };
 const hang = () => new Promise<never>(() => {});
 
-const appWith = (clients: Partial<typeof up>, timeoutMs?: number) => {
+const appWith = (clients: Partial<typeof up>) => {
   const c = { ...up, ...clients };
   // biome-ignore lint/suspicious/noExplicitAny: the fake exposes only the `execute` the probe calls
-  const service = createHealthService(c.postgres as any, c.redis, c.minio, {
+  const service = createHealthService(c.postgres as any, c.redis, {
+    client: c.minio,
     bucket: "twhp",
-    timeoutMs,
   });
   return new Elysia({ prefix: "/twhp/api" }).use(createHealthRoutes(service));
 };
@@ -41,6 +41,7 @@ describe("GET /twhp/api/health/ready", () => {
     const res = await get(
       appWith({
         redis: {
+          status: "ready",
           ping: async () => {
             throw new Error("connect ECONNREFUSED 10.0.0.5:6379");
           },
@@ -57,13 +58,32 @@ describe("GET /twhp/api/health/ready", () => {
     expect(JSON.stringify(body)).not.toContain("ECONNREFUSED");
   });
 
+  it("marks redis down without sending PING while ioredis is disconnected", async () => {
+    let pinged = false;
+    const res = await get(
+      appWith({
+        redis: {
+          status: "reconnecting",
+          ping: async () => {
+            pinged = true;
+            return "PONG";
+          },
+        },
+      }),
+      "/twhp/api/health/ready",
+    );
+    expect(res.status).toBe(503);
+    expect(((await res.json()) as { checks: ReadinessChecks }).checks.redis).toBe("down");
+    expect(pinged).toBe(false);
+  });
+
   it("marks minio down when the configured bucket does not exist", async () => {
     const res = await get(
       appWith({ minio: { bucketExists: async () => false } }),
       "/twhp/api/health/ready",
     );
     expect(res.status).toBe(503);
-    expect(((await res.json()) as Readiness).checks).toEqual({
+    expect(((await res.json()) as { checks: ReadinessChecks }).checks).toEqual({
       postgres: "up",
       redis: "up",
       minio: "down",
@@ -79,7 +99,7 @@ describe("GET /twhp/api/health/ready", () => {
     const elapsed = performance.now() - started;
     expect(elapsed).toBeLessThan(1500);
     expect(res.status).toBe(503);
-    expect(((await res.json()) as Readiness).checks).toEqual({
+    expect(((await res.json()) as { checks: ReadinessChecks }).checks).toEqual({
       postgres: "down",
       redis: "up",
       minio: "down",
@@ -92,7 +112,7 @@ describe("liveness", () => {
     const res = await get(
       appWith({
         postgres: { execute: hang },
-        redis: { ping: hang },
+        redis: { status: "ready", ping: hang },
         minio: { bucketExists: hang },
       }),
       "/twhp/api/health/live",
@@ -104,7 +124,7 @@ describe("liveness", () => {
     const res = await get(
       appWith({
         postgres: { execute: hang },
-        redis: { ping: hang },
+        redis: { status: "ready", ping: hang },
         minio: { bucketExists: hang },
       }),
       "/twhp/api/health",
@@ -121,6 +141,10 @@ describe("isHealthPath (request-log exclusion)", () => {
     "/twhp/api/health/ready",
   ])("excludes %s", (path) => expect(isHealthPath(path)).toBe(true));
 
-  it.each(["/twhp/api/healthy", "/twhp/api/factories", "/health"])("keeps %s", (path) =>
-    expect(isHealthPath(path)).toBe(false));
+  it.each([
+    "/twhp/api/healthy",
+    "/twhp/api/health/foo",
+    "/twhp/api/factories",
+    "/health",
+  ])("keeps %s", (path) => expect(isHealthPath(path)).toBe(false));
 });

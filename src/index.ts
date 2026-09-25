@@ -3,7 +3,7 @@ import { openapi } from "@elysiajs/openapi";
 import { Elysia } from "elysia";
 import { autoload } from "elysia-autoload";
 import { env } from "./config";
-import { isHealthPath } from "./service/health";
+import { isHealthPath } from "./routes";
 
 const bangkokTimestamp = () =>
   `,"time":"${new Date().toLocaleString("en-GB", { timeZone: "Asia/Bangkok", hour12: false, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}"`;

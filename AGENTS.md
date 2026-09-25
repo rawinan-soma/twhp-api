@@ -6,8 +6,9 @@ TWHP is a Bun/TypeScript backend for factory enrollment, annual assessment, hier
 scoring, authentication, and evidence files. It uses ElysiaJS and TypeBox, Drizzle/PostgreSQL,
 BullMQ/Redis, MinIO, Nodemailer, Docker Compose, and Biome.
 
-The API prefix is `/twhp/api`; OpenAPI is `/twhp/api/document`; `/twhp/api/health` is liveness-only
-and does not verify dependencies. Treat source and configuration as authoritative for current
+The API prefix is `/twhp/api`; OpenAPI is `/twhp/api/document`; `/twhp/api/health` and
+`/twhp/api/health/live` are liveness-only; `/twhp/api/health/ready` checks PostgreSQL, Redis and MinIO
+but not SMTP or the worker. Treat source and configuration as authoritative for current
 behavior. When they conflict with prose, report the conflict and consult the relevant ADR or
 maintainer rather than silently choosing.
 
@@ -155,7 +156,7 @@ Run `bun run worker` only with explicitly approved non-production PostgreSQL, Re
 Validate proportionally: focused tests first; integration tests only with the safe database
 precondition; then the non-mutating check. For route/schema changes, compare runtime behavior with
 OpenAPI. For Docker/config changes, validate Compose expansion and the affected profile. Never claim
-completion from the static health endpoint alone.
+completion from the health endpoints alone.
 
 ## Documentation reading map
 
@@ -197,7 +198,7 @@ Local issues and PRDs use `.scratch/<feature>/`; follow `docs/agents/issue-track
   constraints and are race-prone.
 - Do not assume an authenticated evaluator may read arbitrary IDs or an authenticated user may
   presign arbitrary known filenames.
-- Do not assume API success means email delivery, `/health` means dependencies are ready, or
+- Do not assume API success means email delivery, `/health` or `/health/live` means dependencies are ready, `/health/ready` means the worker or SMTP works, or
   `APP_PORT` can differ from 3000 in the current container topology.
 - Do not assume staging is production-like: it uses the dev image, hot reload, `db:push`, and seed.
 - Do not assume production Compose migrates, imports, backs up, rolls back, pins images, or

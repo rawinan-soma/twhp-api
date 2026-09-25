@@ -6,12 +6,13 @@ For environment setup and service ports, see [Development](./development.md). Fo
 
 ## Current status
 
-- **18 test files and 315 declared test cases** were found.
-- **8 files are isolated** unit, configuration, schema, pagination, or in-process route tests.
+- **19 test files and 324 declared test cases** were found.
+- **9 files are isolated** unit, configuration, schema, pagination, or in-process route tests.
 - **10 files are PostgreSQL integration tests.**
 - The eight isolated files were run together on 2026-09-02 with Bun 1.3.6: **201 passed, 0 failed,
   489 `expect()` calls, 408 ms**. The run count exceeds the declared count because several files
-  generate cases from tables.
+  generate cases from tables. On 2026-09-25, with `src/routes/index.test.ts` added, the nine isolated
+  files gave **222 passed, 0 failed, 526 `expect()` calls**.
 - The integration tests were **not run** during this refresh. Their setup performs real inserts and
   deletes against `DATABASE_URL`, whose test preload fallback names the ordinary local `twhp`
   database.
@@ -30,7 +31,7 @@ Do not summarize the repository as having "no tests," and do not describe the fu
 
 Counts are declared `it(...)`/`test(...)` cases in each file.
 
-### Isolated tests (8 files, 140 declared / 201 executed)
+### Isolated tests (9 files, 149 declared / 222 executed)
 
 | File | Cases | Scope |
 |---|---:|---|
@@ -41,6 +42,7 @@ Counts are declared `it(...)`/`test(...)` cases in each file.
 | `src/service/coverStatus.test.ts` | 17 | Shared latest-cover-log resolution: ordering by serial `id`, `LIMIT 1`, and both query shapes (ADR-0010) |
 | `src/service/pagination.test.ts` | 25 | `PaginationQuery`/`PaginatedResponse` contract, coercion, bounds, and `meta` arithmetic (ADR-0007, ADR-0009) |
 | `src/service/pagination-routes.test.ts` | 9 | Route-level composition of the envelope, unwrapped 404s, and envelope parity across the nine staff lists |
+| `src/routes/index.test.ts` | 9 | Health routes: `/health` and `/health/live` liveness, `/health/ready` 200/503 with injected fake PostgreSQL/Redis/MinIO clients and the 1 s timeout, and the log-exclusion path set |
 | `src/service/score.test.ts` | 27 | Score arithmetic, category breakdown, `n/a` handling, boundaries, and TypeBox response shape |
 
 ### PostgreSQL integration tests (10 files, 175 declared)
@@ -60,10 +62,10 @@ Counts are declared `it(...)`/`test(...)` cases in each file.
 
 ## Safely running the isolated tests
 
-All eight isolated files run cleanly in one process:
+All nine isolated files run cleanly in one process:
 
 ```bash
-bun test src/config.test.ts src/routes/authentication/index.test.ts \
+bun test src/config.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
   src/service/pagination.test.ts src/service/score.test.ts
