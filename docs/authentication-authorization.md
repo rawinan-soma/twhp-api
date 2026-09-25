@@ -101,7 +101,7 @@ The role is taken from a signed access token until that token expires. Refresh i
 
 ### Public at the Elysia application layer
 
-- `GET /health`
+- `GET /health`, `GET /health/live`, `GET /health/ready`
 - OpenAPI UI/assets below `GET /document`
 - `GET /location/provinces`
 - `GET /location/provinces/:provinceId/districts`

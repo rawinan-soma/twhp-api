@@ -25,13 +25,14 @@ This maintainer runbook is based on repository behavior verified on 2026-07-15 a
 3. Probe liveness through the same edge used by the client. Development nginx is bound only to host loopback port 81; staging/production nginx additionally requires the configured `X-API-Key`:
 
    ```bash
-   curl -i http://127.0.0.1:81/twhp/api/health
-   curl -i -H 'X-API-Key: <redacted>' http://127.0.0.1:81/twhp/api/health
-   docker exec twhp-api-dev bun -e "fetch('http://127.0.0.1:3000/twhp/api/health').then(async r => console.log(r.status, await r.text())).catch(console.error)"
-   docker exec twhp-api-prod bun -e "fetch('http://127.0.0.1:3000/twhp/api/health').then(async r => console.log(r.status, await r.text())).catch(console.error)"
+   curl -i http://127.0.0.1:81/twhp/api/health/live
+   curl -i http://127.0.0.1:81/twhp/api/health/ready
+   curl -i -H 'X-API-Key: <redacted>' http://127.0.0.1:81/twhp/api/health/ready
+   docker exec twhp-api-dev bun -e "fetch('http://127.0.0.1:3000/twhp/api/health/ready').then(async r => console.log(r.status, await r.text())).catch(console.error)"
+   docker exec twhp-api-prod bun -e "fetch('http://127.0.0.1:3000/twhp/api/health/ready').then(async r => console.log(r.status, await r.text())).catch(console.error)"
    ```
 
-4. Treat a 200 health response only as API-process reachability. `GET /twhp/api/health` returns the constant string `Ready to work!!`; it does not query PostgreSQL, Redis, MinIO, SMTP, BullMQ, or the worker (`src/routes/index.ts`).
+4. Read the two probes separately. `GET /twhp/api/health/live` (and its alias `/twhp/api/health`, which returns `Ready to work!!`) proves only API-process reachability. `GET /twhp/api/health/ready` also checks PostgreSQL, Redis and MinIO, each with a 1 s timeout: a 503 names the failing dependency as `"down"` in `checks` (for example `{"status":"not_ready","checks":{"postgres":"up","redis":"down","minio":"up"}}`) and points to the matching section below. A dependency that answers slower than 1 s is reported `down`. Neither probe covers SMTP, BullMQ processing, or the worker (`src/service/health.ts`).
 5. Classify the failure before recovery: startup/configuration, edge/network, authentication/authorization, validation/contract, database, Redis/queue, worker/SMTP, or MinIO. Avoid blanket restarts: they can hide import errors, preserve bad Redis challenge state, replay retained jobs, or compound cross-store inconsistencies.
 
 ## 1. API or worker exits immediately at startup
@@ -627,7 +628,7 @@ docker inspect --format '{{.RestartCount}} {{.State.Status}} {{.State.StartedAt}
 | Item | Evidence/classification | Operational consequence | Decision owner needed |
 | --- | --- | --- | --- |
 | Production migration/import | `migrate-prod` is a no-op; prose says import CSV directly. **Verified**, external process **Unknown**. | Production startup cannot establish schema/data parity. | Deployment + database owner must document backup, import, drift check, rollback. |
-| Health/readiness | `/health` is static; API check hard-codes 3000. **Verified**. | Healthy does not mean dependencies/worker are ready; different `APP_PORT` is false-unhealthy. | Decide fixed port invariant and dependency readiness policy. |
+| Health/readiness | `/health/ready` checks PostgreSQL, Redis and MinIO; the container check uses `/health/live` and hard-codes 3000. **Verified**. | Ready does not mean the worker or SMTP is working; different `APP_PORT` is false-unhealthy. | Decide fixed port invariant; worker liveness comes from metrics. |
 | PostgreSQL health identity | Health command fixes `admin`/`twhp`, while image accepts env-controlled user/db. **Verified**. | Config changes can produce false unhealthy state. | Decide invariant or parameterize health check. |
 | Nginx API-key empty substitution | An empty `NGINX_API_KEY` can match a missing header in the rendered map. **Verified conditional fail-open**. | Shared edge gate may admit requests without the intended key. | Deployment/security owner must validate non-empty and fail startup before traffic. |
 | Environment naming | `docker.env` uses `POSTGRES_DB`; the local `.env` key inventory uses `POSTGRES_DATABASE`. **Verified names only**. | Local tooling/Compose can initialize different expectations. | Standardize documented key; never copy values between environments blindly. |

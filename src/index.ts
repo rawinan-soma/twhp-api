@@ -3,6 +3,7 @@ import { openapi } from "@elysiajs/openapi";
 import { Elysia } from "elysia";
 import { autoload } from "elysia-autoload";
 import { env } from "./config";
+import { isHealthPath } from "./service/health";
 
 const bangkokTimestamp = () =>
   `,"time":"${new Date().toLocaleString("en-GB", { timeZone: "Asia/Bangkok", hour12: false, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}"`;
@@ -42,8 +43,7 @@ const app = new Elysia({ prefix: "/twhp/api" })
       },
       autoLogging: {
         ignore(ctx) {
-          const url = new URL(ctx.request.url);
-          if (url.pathname === "/twhp/api/health") return true;
+          if (isHealthPath(new URL(ctx.request.url).pathname)) return true;
           if (ctx.isError || (ctx.set?.status as number) >= 400) return true;
           return false;
         },
@@ -93,6 +93,8 @@ const app = new Elysia({ prefix: "/twhp/api" })
   })
   .onAfterResponse(({ set, request, log, responseValue, store }) => {
     if ((store as Record<string, unknown>).__logged) return;
+    // A 503 from /health/ready is a probe answer, not a client error.
+    if (isHealthPath(new URL(request.url).pathname)) return;
     const status = typeof set.status === "number" ? set.status : 200;
     if (status >= 400) {
       const body =

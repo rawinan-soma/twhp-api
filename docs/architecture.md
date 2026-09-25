@@ -53,7 +53,7 @@ The checkout lockfile fixes current dependency resolution. The exact production 
 6. Autoload `src/routes/`, ignoring test/spec files.
 7. Listen on `APP_PORT` with a 130 MB request-body limit.
 
-`src/routes/index.ts` supplies `/twhp/api/health`. This is a liveness response only: it returns a constant string and does not check PostgreSQL, Redis, MinIO, SMTP, or the worker.
+`src/routes/index.ts` supplies the health endpoints. `/twhp/api/health/live` and its alias `/twhp/api/health` are liveness only and return a constant string. `/twhp/api/health/ready` calls `healthService.checkReadiness()` (`src/service/health.ts`), which probes PostgreSQL, Redis and MinIO in parallel with a 1 s timeout each, and answers 200 or 503. It does not check SMTP or the worker.
 
 The release image deliberately runs the API from TypeScript source. `elysia-autoload` needs the route filesystem at runtime, so `Dockerfile` copies `src/` rather than compiling the API into a standalone binary.
 

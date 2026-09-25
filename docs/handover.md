@@ -25,7 +25,7 @@ Work is on `dev`, which is 6 commits ahead of `main` and identical to `staging`.
 - The four account roles are `Factory`, `Provincial`, `Evaluator`, and `DOED`; evaluator levels further restrict category authority.
 - Fiscal-year queries consistently call `utilities().getFiscalYear()` rather than defining local date windows.
 - Score and grade are derived on demand from answer state; they are not stored.
-- The API prefix is `/twhp/api`, health is `/twhp/api/health`, and live OpenAPI is `/twhp/api/document` when not blocked by the production proxy.
+- The API prefix is `/twhp/api`, health is `/twhp/api/health/live` (alias `/twhp/api/health`) and `/twhp/api/health/ready`, and live OpenAPI is `/twhp/api/document` when not blocked by the production proxy.
 - Cover-status resolution has one owner, `src/service/coverStatus.ts`, and the nine staff lists share one pagination contract in `src/schema/pagination.ts`. Both are covered by isolated tests.
 
 These statements describe consistent repository structure, not production availability.
@@ -147,7 +147,7 @@ Follow this sequence exactly:
 - [ ] Confirm the checkout/branch and preserve existing work: `git status --short`.
 - [ ] Obtain approved development-only environment values; never copy production secrets into local files.
 - [ ] Read [Development](development.md), then start dependencies/application using the verified command appropriate to the environment.
-- [ ] Confirm `GET /twhp/api/health` returns liveness, while remembering it does not test dependencies.
+- [ ] Confirm `GET /twhp/api/health/ready` returns 200 with PostgreSQL, Redis and MinIO `up`; it does not test SMTP or the worker.
 - [ ] Connect to a disposable or explicitly approved PostgreSQL database and inspect schema/seed expectations in [Database](database.md).
 - [ ] Confirm exactly one intended worker: use Compose `worker-dev` or, with explicitly approved non-production PostgreSQL/Redis/SMTP settings, native `bun run worker`. Do not start both unless an approved replica/scheduler topology requires it.
 - [ ] Authenticate once as Factory and once through the staff OTP flow using non-production accounts.

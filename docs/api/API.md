@@ -29,6 +29,8 @@
   - [`GET /twhp/api/authentication`](#get-twhp-api-authentication)
 - [default](#default)
   - [`GET /twhp/api/health`](#get-twhp-api-health)
+  - [`GET /twhp/api/health/live`](#get-twhp-api-health-live)
+  - [`GET /twhp/api/health/ready`](#get-twhp-api-health-ready)
 - [evaluators](#evaluators)
   - [`PATCH /twhp/api/evaluators/password`](#patch-twhp-api-evaluators-password)
   - [`GET /twhp/api/evaluators/enrolls`](#get-twhp-api-evaluators-enrolls)
@@ -852,10 +854,34 @@ logout
 
 ### `GET /twhp/api/health`
 
+Liveness alias of `/health/live`, kept for existing callers.
 
 **Responses**
 
-- `200` — Response for status 200
+- `200` — `Ready to work!!`
+
+### `GET /twhp/api/health/live`
+
+Liveness. Checks no dependencies.
+
+**Responses**
+
+- `200` — `Ready to work!!`
+
+### `GET /twhp/api/health/ready`
+
+Readiness. Checks PostgreSQL, Redis and MinIO in parallel, each with a 1 s timeout.
+
+**Responses**
+
+- `200` / `503` — same shape; `503` when any check is `down`
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `status` | `"ready" \| "not_ready"` | yes |  |
+  | `checks.postgres` | `"up" \| "down"` | yes |  |
+  | `checks.redis` | `"up" \| "down"` | yes |  |
+  | `checks.minio` | `"up" \| "down"` | yes |  |
 
 ---
 

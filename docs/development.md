@@ -47,7 +47,8 @@ The API routes are:
 | Purpose | Path |
 | --- | --- |
 | API prefix | `/twhp/api` |
-| Liveness endpoint | `/twhp/api/health` |
+| Liveness endpoint | `/twhp/api/health/live` (alias `/twhp/api/health`) |
+| Readiness endpoint | `/twhp/api/health/ready` (PostgreSQL, Redis, MinIO) |
 | OpenAPI UI | `/twhp/api/document` |
 
 `APP_PORT` controls the native listen port. In the current Compose topology it must be `3000`, because the Docker health checks, Nginx upstreams, and Dockerfile exposure all use port 3000 directly.
