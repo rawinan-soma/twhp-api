@@ -1,8 +1,8 @@
 # Elysia Documentation
 
-> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-09-03
+> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-09-25
 
-54 operations across 8 groups.
+56 operations across 8 groups.
 
 ## Contents
 
@@ -29,6 +29,8 @@
   - [`GET /twhp/api/authentication`](#get-twhp-api-authentication)
 - [default](#default)
   - [`GET /twhp/api/health`](#get-twhp-api-health)
+  - [`GET /twhp/api/health/live`](#get-twhp-api-health-live)
+  - [`GET /twhp/api/health/ready`](#get-twhp-api-health-ready)
 - [evaluators](#evaluators)
   - [`PATCH /twhp/api/evaluators/password`](#patch-twhp-api-evaluators-password)
   - [`GET /twhp/api/evaluators/enrolls`](#get-twhp-api-evaluators-enrolls)
@@ -852,10 +854,50 @@ logout
 
 ### `GET /twhp/api/health`
 
+**Liveness (alias of /health/live)**
+
+Kept for existing callers. Checks no dependencies.
 
 **Responses**
 
 - `200` — Response for status 200
+
+---
+
+### `GET /twhp/api/health/live`
+
+**Liveness**
+
+200 whenever the API process is serving. Checks no dependencies; use for container healthchecks.
+
+**Responses**
+
+- `200` — Response for status 200
+
+---
+
+### `GET /twhp/api/health/ready`
+
+**Readiness**
+
+Checks PostgreSQL (`select 1`), Redis (`PING`) and MinIO (a signed HEAD on the bucket answered by S3, 200 or 404 — a bucket not created yet still counts as up) in parallel, each with a 1 s timeout. 200 when all are up, otherwise 503 with the failing ones marked `down`.
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `status` | `"ready" \| "not_ready"` | yes |  |
+  | `checks` | `object` | yes |  |
+
+- `503` — Response for status 503
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `status` | `"ready" \| "not_ready"` | yes |  |
+  | `checks` | `object` | yes |  |
+
 
 ---
 

@@ -27,7 +27,8 @@ const queueMock = {
   close: mock(async () => {}),
 };
 
-mock.module("../utils", () => ({ redisConnector: redisMock }));
+// `minioClient` is imported by `service/health`, which later route tests load.
+mock.module("../utils", () => ({ redisConnector: redisMock, minioClient: {} }));
 mock.module("../queue/email", () => ({ emailQueue: queueMock }));
 mock.module("../drizzle", () => ({ db: {} }));
 mock.module("../config", () => ({

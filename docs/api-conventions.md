@@ -23,7 +23,7 @@ Paths in this section omit the common `/twhp/api` prefix.
 
 | Surface | Access |
 | --- | --- |
-| `GET /health` | Public |
+| `GET /health`, `/health/live`, `/health/ready` | Public |
 | `GET /document` and OpenAPI assets | Public |
 | `GET /location/**` | Public |
 | `POST /factories/register` | Public |

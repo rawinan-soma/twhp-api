@@ -57,3 +57,14 @@ No metrics endpoint exists.
 - Dashboards and alert rules (issue 08).
 - Business metrics (submissions, grades).
 - `postgres_exporter` / `redis_exporter`.
+
+## Comments
+
+**2026-09-25 — from issue 03 review.** `healthService.checkReadiness()` (`src/service/health.ts`)
+runs `select 1` on the app's shared drizzle/`pg` pool. After its 1 s timeout it reports
+`postgres: "down"` but abandons the query, and the query keeps its pool slot. With one poll per
+scrape, a silent network drop (no ECONNREFUSED) can pile up hung probes and use up the connections
+real requests need. Before publishing readiness as a metric, give the PostgreSQL probe its own
+`pg` client or a `max: 1` pool with `connectionTimeoutMillis: 1000` and `query_timeout: 1000`, and
+inject it through `createHealthService`. A hang can then hold only that one connection. Redis is
+already safe: the probe skips `PING` unless the ioredis connection is `ready`.

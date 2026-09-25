@@ -3,7 +3,7 @@ import Redis from "ioredis";
 import * as Minio from "minio";
 import { env } from "./config";
 
-const minioClient = new Minio.Client({
+export const minioClient = new Minio.Client({
   endPoint: env.MINIO_ENDPOINT,
   port: env.MINIO_PORT,
   useSSL: env.MINIO_USE_SSL,

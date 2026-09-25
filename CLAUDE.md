@@ -20,13 +20,13 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 ```
 
 `package.json`'s `test` script is a placeholder that exits 1. The real runner is `bun test <files>`.
-There are 18 test files: 8 isolated and 10 PostgreSQL integration.
+There are 21 test files: 11 isolated and 10 PostgreSQL integration.
 
 ```bash
-# Isolated only — safe anywhere. 201 pass / 0 fail as of 2026-09-02.
-bun test src/config.test.ts src/routes/authentication/index.test.ts \
+# Isolated only — safe anywhere. 234 pass / 0 fail as of 2026-09-25.
+bun test src/config.test.ts src/logging.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
-  src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
+  src/service/coverStatus.test.ts src/service/health.test.ts src/service/pagination-routes.test.ts \
   src/service/pagination.test.ts src/service/score.test.ts
 
 bun ./node_modules/.bin/biome check src   # read-only lint; the package scripts all --write
@@ -56,7 +56,7 @@ rebuilt and pushed, not just restarted.
 
 **Runtime**: Bun + ElysiaJS. Prefer `Bun.env`, `Bun.SHA256` etc. over Node equivalents.
 
-**API prefix**: All routes under `/twhp/api`. OpenAPI docs at `/twhp/api/document`. Health check at `/twhp/api/health` (skipped from request logs).
+**API prefix**: All routes under `/twhp/api`. OpenAPI docs at `/twhp/api/document`. Health: `/twhp/api/health/live` (alias `/twhp/api/health`) for liveness, `/twhp/api/health/ready` for PostgreSQL/Redis/MinIO readiness; all three are skipped from request logs. Container healthchecks must use `live`.
 
 ### Routing (autoload)
 
@@ -79,7 +79,7 @@ export const xxxService = createXxxService(db);  // singleton at bottom of file
 ```
 Routes import the `xxxService` singleton. The `createXxxService(db)` factory exists so services can be instantiated against a test/alt DB if needed.
 
-**Services return `status(code, body)` (Elysia's `ElysiaCustomStatusResponse`) rather than throwing.** Routes check for these and return them directly. Global error handler in `src/index.ts` catches unexpected errors and returns 500 with an error log.
+**Services return `status(code, body)` (Elysia's `ElysiaCustomStatusResponse`) rather than throwing.** Routes check for these and return them directly. Global error handler in `src/logging.ts` (mounted by `src/index.ts`) catches unexpected errors and returns 500 with an error log.
 
 ### Schemas
 
@@ -174,7 +174,7 @@ All env vars are validated at startup in `src/config.ts`. Missing or malformed v
 
 ### Logging
 
-Uses `@bogeychan/elysia-logger` with custom Bangkok timestamp. `onError` classifies errors into expected (`VALIDATION`, `INVALID_FILE_TYPE`, `PARSE` → 400), `NOT_FOUND` → 404, and unexpected → 500. `onAfterResponse` logs any 4xx that wasn't already logged by `onError`. Don't add ad-hoc `console.log` for error handling — rely on this flow.
+`src/logging.ts` exports `createLogging(stream?)`, the pino logger plus the request-logging plugin `src/index.ts` mounts; tests pass a stream to capture lines. Uses `@bogeychan/elysia-logger` with custom Bangkok timestamp. `onError` classifies errors into expected (`VALIDATION`, `INVALID_FILE_TYPE`, `PARSE` → 400), `NOT_FOUND` → 404, and unexpected → 500. `onAfterResponse` logs any 4xx that wasn't already logged by `onError`. Don't add ad-hoc `console.log` for error handling — rely on this flow.
 
 ## Human-Agent Collaboration Model
 
