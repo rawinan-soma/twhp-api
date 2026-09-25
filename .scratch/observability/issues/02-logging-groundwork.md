@@ -2,7 +2,7 @@
 
 # 02 — Logging groundwork: ISO time, worker logger, light request line, redaction
 
-Status: ready-for-agent
+Status: closed
 Category: enhancement
 Blocked by: 01 (PRD #20: pin before telemetry code; overrides elysia-logger's `formatters.log`, logs Elysia's route template)
 Model: Opus 5.5, medium effort (overrides elysia-logger internals; a subtle PII leak passes tests)
@@ -67,3 +67,7 @@ Model: Opus 5.5, medium effort (overrides elysia-logger internals; a subtle PII 
 - Trace IDs (issue 05) and metrics (issue 07).
 - Log shipping (issue 04).
 - Changing which errors map to which status codes.
+
+## Comments
+
+Merged in #19 (bbeb330).
