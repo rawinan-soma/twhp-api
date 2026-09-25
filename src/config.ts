@@ -53,6 +53,15 @@ function optionalEnvDate(key: string): Date | null {
   throw new Error(`Environment variable ${key} must be a YYYY-MM-DD date, got: "${val}"`);
 }
 
+/** An http(s) URL; unset or empty → null. */
+function optionalEnvUrl(key: string): string | null {
+  const val = Bun.env[key];
+  if (val === undefined || val === "") return null;
+  const protocol = URL.parse(val)?.protocol;
+  if (protocol === "http:" || protocol === "https:") return val;
+  throw new Error(`Environment variable ${key} must be an http(s) URL, got: "${val}"`);
+}
+
 function optionalEnv(key: string, defaultValue: string): string {
   return Bun.env[key] ?? defaultValue;
 }
@@ -105,6 +114,10 @@ export const env = {
   MINIO_SECRET_KEY: requireEnv("MINIO_SECRET_KEY"),
   MINIO_BUCKET_NAME: requireEnv("MINIO_BUCKET_NAME"),
   MINIO_PUBLIC_URL: requireEnv("MINIO_PUBLIC_URL"),
+
+  // Telemetry (ADR-0014). Spans are exported over OTLP/HTTP only when the endpoint is set.
+  OTEL_EXPORTER_OTLP_ENDPOINT: optionalEnvUrl("OTEL_EXPORTER_OTLP_ENDPOINT"),
+  DEPLOYMENT_ENV: optionalEnv("DEPLOYMENT_ENV", "development"),
 
   // TEMPORARY (FY2026 extension, revert 2026-10-16) — exclusive end of the Evaluation Period.
   // See .scratch/fiscal-year-extension-2026/issues/01-extend-fy2026-evaluation-period.md

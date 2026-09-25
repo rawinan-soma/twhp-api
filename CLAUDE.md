@@ -20,15 +20,16 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 ```
 
 `package.json`'s `test` script is a placeholder that exits 1. The real runner is `bun test <files>`.
-There are 23 test files: 13 isolated and 10 PostgreSQL integration.
+There are 28 test files: 18 isolated and 10 PostgreSQL integration.
 
 ```bash
-# Isolated only — safe anywhere. 251 pass / 0 fail as of 2026-09-25.
+# Isolated only — safe anywhere. 285 pass / 0 fail as of 2026-09-25.
 bun test src/config.test.ts src/logging.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/health.test.ts src/service/pagination-routes.test.ts \
   src/service/pagination.test.ts src/service/score.test.ts \
-  src/logger.test.ts src/worker/email.test.ts
+  src/logger.test.ts src/worker/email.test.ts \
+  src/telemetry.test.ts src/clientSpan.test.ts src/tracing.test.ts src/utils.test.ts src/queue/email.test.ts
 
 bun ./node_modules/.bin/biome check src   # read-only lint; the package scripts all --write
 ```
@@ -169,6 +170,20 @@ MinIO object storage. Use `utilities().uploadFile(file)` / `utilities().deleteFi
 
 BullMQ + Redis. Queue in `src/queue/email.ts`, worker in `src/worker/email.ts`, entrypoint `src/workers.ts` (run as separate process via `bun run worker`). `src/workers.ts` also registers a daily repeatable job at 8:30 AM Bangkok time.
 
+### Tracing
+
+OpenTelemetry, hand-written per ADR-0014 — `@elysiajs/opentelemetry` is not approved. Every API
+command runs `bun --preload ./src/telemetry.api.ts …` (package scripts, Dockerfile, Compose) so `pg`
+is patched before Drizzle loads it; it is deliberately not a `bunfig.toml` preload, which would also
+run in the worker and `db:*`. `src/telemetry.ts` holds the provider (OTLP export only when
+`OTEL_EXPORTER_OTLP_ENDPOINT` is set). `src/tracing.ts` is the request-span plugin mounted before
+autoload: one SERVER span per request named `<METHOD> <route>`, an **allow-list** of attributes
+(method, route, path without query, status, `enduser.id`), inbound `traceparent` ignored, health not
+traced, and `X-Request-Id` = trace ID on every response. Calls Bun can't auto-instrument get a
+`withClientSpan` from `src/clientSpan.ts` (MinIO helpers, `emailQueue.add`): operation and bucket
+or queue/job name only — never object names, URLs, payloads or error messages. Tests read spans
+from `testSpans` (`src/test/spans.ts`), registered by the test preload.
+
 ### Config
 
 All env vars are validated at startup in `src/config.ts`. Missing or malformed vars throw immediately. Required: `DATABASE_URL`, `APP_PORT`, `AUTH_JWT_SECRET`, `AUTH_TOKEN_EXP`, `REFRESH_JWT_SECRET`, `REFRESH_TOKEN_EXP`, `COOKIE_SECURE`, `REDIS_HOST`, `REDIS_PORT`, `SMTP_*`, `FRONTEND_URL`, `MINIO_*`. Add new env vars here — don't reach for `Bun.env` directly elsewhere.
@@ -177,8 +192,8 @@ All env vars are validated at startup in `src/config.ts`. Missing or malformed v
 
 One pino configuration in `src/logger.ts` serves the API and the worker
 (`createLogger("twhp-api" | "twhp-worker")`). Lines are JSON with `time` in Bangkok ISO
-(`2026-09-25T14:30:05.123+07:00`), a `service` field, and whatever `logMixin` returns (issue 05 adds
-`trace_id`/`span_id` there).
+(`2026-09-25T14:30:05.123+07:00`), a `service` field, and whatever `logMixin` returns: the active
+span's `trace_id`/`span_id`, nothing outside a span.
 
 `src/logging.ts` exports `createLogging(stream?, mixin?)`: the API's logger plus the
 request-logging plugin `src/index.ts` mounts; tests pass a stream to capture lines. Each successful

@@ -1,4 +1,5 @@
 import { createPinoLogger, pino } from "@bogeychan/elysia-logger";
+import { isSpanContextValid, trace } from "@opentelemetry/api";
 
 /**
  * The one pino configuration shared by the API (its logger and the request plugin in
@@ -9,7 +10,7 @@ import { createPinoLogger, pino } from "@bogeychan/elysia-logger";
  * carry emails, names, tokens or bodies.
  */
 
-type Service = "twhp-api" | "twhp-worker";
+export type Service = "twhp-api" | "twhp-worker";
 export type LogMixin = () => Record<string, unknown>;
 export type LogStream = { write: (line: string) => void };
 type LoggerSetup = { mixin?: LogMixin; stream?: LogStream };
@@ -24,10 +25,15 @@ export const toBangkokIso = (date: Date) =>
 const bangkokTimestamp = () => `,"time":"${toBangkokIso(new Date())}"`;
 
 /**
- * Fields merged into every log line. Issue 05 fills this with the active span's
- * `trace_id`/`span_id`; the request plugin in `src/logging.ts` re-applies it to the plugin's request line.
+ * Fields merged into every log line: the active span's `trace_id`/`span_id`, so Loki lines link to
+ * Tempo. Nothing outside a span. The request plugin in `src/logging.ts` re-applies it to the
+ * plugin's request line.
  */
-export const logMixin: LogMixin = () => ({});
+export const logMixin: LogMixin = () => {
+  const spanContext = trace.getActiveSpan()?.spanContext();
+  if (!spanContext || !isSpanContextValid(spanContext)) return {};
+  return { trace_id: spanContext.traceId, span_id: spanContext.spanId };
+};
 
 const REDACTED_KEYS = [
   "authorization",

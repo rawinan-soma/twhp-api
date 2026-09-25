@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { createLogger, scrubErrorMessage, toBangkokIso } from "./logger";
+import { trace } from "@opentelemetry/api";
+import { createLogger, logMixin, scrubErrorMessage, toBangkokIso } from "./logger";
 
 const ISO_BANGKOK = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\+07:00$/;
 
@@ -79,5 +80,19 @@ describe("createLogger", () => {
 
     const [line] = sink.lines();
     expect(line.request).toEqual({ method: "GET", path: "/twhp/api/file/presigned" });
+  });
+});
+
+describe("logMixin", () => {
+  it("is empty outside a span", () => {
+    expect(logMixin()).toEqual({});
+  });
+
+  it("carries the active span's trace_id and span_id", () => {
+    trace.getTracer("test").startActiveSpan("unit", (span) => {
+      const { traceId, spanId } = span.spanContext();
+      expect(logMixin()).toEqual({ trace_id: traceId, span_id: spanId });
+      span.end();
+    });
   });
 });

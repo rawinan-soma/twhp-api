@@ -122,3 +122,46 @@ describe("config — EVALUATION_PERIOD_END (FY2026 extension)", () => {
     expect(err).toContain("EVALUATION_PERIOD_END");
   });
 });
+
+const TELEMETRY_SNIPPET =
+  "import('./src/config.ts')" +
+  ".then(m=>process.stdout.write(JSON.stringify({endpoint:m.env.OTEL_EXPORTER_OTLP_ENDPOINT,environment:m.env.DEPLOYMENT_ENV})))" +
+  ".catch(e=>{process.stderr.write(String((e&&e.message)||e));process.exit(1)})";
+
+describe("config — telemetry", () => {
+  const load = (overrides: Record<string, string | undefined>) =>
+    loadConfig(overrides, TELEMETRY_SNIPPET);
+
+  it("unset → no OTLP endpoint and DEPLOYMENT_ENV=development", async () => {
+    const { exitCode, out } = await load({
+      OTEL_EXPORTER_OTLP_ENDPOINT: undefined,
+      DEPLOYMENT_ENV: undefined,
+    });
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(out)).toEqual({ endpoint: null, environment: "development" });
+  });
+
+  it("empty OTEL_EXPORTER_OTLP_ENDPOINT → null", async () => {
+    const { exitCode, out } = await load({ OTEL_EXPORTER_OTLP_ENDPOINT: "" });
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(out).endpoint).toBeNull();
+  });
+
+  it("reads both when set", async () => {
+    const { exitCode, out } = await load({
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://alloy:4318",
+      DEPLOYMENT_ENV: "staging",
+    });
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(out)).toEqual({ endpoint: "http://alloy:4318", environment: "staging" });
+  });
+
+  it.each([
+    "alloy:4318",
+    "not a url",
+  ])("malformed endpoint %p → startup throws naming the var", async (value) => {
+    const { exitCode, err } = await load({ OTEL_EXPORTER_OTLP_ENDPOINT: value });
+    expect(exitCode).not.toBe(0);
+    expect(err).toContain("OTEL_EXPORTER_OTLP_ENDPOINT");
+  });
+});

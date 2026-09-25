@@ -3,8 +3,25 @@ import { Elysia } from "elysia";
 import { autoload } from "elysia-autoload";
 import { env } from "./config";
 import { createLogging } from "./logging";
+import { isTelemetryStarted, startTelemetry } from "./telemetry";
+import { requestTracing } from "./tracing";
+
+// Started without `--preload ./src/telemetry.api.ts`: keep request spans, X-Request-Id and log
+// correlation, but pg was imported before it could be patched, so there are no DB spans.
+const preloaded = isTelemetryStarted();
+if (!preloaded) {
+  startTelemetry({
+    service: "twhp-api",
+    environment: env.DEPLOYMENT_ENV,
+    endpoint: env.OTEL_EXPORTER_OTLP_ENDPOINT,
+  });
+}
 
 const { globalLogger, requestLogging } = createLogging();
+
+if (!preloaded) {
+  globalLogger.warn("Telemetry was not preloaded; traces will have no PostgreSQL spans.");
+}
 
 // Dev OTP bypass is hard-blocked in production (see ADR-4). Warn once if it is configured there.
 if (env.DEV_SKIP_OTP && env.COOKIE_SECURE) {
@@ -15,6 +32,7 @@ if (env.DEV_SKIP_OTP && env.COOKIE_SECURE) {
 
 const app = new Elysia({ prefix: "/twhp/api" })
   .use(openapi({ path: "document" }))
+  .use(requestTracing)
   .use(requestLogging)
   .use(
     await autoload({

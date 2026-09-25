@@ -13,6 +13,10 @@ import { isHealthPath } from "./routes";
 
 const EXPECTED_CODES = new Set(["VALIDATION", "INVALID_FILE_TYPE", "PARSE"]);
 
+/** The errors `onError` below answers with 500: neither expected (400) nor `NOT_FOUND` (404). */
+export const isUnexpectedError = (code: unknown) =>
+  !EXPECTED_CODES.has(code as string) && code !== "NOT_FOUND";
+
 type RequestContext = {
   request: Request;
   route?: string;

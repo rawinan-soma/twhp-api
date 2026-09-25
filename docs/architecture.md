@@ -211,7 +211,8 @@ There is no general application build script. `Dockerfile` is the release packag
 - dependencies are installed with `bun install --frozen-lockfile`;
 - the worker is compiled to `worker-bin`;
 - the API source, dependencies, Drizzle config, and seed inputs are copied into the runtime image;
-- the default image command runs `bun src/index.ts`.
+- the default image command runs `bun --preload ./src/telemetry.api.ts src/index.ts` (the preload
+  starts tracing before `pg` loads; see ADR-0014).
 
 `docker-compose.yaml` supplies development, staging, and production profiles with API, worker, PostgreSQL 17, Redis 7, MinIO, and Nginx services.
 

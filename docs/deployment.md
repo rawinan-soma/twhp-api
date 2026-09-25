@@ -164,7 +164,11 @@ admin password or the Discord webhook used by alerting. It carries:
 `http://alloy:4318`) and `DEPLOYMENT_ENV` (default `development`/`production`) from the
 `environment:` block in `docker-compose.yaml`, overridable via a top-level `.env` file or the shell
 environment. With the `observability` profile off, `alloy` doesn't resolve on the Docker network;
-the app must still work in that case (see the API tracing issue).
+the API still serves normally: spans are exported in the background and failed exports are dropped
+silently. Unset `OTEL_EXPORTER_OTLP_ENDPOINT` to stop export entirely — spans, `X-Request-Id` and
+log `trace_id` keep working. The API commands preload `src/telemetry.api.ts`; without it the API
+still traces requests but logs a warning and has no PostgreSQL spans. Every API response except the
+health routes carries `X-Request-Id`, its trace ID: paste it into Grafana → Explore → Tempo.
 
 ### Docker socket access
 
@@ -231,8 +235,8 @@ This inventory lists keys and safe shapes only. It does not reproduce values fro
 | `NGINX_API_UPSTREAM` | Required by staging/production template | Docker DNS name for API upstream | Compose service name | Public configuration |
 | `NODE_ENV` | Set by Dockerfile/API Compose; no application read found | Runtime convention | Recognized environment name | Public configuration |
 | `TZ` | Set by Compose; not validated by app | Container timezone, including worker schedule | IANA timezone name | Public configuration |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Set by Compose (`api`/`api-dev`/`worker`/`worker-dev`), default `http://alloy:4318`; not yet read by the app | Trace/metric export target once tracing lands | Absolute HTTP URL | Public configuration |
-| `DEPLOYMENT_ENV` | Set by Compose, default `development`/`production`; not yet read by the app | Deployment label for traces/logs once tracing lands; also drives Alloy's log `env` label | Recognized environment name | Public configuration |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Optional; unset/empty exports nothing. Set by Compose (`api`/`api-dev`/`worker`/`worker-dev`), default `http://alloy:4318` | OTLP/HTTP base URL the API exports traces to (`/v1/traces` appended); read by config and `src/telemetry.api.ts`. The worker does not read it yet (issue 06) | Absolute http(s) URL; anything else fails startup | Public configuration |
+| `DEPLOYMENT_ENV` | Optional, default `development`; Compose sets `development`/`production` | `deployment.environment` on every API span; also drives Alloy's log `env` label | Recognized environment name | Public configuration |
 | `MINIO_ROOT_USER` | Hard-coded in Compose, not sourced from env file | MinIO root identity | Managed admin identifier | Sensitive |
 | `MINIO_ROOT_PASSWORD` | Hard-coded in Compose, not sourced from env file | MinIO root credential | High-entropy managed secret | Secret |
 | `MINIO_BROWSER_REDIRECT_URL` | Hard-coded in Compose | MinIO console redirect base | Absolute HTTPS URL | Public configuration |
