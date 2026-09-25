@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { status } from "elysia";
 import { env } from "../config";
-import { db } from "../drizzle";
+import { healthDb } from "../drizzle";
 import type { CheckStatus, ReadinessChecks } from "../schema/health";
 import { minioClient, redisConnector } from "../utils";
 
@@ -50,7 +50,7 @@ const headBucket = async ({ client, bucket }: { client: S3RequestClient; bucket:
 };
 
 export const createHealthService = (
-  database: Pick<typeof db, "execute">,
+  database: Pick<typeof healthDb, "execute">,
   // `status` is ioredis's connection state. The shared connector has `maxRetriesPerRequest: null`,
   // so a PING sent while disconnected would sit in its offline queue forever — one per poll.
   redis: { status: string; ping(): Promise<unknown> },
@@ -84,7 +84,8 @@ export const createHealthService = (
 
 export type HealthService = ReturnType<typeof createHealthService>;
 
-export const healthService = createHealthService(db, redisConnector, {
+// `healthDb` is a dedicated `max: 1` pg pool, not the app's shared pool — see src/drizzle/index.ts.
+export const healthService = createHealthService(healthDb, redisConnector, {
   client: minioClient,
   bucket: env.MINIO_BUCKET_NAME,
 });

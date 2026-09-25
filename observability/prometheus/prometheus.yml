@@ -10,9 +10,8 @@ scrape_configs:
     static_configs:
       - targets: ["node-exporter:9100"]
 
-  # api/worker targets exist ahead of issue 07 landing; they read as down
-  # until the app exposes :9464. Dev/staging service names — see issue 09
-  # for production naming (api/worker).
+  # `prom-client` serves /metrics on its own :9464 listener, never a route under /twhp/api — see
+  # ADR-0014. Dev/staging service names — see issue 09 for production naming (api/worker).
   - job_name: twhp-api
     static_configs:
       - targets: ["api-dev:9464"]

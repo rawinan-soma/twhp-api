@@ -20,16 +20,17 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 ```
 
 `package.json`'s `test` script is a placeholder that exits 1. The real runner is `bun test <files>`.
-There are 32 test files: 13 PostgreSQL integration and 19 isolated — the 18 below plus the temporary `src/service/evaluationPeriod.test.ts`.
+There are 34 test files: 13 PostgreSQL integration and 21 isolated — the 20 below plus the temporary `src/service/evaluationPeriod.test.ts`.
 
 ```bash
-# Isolated only — safe anywhere. 296 pass / 0 fail as of 2026-09-25.
+# Isolated only — safe anywhere. 311 pass / 0 fail as of 2026-09-25.
 bun test src/config.test.ts src/logging.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/health.test.ts src/service/pagination-routes.test.ts \
   src/service/pagination.test.ts src/service/score.test.ts \
   src/logger.test.ts src/worker/email.test.ts \
-  src/telemetry.test.ts src/clientSpan.test.ts src/tracing.test.ts src/utils.test.ts src/queue/email.test.ts
+  src/telemetry.test.ts src/clientSpan.test.ts src/tracing.test.ts src/utils.test.ts src/queue/email.test.ts \
+  src/service/metrics.test.ts src/worker/metrics.test.ts
 
 bun ./node_modules/.bin/biome check src   # read-only lint; the package scripts all --write
 ```
