@@ -2,7 +2,7 @@ import { openapi } from "@elysiajs/openapi";
 import { Elysia } from "elysia";
 import { autoload } from "elysia-autoload";
 import { env } from "./config";
-import { createLogger, requestLogger } from "./logger";
+import { createLogger, requestLogger, scrubErrorMessage } from "./logger";
 
 const globalLogger = createLogger("twhp-api");
 
@@ -56,7 +56,10 @@ const app = new Elysia({ prefix: "/twhp/api" })
     }
 
     set.status = 500;
-    activeLogger.error({ status: 500, detail: errorMessage, request }, "Unexpected error occurred");
+    activeLogger.error(
+      { status: 500, detail: scrubErrorMessage(errorMessage), request },
+      "Unexpected error occurred",
+    );
     return { message: "Unexpected error" };
   })
   .onAfterResponse(({ set, request, log, responseValue, store }) => {

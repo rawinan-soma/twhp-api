@@ -12,6 +12,7 @@ import { createPinoLogger, isContext, logger, pino } from "@bogeychan/elysia-log
 type Service = "twhp-api" | "twhp-worker";
 type LogMixin = () => Record<string, unknown>;
 type LogStream = { write: (line: string) => void };
+type LoggerSetup = { mixin?: LogMixin; stream?: LogStream };
 export type Logger = pino.Logger<never, boolean>;
 
 const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -40,24 +41,30 @@ const REDACTED_KEYS = [
   "cc",
   "bcc",
 ];
-// pino redaction has no recursive wildcard, so enumerate depths explicitly.
+// pino redaction has no recursive wildcard, so enumerate depths explicitly: a key nested deeper
+// than REDACT_MAX_DEPTH objects is NOT redacted.
 const REDACT_MAX_DEPTH = 6;
 const redactPaths = REDACTED_KEYS.flatMap((key) =>
   Array.from({ length: REDACT_MAX_DEPTH + 1 }, (_, depth) => {
-    const prefix = "*".repeat(depth).split("").join(".");
+    const prefix = Array(depth).fill("*").join("."); // depth 2 → "*.*"
     if (!prefix) return key;
     return key.startsWith("[") ? `${prefix}${key}` : `${prefix}.${key}`;
   }),
 );
 
+const pathOf = (request: Request) => new URL(request.url).pathname;
+
+/**
+ * Drizzle appends the query's bound values (`\nparams: …`) to its error message, and those are
+ * request data such as email addresses. Keep the SQL, drop the values.
+ */
+export const scrubErrorMessage = (message: string) => message.split("\nparams:")[0];
+
 /** A request is logged as its method and path — never the query string, headers or body. */
 const serializeRequest = (request?: Request) =>
-  request ? { method: request.method, path: new URL(request.url).pathname } : request;
+  request ? { method: request.method, path: pathOf(request) } : request;
 
-const createLoggerOptions = (
-  service: Service,
-  { mixin = logMixin, stream }: { mixin?: LogMixin; stream?: LogStream },
-) => ({
+const createLoggerOptions = (service: Service, { mixin = logMixin, stream }: LoggerSetup) => ({
   level: "info",
   timestamp: bangkokTimestamp,
   base: { service },
@@ -68,10 +75,8 @@ const createLoggerOptions = (
   ...(stream ? { stream } : {}),
 });
 
-export const createLogger = (
-  service: Service,
-  options: { mixin?: LogMixin; stream?: LogStream } = {},
-): Logger => createPinoLogger(createLoggerOptions(service, options));
+export const createLogger = (service: Service, options: LoggerSetup = {}): Logger =>
+  createPinoLogger(createLoggerOptions(service, options));
 
 type RequestContext = {
   request: Request;
@@ -83,7 +88,7 @@ type RequestContext = {
 
 const requestLine = (ctx: RequestContext) => ({
   method: ctx.request.method,
-  path: new URL(ctx.request.url).pathname,
+  path: pathOf(ctx.request),
   ...(ctx.route ? { route: ctx.route } : {}),
   status: typeof ctx.set.status === "number" ? ctx.set.status : 200,
   durationMs: Math.round((ctx.store.responseTime ?? 0) * 10) / 10,
@@ -113,7 +118,7 @@ export const requestLogger = ({
     },
     autoLogging: {
       ignore(ctx) {
-        if (new URL(ctx.request.url).pathname.startsWith("/twhp/api/health")) return true;
+        if (pathOf(ctx.request).startsWith("/twhp/api/health")) return true;
         return ctx.isError || (ctx.set?.status as number) >= 400;
       },
     },

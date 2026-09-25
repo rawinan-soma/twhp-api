@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Elysia } from "elysia";
-import { createLogger, requestLogger, toBangkokIso } from "./logger";
+import { createLogger, requestLogger, scrubErrorMessage, toBangkokIso } from "./logger";
 
 const ISO_BANGKOK = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\+07:00$/;
 
@@ -38,6 +38,20 @@ describe("toBangkokIso", () => {
     expect(toBangkokIso(new Date("2026-09-30T17:00:00.000Z"))).toBe(
       "2026-10-01T00:00:00.000+07:00",
     );
+  });
+});
+
+describe("scrubErrorMessage", () => {
+  it("drops the bound params Drizzle appends to a failed query", () => {
+    const message =
+      'Failed query: insert into "accounts" ("email") values ($1)\nparams: someone@example.com';
+    expect(scrubErrorMessage(message)).toBe(
+      'Failed query: insert into "accounts" ("email") values ($1)',
+    );
+  });
+
+  it("leaves other messages alone", () => {
+    expect(scrubErrorMessage("boom")).toBe("boom");
   });
 });
 

@@ -121,7 +121,7 @@ bun run start
 # Side-effecting worker: consumes Redis jobs, sends email, and registers a repeatable reminder
 bun run worker
 
-# Safe isolated tests — all ten files, one process (222 pass as of 2026-09-25)
+# Safe isolated tests — all ten files, one process (224 pass as of 2026-09-25)
 bun test src/config.test.ts src/routes/authentication/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \

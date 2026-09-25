@@ -593,7 +593,7 @@ Relevant paths: `src/index.ts`, the affected `src/service/**`, `src/utils.ts`, `
 **Likely causes and verified behavior**
 
 - API uses structured Pino logging with Bangkok-formatted time. Successful health requests are deliberately ignored. `onError` logs validation/not-found/unexpected errors and marks the request; `onAfterResponse` logs other 4xx/5xx service responses once.
-- Request serialization records method, full URL, content type, whether Authorization exists, forwarded IP, and user agent; it does not log cookie/body values. Full URL means query values such as `fileName` can appear.
+- Each successful request logs one line: method, path without query string, route template, status, `durationMs` and `userId`. Error lines log the request as method and path only. No query values (such as `fileName`), headers, cookies, IP, user agent or bodies are logged.
 - `src/utils.ts` and evaluator email enqueue handling still use `console.*`. The API and worker use the shared pino logger in `src/logger.ts`, but worker logs have no correlation ID back to the API request yet, nor structured BullMQ event hooks.
 - Repository evidence contains no centralized log destination, retention/redaction policy, metrics, traces, queue dashboard, alert thresholds, or incident command.
 

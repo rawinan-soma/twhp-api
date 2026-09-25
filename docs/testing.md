@@ -42,7 +42,7 @@ Counts are declared `it(...)`/`test(...)` cases in each file.
 | `src/service/pagination.test.ts` | 25 | `PaginationQuery`/`PaginatedResponse` contract, coercion, bounds, and `meta` arithmetic (ADR-0007, ADR-0009) |
 | `src/service/pagination-routes.test.ts` | 9 | Route-level composition of the envelope, unwrapped 404s, and envelope parity across the nine staff lists |
 | `src/service/score.test.ts` | 27 | Score arithmetic, category breakdown, `n/a` handling, boundaries, and TypeBox response shape |
-| `src/logger.test.ts` | 10 | Shared pino config: Bangkok ISO time, `service`, redaction, the light request line, `userId`, mixin seam, `/health` exclusion |
+| `src/logger.test.ts` | 12 | Shared pino config: Bangkok ISO time, Drizzle param scrubbing, `service`, redaction, the light request line, `userId`, mixin seam, `/health` exclusion |
 | `src/worker/email.test.ts` | 4 | Worker job logs carry `jobId`/`jobName`/counts and no email address, name or SMTP error text (mocked BullMQ/nodemailer) |
 
 ### PostgreSQL integration tests (10 files, 175 declared)
@@ -76,8 +76,8 @@ Observed on 2026-09-02 with Bun 1.3.6: **201 pass, 0 fail, 489 expect() calls, 4
 prints `[ioredis] Unhandled error event` lines because module-level imports create a Redis client
 that finds no server; they do not fail the run.
 
-Observed on 2026-09-25 with Bun 1.3.6, after `src/logger.test.ts` (10) and
-`src/worker/email.test.ts` (4) were added: **222 pass, 0 fail.**
+Observed on 2026-09-25 with Bun 1.3.6, after `src/logger.test.ts` (12) and
+`src/worker/email.test.ts` (4) were added: **224 pass, 0 fail.**
 
 If mock contamination reappears, fall back to one process per file — repository history records that
 the authentication files register overlapping top-level `mock.module(...)` replacements and once
