@@ -189,7 +189,8 @@ ssh -L 3001:127.0.0.1:3001 <host>
 
 Then open `http://localhost:3001`. In Explore, the Loki datasource has a derived field that turns a
 log line's `trace_id` into a link to the matching Tempo trace; Tempo's datasource is configured with
-trace-to-logs back to Loki.
+trace-to-logs back to Loki. That link searches every Loki stream for `"trace_id":"<id>"` in the JSON
+body within ±5 minutes of the span, so it finds any app line (API or worker) carrying the trace ID.
 
 ## Environment variables
 
