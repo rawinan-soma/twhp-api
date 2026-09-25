@@ -19,7 +19,7 @@ const appWithCapturedLogs = () => {
     // biome-ignore lint/suspicious/noExplicitAny: the fake exposes only the `execute` the probe calls
     { execute: down } as any,
     { status: "ready", ping: down },
-    { client: { bucketExists: down }, bucket: "twhp" },
+    { client: { makeRequestAsyncOmit: down }, bucket: "twhp" },
   );
   const app = new Elysia({ prefix: "/twhp/api" })
     .use(requestLogging)

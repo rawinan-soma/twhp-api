@@ -1,6 +1,5 @@
 import { sql } from "drizzle-orm";
 import { status } from "elysia";
-import type { Client as MinioClient } from "minio";
 import { env } from "../config";
 import { db } from "../drizzle";
 import type { CheckStatus, ReadinessChecks } from "../schema/health";
@@ -21,12 +20,41 @@ const check = async (probe: () => Promise<unknown>, timeoutMs: number): Promise<
   }
 };
 
+// `uploadFile` creates the bucket in this region; signing with it skips minio-js's
+// GET ?location lookup, which fails with NoSuchBucket before the bucket exists.
+const MINIO_REGION = "us-east-1";
+
+/** The one minio-js primitive the probe needs: a signed request that hands back the response. */
+type S3RequestClient = {
+  makeRequestAsyncOmit(
+    options: { method: "HEAD"; bucketName: string },
+    payload: string,
+    statusCodes: number[],
+    region: string,
+  ): Promise<{ headers: Record<string, string | string[] | undefined> }>;
+};
+
+/**
+ * HEAD on the configured bucket. 200 (exists) and 404 (not created yet — the first upload creates
+ * it) both count, but only when the answer carries `x-amz-request-id`, which proves an S3 server
+ * sent it. A rejected signature (403), any other status, or a non-S3 server is "down".
+ */
+const headBucket = async ({ client, bucket }: { client: S3RequestClient; bucket: string }) => {
+  const response = await client.makeRequestAsyncOmit(
+    { method: "HEAD", bucketName: bucket },
+    "",
+    [200, 404],
+    MINIO_REGION,
+  );
+  return Boolean(response.headers["x-amz-request-id"]);
+};
+
 export const createHealthService = (
   database: Pick<typeof db, "execute">,
   // `status` is ioredis's connection state. The shared connector has `maxRetriesPerRequest: null`,
   // so a PING sent while disconnected would sit in its offline queue forever — one per poll.
   redis: { status: string; ping(): Promise<unknown> },
-  storage: { client: Pick<MinioClient, "bucketExists">; bucket: string },
+  storage: { client: S3RequestClient; bucket: string },
   timeoutMs = 1000,
 ) => {
   /** Probes PostgreSQL, Redis and MinIO in parallel, each bounded by `timeoutMs`. */
@@ -37,8 +65,7 @@ export const createHealthService = (
         async () => redis.status === "ready" && (await redis.ping().then(() => true)),
         timeoutMs,
       ),
-      // Any answer is "up": the first upload creates the bucket, so a fresh deployment has none.
-      check(() => storage.client.bucketExists(storage.bucket).then(() => true), timeoutMs),
+      check(() => headBucket(storage), timeoutMs),
     ]);
     return { postgres, redis: redisCheck, minio };
   };

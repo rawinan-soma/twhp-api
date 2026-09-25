@@ -10,7 +10,7 @@ import { createHealthRoutes, isHealthPath } from "./index";
 const up = {
   postgres: { execute: async () => ({ rows: [{ "?column?": 1 }] }) },
   redis: { status: "ready", ping: async () => "PONG" as unknown },
-  minio: { bucketExists: async () => true },
+  minio: { makeRequestAsyncOmit: async () => ({ headers: { "x-amz-request-id": "17A0C0FFEE" } }) },
 };
 const hang = () => new Promise<never>(() => {});
 
@@ -77,23 +77,14 @@ describe("GET /twhp/api/health/ready", () => {
     expect(pinged).toBe(false);
   });
 
-  // The bucket is created lazily by the first upload (`utilities().uploadFile`), so a fresh
-  // deployment has none. Readiness asks whether MinIO answers, not whether anyone has uploaded yet.
-  it("counts minio up when it answers that the bucket does not exist yet", async () => {
-    const res = await get(
-      appWith({ minio: { bucketExists: async () => false } }),
-      "/twhp/api/health/ready",
-    );
-    expect(res.status).toBe(200);
-    expect(((await res.json()) as { checks: ReadinessChecks }).checks.minio).toBe("up");
-  });
-
-  it("marks minio down when the bucket-exists call fails", async () => {
+  // How real MinIO responses (404 for a bucket not created yet, 403, non-S3 servers) are classified
+  // is pinned against the real minio-js client in src/service/health.test.ts.
+  it("marks minio down when the bucket request fails", async () => {
     const res = await get(
       appWith({
         minio: {
-          bucketExists: async () => {
-            throw new Error("S3Error: InvalidAccessKeyId");
+          makeRequestAsyncOmit: async () => {
+            throw new Error("connect ECONNREFUSED 10.0.0.7:9000");
           },
         },
       }),
@@ -110,7 +101,7 @@ describe("GET /twhp/api/health/ready", () => {
   it("returns within about 1.5 s when a dependency hangs", async () => {
     const started = performance.now();
     const res = await get(
-      appWith({ postgres: { execute: hang }, minio: { bucketExists: hang } }),
+      appWith({ postgres: { execute: hang }, minio: { makeRequestAsyncOmit: hang } }),
       "/twhp/api/health/ready",
     );
     const elapsed = performance.now() - started;
@@ -130,7 +121,7 @@ describe("liveness", () => {
       appWith({
         postgres: { execute: hang },
         redis: { status: "ready", ping: hang },
-        minio: { bucketExists: hang },
+        minio: { makeRequestAsyncOmit: hang },
       }),
       "/twhp/api/health/live",
     );
@@ -142,7 +133,7 @@ describe("liveness", () => {
       appWith({
         postgres: { execute: hang },
         redis: { status: "ready", ping: hang },
-        minio: { bucketExists: hang },
+        minio: { makeRequestAsyncOmit: hang },
       }),
       "/twhp/api/health",
     );
