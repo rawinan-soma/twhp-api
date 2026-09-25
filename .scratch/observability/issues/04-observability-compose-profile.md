@@ -2,7 +2,7 @@
 
 # 04 — `observability` Compose profile: Alloy, Loki, Tempo, Prometheus, Grafana, node_exporter
 
-Status: ready-for-agent
+Status: closed
 Category: enhancement
 Blocked by: 02 (acceptance needs Loki to read 02's ISO `time` field)
 Model: Sonnet 5, high effort (configuration breadth; verified by bringing the stack up)
@@ -78,3 +78,7 @@ named volume where it stores data:
 - Any nginx change, or any public route to Grafana.
 - `cAdvisor`, `postgres_exporter`, `redis_exporter`.
 - Deploying to production (issue 09).
+
+## Comments
+
+Merged in #20 (f5c7186).
