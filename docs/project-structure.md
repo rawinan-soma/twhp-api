@@ -149,7 +149,7 @@ These modules instantiate infrastructure at import time. Importing a service in 
 
 ## Tests
 
-Tests are colocated as `*.test.ts` under `src/`; `bunfig.toml` preloads `src/test/setup.ts`. There are 23 test files: 13 isolated and 10 PostgreSQL integration.
+Tests are colocated as `*.test.ts` under `src/`; `bunfig.toml` preloads `src/test/setup.ts` (test env fallbacks, plus tracing with an in-memory exporter). There are 32 test files: 19 isolated and 13 PostgreSQL integration.
 
 The real test runner is:
 

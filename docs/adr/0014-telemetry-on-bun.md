@@ -43,6 +43,14 @@ database's.
    span attributes, redacted pino paths, no PII in metric labels). Alloy additionally deletes header,
    cookie and query attributes before export.
 
+   Our allow-list covers only the spans we write. The `pg` instrumentation sets its own attributes
+   from pg's parsed connection config, so a `DATABASE_URL` that pg misreads leaks the password. A
+   quoted value becomes one long `db.namespace`. A digits-first password with an unencoded `/` puts
+   the digits in `server.port`. So `src/config.ts` refuses to start unless `DATABASE_URL` is a
+   `postgres://` URL with a host and exactly one database path segment, and it never echoes the
+   value. Alloy also redacts any `db.namespace` containing `://` or `@`. Unix-socket URLs
+   (`postgres:///db?host=/path`) are rejected with the rest; none is deployed.
+
 ## Consequences
 
 - Redis, MinIO, SMTP and outbound `fetch` calls appear in traces only where someone wrote a span.

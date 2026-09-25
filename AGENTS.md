@@ -15,6 +15,8 @@ maintainer rather than silently choosing.
 ## Repository boundaries
 
 - `src/index.ts`: API bootstrap, route autoload, and request-size limit.
+- `src/telemetry.ts`, `src/telemetry.api.ts` (the API's `--preload`), `src/tracing.ts` (request
+  spans, `X-Request-Id`), `src/clientSpan.ts` (hand-written CLIENT spans): tracing per ADR-0014.
 - `src/logging.ts`: pino logger, request logging, and global error classification (`onError`/`onAfterResponse`).
 - `src/routes/**`: HTTP groups, guards, TypeBox/OpenAPI contracts. Nested paths are autoloaded; do
   not manually register routes or create a controller layer.
@@ -123,12 +125,13 @@ bun run start
 # Side-effecting worker: consumes Redis jobs, sends email, and registers a repeatable reminder
 bun run worker
 
-# Safe isolated tests — all thirteen files, one process (251 pass as of 2026-09-25)
+# Safe isolated tests — eighteen files, one process (296 pass as of 2026-09-25)
 bun test src/config.test.ts src/logging.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/health.test.ts src/service/pagination-routes.test.ts \
   src/service/pagination.test.ts src/service/score.test.ts \
-  src/logger.test.ts src/worker/email.test.ts
+  src/logger.test.ts src/worker/email.test.ts \
+  src/telemetry.test.ts src/clientSpan.test.ts src/tracing.test.ts src/utils.test.ts src/queue/email.test.ts
 
 # Non-mutating static check
 bun ./node_modules/.bin/biome check src

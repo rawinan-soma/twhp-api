@@ -24,3 +24,15 @@ process.env.MINIO_ACCESS_KEY ??= "minioadmin";
 process.env.MINIO_SECRET_KEY ??= "minioadmin";
 process.env.MINIO_BUCKET_NAME ??= "twhp";
 process.env.MINIO_PUBLIC_URL ??= "http://localhost:9000";
+
+// Tracing as the API preload starts it (`src/telemetry.api.ts`), but with no OTLP exporter —
+// nothing leaves the process — and an in-memory one tests read from.
+const { SimpleSpanProcessor } = await import("@opentelemetry/sdk-trace-node");
+const { startTelemetry } = await import("../telemetry");
+const { testSpans } = await import("./spans");
+startTelemetry({
+  service: "twhp-api",
+  environment: "test",
+  endpoint: null,
+  spanProcessors: [new SimpleSpanProcessor(testSpans)],
+});

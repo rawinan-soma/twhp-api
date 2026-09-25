@@ -6,6 +6,24 @@ function requireEnv(key: string): string {
   return val;
 }
 
+/**
+ * A `postgres://` or `postgresql://` URL naming a host and one database. Anything else `pg` may
+ * misread, putting part of the password into span attributes (`db.namespace`, `server.port`): a
+ * quoted value becomes one long database name, and an unencoded `/` in a digits-first password
+ * turns the digits into the port and the rest into the path (ADR-0014). The value is a secret, so
+ * the error never echoes it.
+ */
+function requireEnvPostgresUrl(key: string): string {
+  const val = requireEnv(key);
+  const url = URL.parse(val);
+  const isPostgres = url?.protocol === "postgres:" || url?.protocol === "postgresql:";
+  const isOneDatabase = /^\/[^/@]+$/.test(url?.pathname ?? "");
+  if (isPostgres && url?.hostname && isOneDatabase) return val;
+  throw new Error(
+    `Environment variable ${key} must be a postgres:// URL with a host and a database (value not shown; check for stray quotes)`,
+  );
+}
+
 function requireEnvNumber(key: string): number {
   const val = requireEnv(key);
   const num = Number(val);
@@ -53,13 +71,22 @@ function optionalEnvDate(key: string): Date | null {
   throw new Error(`Environment variable ${key} must be a YYYY-MM-DD date, got: "${val}"`);
 }
 
+/** An http(s) URL; unset or empty → null. */
+function optionalEnvUrl(key: string): string | null {
+  const val = Bun.env[key];
+  if (val === undefined || val === "") return null;
+  const protocol = URL.parse(val)?.protocol;
+  if (protocol === "http:" || protocol === "https:") return val;
+  throw new Error(`Environment variable ${key} must be an http(s) URL, got: "${val}"`);
+}
+
 function optionalEnv(key: string, defaultValue: string): string {
   return Bun.env[key] ?? defaultValue;
 }
 
 export const env = {
   // Database
-  DATABASE_URL: requireEnv("DATABASE_URL"),
+  DATABASE_URL: requireEnvPostgresUrl("DATABASE_URL"),
 
   // App
   APP_PORT: requireEnvNumber("APP_PORT"),
@@ -105,6 +132,10 @@ export const env = {
   MINIO_SECRET_KEY: requireEnv("MINIO_SECRET_KEY"),
   MINIO_BUCKET_NAME: requireEnv("MINIO_BUCKET_NAME"),
   MINIO_PUBLIC_URL: requireEnv("MINIO_PUBLIC_URL"),
+
+  // Telemetry (ADR-0014). Spans are exported over OTLP/HTTP only when the endpoint is set.
+  OTEL_EXPORTER_OTLP_ENDPOINT: optionalEnvUrl("OTEL_EXPORTER_OTLP_ENDPOINT"),
+  DEPLOYMENT_ENV: optionalEnv("DEPLOYMENT_ENV", "development"),
 
   // TEMPORARY (FY2026 extension, revert 2026-10-16) — exclusive end of the Evaluation Period.
   // See .scratch/fiscal-year-extension-2026/issues/01-extend-fy2026-evaluation-period.md

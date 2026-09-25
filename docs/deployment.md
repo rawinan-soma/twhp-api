@@ -164,7 +164,11 @@ admin password or the Discord webhook used by alerting. It carries:
 `http://alloy:4318`) and `DEPLOYMENT_ENV` (default `development`/`production`) from the
 `environment:` block in `docker-compose.yaml`, overridable via a top-level `.env` file or the shell
 environment. With the `observability` profile off, `alloy` doesn't resolve on the Docker network;
-the app must still work in that case (see the API tracing issue).
+the API still serves normally: spans are exported in the background and failed exports are dropped
+silently. Unset `OTEL_EXPORTER_OTLP_ENDPOINT` to stop export entirely — spans, `X-Request-Id` and
+log `trace_id` keep working. The API commands preload `src/telemetry.api.ts`; without it the API
+still traces requests but logs a warning and has no PostgreSQL spans. Every API response except the
+health routes carries `X-Request-Id`, its trace ID: paste it into Grafana → Explore → Tempo.
 
 ### Docker socket access
 
@@ -185,7 +189,8 @@ ssh -L 3001:127.0.0.1:3001 <host>
 
 Then open `http://localhost:3001`. In Explore, the Loki datasource has a derived field that turns a
 log line's `trace_id` into a link to the matching Tempo trace; Tempo's datasource is configured with
-trace-to-logs back to Loki.
+trace-to-logs back to Loki. That link searches every Loki stream for `"trace_id":"<id>"` in the JSON
+body within ±5 minutes of the span, so it finds any app line (API or worker) carrying the trace ID.
 
 ## Environment variables
 
@@ -193,7 +198,7 @@ This inventory lists keys and safe shapes only. It does not reproduce values fro
 
 | Key | Requirement/default | Purpose and read site | Safe shape | Secret classification |
 | --- | --- | --- | --- | --- |
-| `DATABASE_URL` | Required | PostgreSQL connection; config, runtime Drizzle, Drizzle Kit, seed | PostgreSQL URL with user, password, host, port, database | Secret |
+| `DATABASE_URL` | Required; startup fails unless it parses as a `postgres://`/`postgresql://` URL with a host and exactly one database path segment, so Unix-socket URLs are rejected (the error never echoes the value; see ADR-0014 decision 5) | PostgreSQL connection; config, runtime Drizzle, Drizzle Kit, seed. A malformed value (e.g. quotes kept by `docker run --env-file`) would otherwise reach spans as `db.namespace`; Alloy also redacts a `db.namespace` containing `://` or `@` | PostgreSQL URL with user, password, host, port, database | Secret |
 | `APP_PORT` | Required; must be 3000 in Compose | Elysia listen port; config and API entry point | Integer TCP port | Public configuration |
 | `AUTH_JWT_SECRET` | Required | Access-token signing and verification; auth/JWT middleware | High-entropy random string | Secret |
 | `AUTH_TOKEN_EXP` | Required | Access-token and cookie lifetime | Positive integer seconds | Public configuration |
@@ -231,8 +236,8 @@ This inventory lists keys and safe shapes only. It does not reproduce values fro
 | `NGINX_API_UPSTREAM` | Required by staging/production template | Docker DNS name for API upstream | Compose service name | Public configuration |
 | `NODE_ENV` | Set by Dockerfile/API Compose; no application read found | Runtime convention | Recognized environment name | Public configuration |
 | `TZ` | Set by Compose; not validated by app | Container timezone, including worker schedule | IANA timezone name | Public configuration |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Set by Compose (`api`/`api-dev`/`worker`/`worker-dev`), default `http://alloy:4318`; not yet read by the app | Trace/metric export target once tracing lands | Absolute HTTP URL | Public configuration |
-| `DEPLOYMENT_ENV` | Set by Compose, default `development`/`production`; not yet read by the app | Deployment label for traces/logs once tracing lands; also drives Alloy's log `env` label | Recognized environment name | Public configuration |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Optional; unset/empty exports nothing. Set by Compose (`api`/`api-dev`/`worker`/`worker-dev`), default `http://alloy:4318` | OTLP/HTTP base URL the API exports traces to (`/v1/traces` appended); read by config and `src/telemetry.api.ts`. The worker does not read it yet (issue 06) | Absolute http(s) URL; anything else fails startup | Public configuration |
+| `DEPLOYMENT_ENV` | Optional, default `development`; Compose sets `development`/`production` | `deployment.environment` on every API span; also drives Alloy's log `env` label | Recognized environment name | Public configuration |
 | `MINIO_ROOT_USER` | Hard-coded in Compose, not sourced from env file | MinIO root identity | Managed admin identifier | Sensitive |
 | `MINIO_ROOT_PASSWORD` | Hard-coded in Compose, not sourced from env file | MinIO root credential | High-entropy managed secret | Secret |
 | `MINIO_BROWSER_REDIRECT_URL` | Hard-coded in Compose | MinIO console redirect base | Absolute HTTPS URL | Public configuration |

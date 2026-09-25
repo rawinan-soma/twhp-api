@@ -6,15 +6,18 @@ For environment setup and service ports, see [Development](./development.md). Fo
 
 ## Current status
 
-- **23 test files and 346 declared test cases** were found.
-- **13 files are isolated** unit, configuration, schema, pagination, or in-process route tests.
-- **10 files are PostgreSQL integration tests.**
+- **32 test files** were found.
+- **19 files are isolated** unit, configuration, schema, pagination, tracing, or in-process route
+  tests: the eighteen listed below plus the temporary `src/service/evaluationPeriod.test.ts`.
+- **13 files are PostgreSQL integration tests.**
 - The eight isolated files were run together on 2026-09-02 with Bun 1.3.6: **201 passed, 0 failed,
   489 `expect()` calls, 408 ms**. The run count exceeds the declared count because several files
   generate cases from tables. On 2026-09-25, with `src/routes/index.test.ts`, `src/logging.test.ts` and
   `src/service/health.test.ts` added, the eleven isolated files gave **234 passed, 0 failed, 544
   `expect()` calls**. With `src/logger.test.ts` and `src/worker/email.test.ts` added the same day,
-  the thirteen isolated files give **251 passed, 0 failed, 598 `expect()` calls**.
+  the thirteen isolated files give **251 passed, 0 failed, 598 `expect()` calls**. With the five
+  tracing files added the same day (issue 05), the eighteen isolated files give **296 passed, 0
+  failed, 763 `expect()` calls**.
 - The integration tests were **not run** during this refresh. Their setup performs real inserts and
   deletes against `DATABASE_URL`, whose test preload fallback names the ordinary local `twhp`
   database.
@@ -33,11 +36,11 @@ Do not summarize the repository as having "no tests," and do not describe the fu
 
 Counts are declared `it(...)`/`test(...)` cases in each file.
 
-### Isolated tests (13 files, 171 declared / 251 executed)
+### Isolated tests (18 files, 296 executed)
 
 | File | Cases | Scope |
 |---|---:|---|
-| `src/config.test.ts` | 4 | Import-time configuration validation for development OTP bypass variables |
+| `src/config.test.ts` | 16 | Import-time configuration validation for development OTP bypass, `EVALUATION_PERIOD_END`, telemetry variables and the `DATABASE_URL` shape (never echoed) |
 | `src/service/auth-dev-bypass.test.ts` | 6 | Fail-closed and constant-time development bypass decision logic |
 | `src/service/authentication.2fa.test.ts` | 30 | OTP generation, hashing, TTL, attempts, resend, masking, and role routing with mocked DB/Redis/queue |
 | `src/routes/authentication/index.test.ts` | 22 | In-process Elysia login, OTP, bypass, error, and request-validation behavior with mocked authentication/JWT modules |
@@ -48,8 +51,13 @@ Counts are declared `it(...)`/`test(...)` cases in each file.
 | `src/logging.test.ts` | 7 | Request-logging plugin from `src/logging.ts` with a captured pino stream: health routes (including the 503) write no line; ordinary 200/400/404 requests still do; the light request line (no query/cookie/user-agent, `route`, `userId`, mixin fields); 404/500 error lines carry only method and path and no Drizzle params |
 | `src/routes/index.test.ts` | 9 | Health routes: `/health` and `/health/live` liveness, `/health/ready` 200/503 with injected fake PostgreSQL/Redis/MinIO clients and the 1 s timeout, and the log-exclusion path set |
 | `src/service/score.test.ts` | 27 | Score arithmetic, category breakdown, `n/a` handling, boundaries, and TypeBox response shape |
-| `src/logger.test.ts` | 7 | Shared pino config: Bangkok ISO time, Drizzle param scrubbing, `service`, redaction, the `{ method, path }` request serializer |
+| `src/logger.test.ts` | 9 | Shared pino config: Bangkok ISO time, Drizzle param scrubbing, `service`, redaction, the `{ method, path }` request serializer, and the `trace_id`/`span_id` mixin |
 | `src/worker/email.test.ts` | 4 | Worker job logs carry `jobId`/`jobName`/counts and no email address, name or SMTP error text (mocked BullMQ/nodemailer) |
+| `src/telemetry.test.ts` | 4 | Tracer provider: OTLP export only when an endpoint is set, resource attributes, no slowdown with a closed collector port |
+| `src/clientSpan.test.ts` | 2 | Hand-written CLIENT spans: given attributes only; failures by error type, never message |
+| `src/tracing.test.ts` | 10 | Request-span plugin: route-template SERVER span with a child pg span (unreachable DB), attribute allow-list, ignored `traceparent`, 5xx error and scrubbed exception, health untraced, the grace-period end, `X-Request-Id` equal to the log line's `trace_id` on 200/400/401/404/500 |
+| `src/utils.test.ts` | 5 | MinIO helper spans (stubbed client): operation and bucket only, never object names or presigned URLs |
+| `src/queue/email.test.ts` | 1 | `emailQueue.add` span names queue and job, never the payload (stubbed BullMQ) |
 
 ### PostgreSQL integration tests (10 files, 175 declared)
 
@@ -68,14 +76,15 @@ Counts are declared `it(...)`/`test(...)` cases in each file.
 
 ## Safely running the isolated tests
 
-All thirteen isolated files run cleanly in one process:
+All eighteen isolated files run cleanly in one process:
 
 ```bash
 bun test src/config.test.ts src/logging.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/health.test.ts src/service/pagination-routes.test.ts \
   src/service/pagination.test.ts src/service/score.test.ts \
-  src/logger.test.ts src/worker/email.test.ts
+  src/logger.test.ts src/worker/email.test.ts \
+  src/telemetry.test.ts src/clientSpan.test.ts src/tracing.test.ts src/utils.test.ts src/queue/email.test.ts
 ```
 
 Observed on 2026-09-02 with Bun 1.3.6: **201 pass, 0 fail, 489 expect() calls, 408 ms.** The run
@@ -84,7 +93,10 @@ that finds no server; they do not fail the run.
 
 Observed on 2026-09-25 with Bun 1.3.6, after `src/logger.test.ts` (7) and
 `src/worker/email.test.ts` (4) were added and five request-line cases moved into
-`src/logging.test.ts`: **251 pass, 0 fail, 598 expect() calls** across the thirteen files.
+`src/logging.test.ts`: **251 pass, 0 fail, 598 expect() calls** across the thirteen files. After
+the five tracing files were added: **296 pass, 0 fail, 763 expect() calls** across eighteen. The test
+preload also starts tracing with an in-memory exporter (`src/test/spans.ts`) and no OTLP export.
+`src/tracing.test.ts` prints `ECONNREFUSED` traces from its deliberately unreachable pg client.
 
 If mock contamination reappears, fall back to one process per file — repository history records that
 the authentication files register overlapping top-level `mock.module(...)` replacements and once

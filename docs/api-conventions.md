@@ -238,6 +238,10 @@ Global errors from [`src/index.ts`](../src/index.ts) are:
 | Unmatched route | 404 | `{"message":"Not found"}` |
 | Unexpected exception | 500 | `{"message":"Unexpected error"}` |
 
+Every response except the three health routes carries an `X-Request-Id` header: the request's
+32-hex-character trace ID, also written as `trace_id` on its log lines. Quote it when reporting a
+failed request. It is generated per request; an inbound `traceparent` is ignored (ADR-0014).
+
 Authentication middleware returns 401 JSON with `unauthorized` or `session expired`. Role denial currently returns HTTP 403 with the bare string `forbidden`, while domain-level 403 responses return `{message}`.
 
 ### Documented and actual status drift

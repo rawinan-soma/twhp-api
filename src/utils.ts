@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import Redis from "ioredis";
 import * as Minio from "minio";
+import { withClientSpan } from "./clientSpan";
 import { env } from "./config";
 
 export const minioClient = new Minio.Client({
@@ -11,7 +12,15 @@ export const minioClient = new Minio.Client({
   secretKey: env.MINIO_SECRET_KEY,
 });
 
-const uploadFile = async (file: File): Promise<string> => {
+/** One CLIENT span per helper call: operation and bucket only, never the object name or a URL. */
+const minioSpan = <T>(operation: string, fn: () => Promise<T>) =>
+  withClientSpan(
+    `minio ${operation}`,
+    { "minio.operation": operation, "minio.bucket": env.MINIO_BUCKET_NAME },
+    fn,
+  );
+
+const putFile = async (file: File): Promise<string> => {
   const ext = file.name.split(".").pop();
   const fileName = `${randomUUID()}.${ext}`;
   const bucketName = env.MINIO_BUCKET_NAME;
@@ -30,11 +39,13 @@ const uploadFile = async (file: File): Promise<string> => {
   return fileName;
 };
 
+const uploadFile = (file: File): Promise<string> => minioSpan("uploadFile", () => putFile(file));
+
 const deleteFile = async (fileName: string | null) => {
   if (!fileName) return;
 
   try {
-    await minioClient.removeObject(env.MINIO_BUCKET_NAME, fileName);
+    await minioSpan("deleteFile", () => minioClient.removeObject(env.MINIO_BUCKET_NAME, fileName));
   } catch (error) {
     console.error(`Failed to delete file from MinIO: ${fileName}`, error);
   }
@@ -47,7 +58,9 @@ const deleteFile = async (fileName: string | null) => {
  */
 const deleteFileStrict = async (fileName: string | null) => {
   if (!fileName) return;
-  await minioClient.removeObject(env.MINIO_BUCKET_NAME, fileName);
+  await minioSpan("deleteFileStrict", () =>
+    minioClient.removeObject(env.MINIO_BUCKET_NAME, fileName),
+  );
 };
 
 export const utilities = () => ({
@@ -77,9 +90,11 @@ export const utilities = () => ({
   deleteFile,
   deleteFileStrict,
   getPresignedUrl: async (fileName: string) => {
-    const internalUrl = await minioClient.presignedGetObject(env.MINIO_BUCKET_NAME, fileName, 5, {
-      "response-content-disposition": "inline",
-    });
+    const internalUrl = await minioSpan("getPresignedUrl", () =>
+      minioClient.presignedGetObject(env.MINIO_BUCKET_NAME, fileName, 5, {
+        "response-content-disposition": "inline",
+      }),
+    );
     // Replace internal Docker hostname with public-facing URL
     const internal = new URL(internalUrl);
     const publicBase = new URL(env.MINIO_PUBLIC_URL);

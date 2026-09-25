@@ -33,5 +33,9 @@ datasources:
         datasourceUid: loki
         spanStartTimeShift: "-5m"
         spanEndTimeShift: "5m"
-        filterByTraceID: true
-        tags: ["service"]
+        # A custom query, not `tags`: spans carry `service.name=twhp-api` but Loki's `service` label is
+        # the Compose service (`api`, `api-dev`, …), so no tag mapping matches and Grafana would hide the
+        # link. Alloy sets `service` on every stream (`env` is empty when DEPLOYMENT_ENV is unset), and
+        # matching the JSON field, not the bare ID, keeps Loki's and Tempo's own logs of the ID out.
+        customQuery: true
+        query: '{service=~".+"} |= `"trace_id":"$${__trace.traceId}"`'

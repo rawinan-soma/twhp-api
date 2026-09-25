@@ -46,5 +46,6 @@ ENV NODE_ENV=production
 EXPOSE 3000
 
 # Default command for the API (run source directly — elysia-autoload requires
-# filesystem access that is unavailable inside a bun --compile binary)
-CMD ["bun", "src/index.ts"]
+# filesystem access that is unavailable inside a bun --compile binary). The preload
+# starts tracing before `pg` loads (ADR-0014).
+CMD ["bun", "--preload", "./src/telemetry.api.ts", "src/index.ts"]
