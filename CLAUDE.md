@@ -20,7 +20,7 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 ```
 
 `package.json`'s `test` script is a placeholder that exits 1. The real runner is `bun test <files>`.
-There are 28 test files: 18 isolated and 10 PostgreSQL integration.
+There are 32 test files: 13 PostgreSQL integration and 19 isolated — the 18 below plus the temporary `src/service/evaluationPeriod.test.ts`.
 
 ```bash
 # Isolated only — safe anywhere. 285 pass / 0 fail as of 2026-09-25.
