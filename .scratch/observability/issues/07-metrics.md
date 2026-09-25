@@ -4,6 +4,8 @@
 
 Status: ready-for-agent
 Category: enhancement
+Blocked by: 01 (PRD #20), 03 (`checkReadiness` feeds `twhp_dependency_up`), 04 (acceptance checks Prometheus targets)
+Model: Sonnet 5, high effort (well specified; route-label cardinality is tested directly)
 
 ## Agent Brief
 

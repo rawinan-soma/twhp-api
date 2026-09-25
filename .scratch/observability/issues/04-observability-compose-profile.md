@@ -4,6 +4,8 @@
 
 Status: ready-for-agent
 Category: enhancement
+Blocked by: 02 (acceptance needs Loki to read 02's ISO `time` field)
+Model: Sonnet 5, high effort (configuration breadth; verified by bringing the stack up)
 
 ## Agent Brief
 

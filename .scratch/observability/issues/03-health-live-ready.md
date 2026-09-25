@@ -4,6 +4,8 @@
 
 Status: closed
 Category: enhancement
+Blocked by: none
+Model: Sonnet 5, high effort (fully specified; failures are injectable in tests)
 
 ## Agent Brief
 

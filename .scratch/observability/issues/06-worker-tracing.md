@@ -4,6 +4,8 @@
 
 Status: ready-for-agent
 Category: enhancement
+Blocked by: 05 (trace context, propagator and scrubbing rules)
+Model: Opus 5.5, medium effort (BullMQ propagation and OTel import order in a compiled binary)
 
 ## Agent Brief
 

@@ -4,6 +4,8 @@
 
 Status: ready-for-agent
 Category: enhancement
+Blocked by: 05 (Loki error panel links to traces), 07 (alerts read its metrics)
+Model: Sonnet 5, high effort (verbose provisioning, verified by the recreate-and-fire tests)
 
 ## Agent Brief
 

@@ -4,6 +4,8 @@
 
 Status: ready-for-human
 Category: enhancement
+Blocked by: 01–08 (see Preconditions)
+Model: none (human task)
 
 ## Why this is not for an agent
 

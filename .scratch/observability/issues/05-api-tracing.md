@@ -4,6 +4,8 @@
 
 Status: ready-for-agent
 Category: enhancement
+Blocked by: 01, 02 (logger `mixin`), 04 (acceptance checks traces in Tempo)
+Model: Opus 5.5, medium effort (hand-written span hook, AsyncLocalStorage and instrumentation-pg under Bun)
 
 ## Agent Brief
 

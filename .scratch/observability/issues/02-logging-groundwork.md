@@ -4,6 +4,8 @@
 
 Status: ready-for-agent
 Category: enhancement
+Blocked by: 01 (PRD #20: pin before telemetry code; overrides elysia-logger's `formatters.log`, logs Elysia's route template)
+Model: Opus 5.5, medium effort (overrides elysia-logger internals; a subtle PII leak passes tests)
 
 ## Agent Brief
 

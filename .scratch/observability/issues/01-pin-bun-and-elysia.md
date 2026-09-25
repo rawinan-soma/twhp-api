@@ -4,6 +4,8 @@
 
 Status: closed
 Category: enhancement
+Blocked by: none
+Model: Sonnet 5, high effort (mechanical; every criterion is a runnable command)
 
 ## Agent Brief
 
