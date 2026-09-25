@@ -2,7 +2,7 @@
 
 # 05 — API tracing: own request-span hook, pg spans, scrubbing, `X-Request-Id`
 
-Status: ready-for-agent
+Status: closed
 Category: enhancement
 Blocked by: 01, 02 (logger `mixin`), 04 (acceptance checks traces in Tempo)
 Model: Opus 5.5, medium effort (hand-written span hook, AsyncLocalStorage and instrumentation-pg under Bun)
@@ -80,3 +80,7 @@ No tracing. Logs have no request correlation. Responses carry no request ID.
 - Metrics (issue 07).
 - Frontend display of the request ID.
 - Sampling. It is 100% by decision.
+
+## Comments
+
+Merged in #21 (3e729af).
