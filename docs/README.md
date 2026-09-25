@@ -51,6 +51,7 @@ review/finalization, evidence deletion, list pagination, or Cover-status resolut
 | [0011](adr/0011-two-phase-read-for-computed-list-items.md) | Page-scoped hydration for computed list items |
 | [0012](adr/0012-score-changes-are-terminal.md) | A score change is terminal; the loop survives for hard rejects only |
 | [0013](adr/0013-province-scoped-read-only-cover-review.md) | Provincial Officers read Covers in their province; `in_progress` is invisible and verdicts are redacted while `in_review` |
+| [0014](adr/0014-telemetry-on-bun.md) | Telemetry on Bun: own allow-listed request spans, pulled `prom-client` metrics, compiled worker without auto DB spans (accepted; implementation tracked in `.scratch/observability/`) |
 
 ## AI agent reading order
 
