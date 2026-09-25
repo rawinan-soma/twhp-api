@@ -2,7 +2,7 @@
 
 # 07 — Metrics: `prom-client` on an internal port for API and worker
 
-Status: ready-for-agent
+Status: closed
 Category: enhancement
 Blocked by: 01 (PRD #20), 03 (`checkReadiness` feeds `twhp_dependency_up`), 04 (acceptance checks Prometheus targets)
 Model: Sonnet 5, high effort (well specified; route-label cardinality is tested directly)
@@ -70,3 +70,5 @@ real requests need. Before publishing readiness as a metric, give the PostgreSQL
 `pg` client or a `max: 1` pool with `connectionTimeoutMillis: 1000` and `query_timeout: 1000`, and
 inject it through `createHealthService`. A hang can then hold only that one connection. Redis is
 already safe: the probe skips `PING` unless the ioredis connection is `ready`.
+
+Merged in #22 (2f47921).
