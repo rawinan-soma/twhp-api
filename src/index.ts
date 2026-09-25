@@ -31,8 +31,9 @@ if (env.DEV_SKIP_OTP && env.COOKIE_SECURE) {
 }
 
 const app = new Elysia({ prefix: "/twhp/api" })
-  .use(openapi({ path: "document" }))
+  // First, so its hooks cover every route, including the OpenAPI ones.
   .use(requestTracing)
+  .use(openapi({ path: "document" }))
   .use(requestLogging)
   .use(
     await autoload({

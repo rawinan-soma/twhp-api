@@ -24,17 +24,26 @@ import { isHealthPath } from "./routes";
  * `wrap`, which wraps the whole fetch handler (pinned Elysia, exercised by `src/tracing.test.ts`).
  * Every hook, handler, service call and DB query then runs in the span's context. The response
  * status is read in `wrap`; the route template and user are only known to `onAfterResponse`. The
- * span ends when both have reported, whichever comes last.
+ * span ends when both have reported, whichever comes last. `onAfterResponse` never fires for routes
+ * registered before this plugin (e.g. a plugin mounted ahead of it), so a span still waiting for it
+ * `DESCRIBE_GRACE_MS` after the response is ended without a route.
  */
 
-type RequestSpan = { span: Span; responded: boolean; described: boolean };
+type RequestSpan = { span: Span; responded: boolean; described: boolean; ended: boolean };
 
 const requestSpans = new WeakMap<Request, RequestSpan>();
 
-const endWhenComplete = (request: Request, entry: RequestSpan) => {
-  if (!entry.responded || !entry.described) return;
+export const DESCRIBE_GRACE_MS = 1000;
+
+const end = (request: Request, entry: RequestSpan) => {
+  if (entry.ended) return;
+  entry.ended = true;
   requestSpans.delete(request);
   entry.span.end();
+};
+
+const endWhenComplete = (request: Request, entry: RequestSpan) => {
+  if (entry.responded && entry.described) end(request, entry);
 };
 
 const withRequestId = (response: Response, traceId: string) => {
@@ -73,7 +82,7 @@ export const requestTracing = new Elysia({ name: "request-tracing" })
         },
         ROOT_CONTEXT,
       );
-      const entry: RequestSpan = { span, responded: false, described: false };
+      const entry: RequestSpan = { span, responded: false, described: false, ended: false };
       requestSpans.set(request, entry);
 
       return context.with(trace.setSpan(ROOT_CONTEXT, span), async () => {
@@ -82,15 +91,15 @@ export const requestTracing = new Elysia({ name: "request-tracing" })
           response = await fetch(request);
         } catch (error) {
           // Elysia answers errors itself, so this is not expected; don't leave the span open.
-          requestSpans.delete(request);
           span.setStatus({ code: SpanStatusCode.ERROR });
-          span.end();
+          end(request, entry);
           throw error;
         }
         span.setAttribute("http.response.status_code", response.status);
         if (response.status >= 500) span.setStatus({ code: SpanStatusCode.ERROR });
         entry.responded = true;
         endWhenComplete(request, entry);
+        if (!entry.ended) setTimeout(() => end(request, entry), DESCRIBE_GRACE_MS).unref();
         return withRequestId(response, span.spanContext().traceId);
       });
     }) as never;

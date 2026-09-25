@@ -10,7 +10,7 @@ import { createLogging } from "./logging";
 import { createHealthRoutes } from "./routes";
 import { createHealthService } from "./service/health";
 import { testSpans } from "./test/spans";
-import { requestTracing } from "./tracing";
+import { DESCRIBE_GRACE_MS, requestTracing } from "./tracing";
 
 // The request-span plugin `src/index.ts` mounts before autoload, over the provider the test preload
 // registers exactly as the API preload does (pg patched, spans kept in memory, nothing exported).
@@ -182,6 +182,24 @@ describe("request span", () => {
     await settle();
 
     expect(testSpans.getFinishedSpans()).toEqual([]);
+  });
+});
+
+describe("a route registered before the plugin", () => {
+  it("still gets its span ended, without a route, once the grace period passes", async () => {
+    const app = new Elysia({ prefix: "/twhp/api" })
+      .get("/early", () => "early")
+      .use(requestTracing);
+
+    const response = await get(app, "/twhp/api/early");
+    expect(response.headers.get("x-request-id")).toMatch(HEX32);
+    await settle();
+    expect(serverSpans()).toEqual([]);
+
+    await new Promise((resolve) => setTimeout(resolve, DESCRIBE_GRACE_MS));
+    const [server] = serverSpans();
+    expect(server.name).toBe("GET");
+    expect(server.attributes["http.response.status_code"]).toBe(200);
   });
 });
 
