@@ -193,6 +193,10 @@ describe("config — DATABASE_URL shape", () => {
     ["postgresql://admin:s3cretpw@postgres:5432", "no database"],
     ["postgresql://admin:s3cretpw@postgres:5432/", "empty database"],
     ["admin:s3cretpw@postgres:5432/twhp", "no scheme"],
+    // An unencoded "/" in a digits-first password parses with the digits as the port and the rest
+    // of the password in the path; pg would then report the digits as `server.port`.
+    ["postgres://admin:12345/s3cretpw@postgres:5432/twhp", "password split into port and path"],
+    ["postgresql://admin:pw@postgres:5432/twhp/s3cretpw", "nested path"],
   ])("rejects %p (%s) without echoing it", async (value) => {
     const { exitCode, err } = await load(value);
     expect(exitCode).not.toBe(0);
