@@ -108,7 +108,7 @@ None of these four were addressed by the work completed since 2026-07-15; they r
 - The factory's original claim is not preserved once finalize writes a Verdict Score into `answers.selected_choice`. Recovering it as a visible delta needs a schema change.
 - Email queue retry/idempotency policies vary, and a successful API request does not prove delivery.
 - SMTP security flags are required but unused by the Nodemailer transport.
-- Exact Bun runtime is not pinned; several images/dependencies float.
+- Bun is pinned to an exact version (`.bun-version`), but several other images float (MinIO, Nginx, the `latest` app image).
 - Services advertised as database-injectable still close over global Redis, queue, MinIO, or other singleton services.
 - `answer.ts`, `authentication.ts`, `enroll.ts`, and `evaluator-review.ts` are large, high-coupling change hotspots.
 

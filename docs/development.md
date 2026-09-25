@@ -8,7 +8,7 @@ This guide documents the development commands and service topology that are curr
 - Docker Engine with Docker Compose is required for the repository-defined PostgreSQL, Redis, MinIO, API, worker, and Nginx stack.
 - Git is required for the normal source workflow.
 
-Bun is pinned to **1.4.2**. [`.bun-version`](../.bun-version) at the repository root is the source of truth; `package.json` `engines.bun` and both Dockerfile stages (`oven/bun:1.4.2`, `oven/bun:1.4.2-slim`) name the same version. Install that exact version, for example `curl -fsSL https://bun.sh/install | bash -s "bun-v$(cat .bun-version)"`, and check it with `bun --version`. When upgrading, change all three places together. `elysia` and `bun-types` are pinned to exact versions in `package.json`; no dependency is declared as `latest`.
+Bun is pinned to **1.4.2**. [`.bun-version`](../.bun-version) at the repository root is the source of truth; `package.json` `engines.bun` and both Dockerfile stages (`oven/bun:1.4.2`, `oven/bun:1.4.2-slim`) name the same version. Install that exact version, for example `curl -fsSL https://bun.sh/install | bash -s "bun-v$(cat .bun-version)"`, and check it with `bun --version`. When upgrading, change all three places together. `elysia` and `bun-types` are pinned to exact versions in `package.json`; no dependency is declared as `latest`. `bun-types` (1.3.11) deliberately stays at the version the lockfile already resolved, so it lags the runtime by one minor version; upgrading it is a separate change. Bun does not enforce `engines.bun`; it only records the version.
 
 Install dependencies from the lockfile:
 

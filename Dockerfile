@@ -21,7 +21,7 @@ RUN bun build \
     src/workers.ts
 
 # Runtime stage
-# We use oven/bun:slim instead of distroless to keep the 'bun' runtime 
+# We use oven/bun:<version>-slim instead of distroless to keep the 'bun' runtime 
 # available for running migrations (db:push) and seeding (db:seed)
 FROM oven/bun:1.4.2-slim AS release
 WORKDIR /app
