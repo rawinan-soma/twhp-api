@@ -20,11 +20,13 @@ MinIO has no profile, so it is the only service selected by a plain `docker comp
 
 ## Runtime and image construction
 
-Bun is the application runtime and package manager. Its exact version is **unresolved and unpinned**:
+Bun is the application runtime and package manager. It is pinned to **1.4.2** in three places that must change together:
 
-- the Dockerfile uses `oven/bun:1` and `oven/bun:1-slim`;
-- `package.json` does not declare `engines` or `packageManager`;
-- some dependencies are requested with `latest`, although `bun.lock` records the current resolution.
+- the Dockerfile uses `oven/bun:1.4.2` (build) and `oven/bun:1.4.2-slim` (release);
+- `.bun-version` at the repository root;
+- `package.json` `engines.bun`.
+
+No dependency is requested with `latest`; `elysia` and `bun-types` are exact, and `bun.lock` records the full resolution.
 
 The release image build performs these steps:
 

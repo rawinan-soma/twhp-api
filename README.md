@@ -18,7 +18,7 @@ HTTP API and the email worker.
 
 | | |
 |---|---|
-| Runtime | Bun 1.3.6 (development machine); production image uses the floating `oven/bun:1` family |
+| Runtime | Bun 1.4.2, pinned in `.bun-version`, `package.json` `engines.bun` and the Dockerfile — install that exact version |
 | Framework | ElysiaJS, filesystem route autoload (`elysia-autoload`) |
 | Validation | TypeBox DTOs composed from Drizzle-generated base schemas (`src/schema/`) |
 | Database | PostgreSQL 17 via Drizzle ORM, single schema file `src/drizzle/schema.ts` |

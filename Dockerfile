@@ -1,5 +1,5 @@
 # Use official Bun image for building
-FROM oven/bun:1 AS build
+FROM oven/bun:1.4.2 AS build
 WORKDIR /app
 
 # Install dependencies (cached)
@@ -23,7 +23,7 @@ RUN bun build \
 # Runtime stage
 # We use oven/bun:slim instead of distroless to keep the 'bun' runtime 
 # available for running migrations (db:push) and seeding (db:seed)
-FROM oven/bun:1-slim AS release
+FROM oven/bun:1.4.2-slim AS release
 WORKDIR /app
 
 # Copy source (needed for elysia-autoload's runtime filesystem scan)
