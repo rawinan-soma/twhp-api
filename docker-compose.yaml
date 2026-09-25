@@ -297,7 +297,14 @@ services:
       - --storage.path=/var/lib/alloy/data
       - /etc/alloy/config.alloy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:12345/-/ready"]
+      # grafana/alloy ships neither curl nor wget; bash's /dev/tcp is what's available.
+      test:
+        [
+          "CMD",
+          "bash",
+          "-c",
+          "exec 3<>/dev/tcp/127.0.0.1/12345 && printf 'GET /-/ready HTTP/1.0\r\n\r\n' >&3 && head -1 <&3 | grep -q 200",
+        ]
       interval: 15s
       timeout: 5s
       retries: 5
