@@ -645,7 +645,7 @@ docker inspect --format '{{.RestartCount}} {{.State.Status}} {{.State.StartedAt}
 ## Deployment unknowns requiring owner confirmation
 
 - Exact production/staging hosts, orchestrator, number of API/worker replicas, image pinning/digest policy, and release/rollback owner.
-- Exact Bun image/runtime version; Docker uses floating `oven/bun:1` tags and production application image `latest`.
+- Production application image tag policy: the image is published as `latest`. (The Bun base image itself is pinned to `1.4.2`.)
 - Actual TLS terminator, public hostname/path, outer proxy/Cloudflare behavior, trusted-forwarded-header chain, API-key injection point, firewall/security groups, and whether nginx loopback port 81 is fronted externally.
 - Whether the external `shared-web-network` exists everywhere, who creates it, and upstream service naming expectations.
 - Production PostgreSQL schema/catalog drift, timezone, SSL, grants, extensions, pool limits, backup/PITR, restore tests, monitoring, capacity, and approved CSV/import process.

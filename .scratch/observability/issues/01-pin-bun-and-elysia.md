@@ -2,7 +2,7 @@
 
 # 01 — Pin Bun and Elysia versions
 
-Status: ready-for-agent
+Status: closed
 Category: enhancement
 
 ## Agent Brief
@@ -44,3 +44,7 @@ unpinned rebuild can silently change what gets traced.
 **Out of scope:**
 - Upgrading Elysia, BullMQ or any other dependency.
 - Any telemetry code.
+
+## Comments
+
+Merged in #17 (62f8132).

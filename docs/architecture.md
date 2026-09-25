@@ -37,7 +37,7 @@ flowchart LR
 | Email | Nodemailer in a separate worker | `src/worker/email.ts` |
 | Logging | `@bogeychan/elysia-logger`; console logging remains in worker/utilities | `src/logging.ts`, `src/worker/email.ts` |
 
-The checkout lockfile fixes current dependency resolution. The exact production Bun runtime is **Unknown / Requires Organizational Knowledge**: Docker uses the floating `oven/bun:1` family, while `elysia` and `bun-types` are declared as `latest`.
+The checkout lockfile fixes current dependency resolution. The Bun runtime is pinned to 1.4.2 (`.bun-version`, `package.json` `engines.bun`, and the Dockerfile's `oven/bun:1.4.2` / `oven/bun:1.4.2-slim` stages), and `elysia` and `bun-types` are pinned to exact versions.
 
 ## Process composition
 
