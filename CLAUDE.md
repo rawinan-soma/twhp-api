@@ -20,13 +20,13 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 ```
 
 `package.json`'s `test` script is a placeholder that exits 1. The real runner is `bun test <files>`.
-There are 20 test files: 10 isolated and 10 PostgreSQL integration.
+There are 23 test files: 13 isolated and 10 PostgreSQL integration.
 
 ```bash
-# Isolated only — safe anywhere. 224 pass / 0 fail as of 2026-09-25.
-bun test src/config.test.ts src/routes/authentication/index.test.ts \
+# Isolated only — safe anywhere. 250 pass / 0 fail as of 2026-09-25.
+bun test src/config.test.ts src/logging.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
-  src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
+  src/service/coverStatus.test.ts src/service/health.test.ts src/service/pagination-routes.test.ts \
   src/service/pagination.test.ts src/service/score.test.ts \
   src/logger.test.ts src/worker/email.test.ts
 
@@ -57,7 +57,7 @@ rebuilt and pushed, not just restarted.
 
 **Runtime**: Bun + ElysiaJS. Prefer `Bun.env`, `Bun.SHA256` etc. over Node equivalents.
 
-**API prefix**: All routes under `/twhp/api`. OpenAPI docs at `/twhp/api/document`. Health check at `/twhp/api/health` (skipped from request logs).
+**API prefix**: All routes under `/twhp/api`. OpenAPI docs at `/twhp/api/document`. Health: `/twhp/api/health/live` (alias `/twhp/api/health`) for liveness, `/twhp/api/health/ready` for PostgreSQL/Redis/MinIO readiness; all three are skipped from request logs. Container healthchecks must use `live`.
 
 ### Routing (autoload)
 
@@ -80,7 +80,7 @@ export const xxxService = createXxxService(db);  // singleton at bottom of file
 ```
 Routes import the `xxxService` singleton. The `createXxxService(db)` factory exists so services can be instantiated against a test/alt DB if needed.
 
-**Services return `status(code, body)` (Elysia's `ElysiaCustomStatusResponse`) rather than throwing.** Routes check for these and return them directly. Global error handler in `src/index.ts` catches unexpected errors and returns 500 with an error log.
+**Services return `status(code, body)` (Elysia's `ElysiaCustomStatusResponse`) rather than throwing.** Routes check for these and return them directly. Global error handler in `src/logging.ts` (mounted by `src/index.ts`) catches unexpected errors and returns 500 with an error log.
 
 ### Schemas
 
@@ -175,16 +175,18 @@ All env vars are validated at startup in `src/config.ts`. Missing or malformed v
 
 ### Logging
 
-One pino configuration in `src/logger.ts` serves the API request logger (`requestLogger()`), the
-API's standalone logger and the worker (`createLogger("twhp-api" | "twhp-worker")`). Lines are JSON
-with `time` in Bangkok ISO (`2026-09-25T14:30:05.123+07:00`), a `service` field, and whatever
-`logMixin` returns (issue 05 adds `trace_id`/`span_id` there).
+One pino configuration in `src/logger.ts` serves the API and the worker
+(`createLogger("twhp-api" | "twhp-worker")`). Lines are JSON with `time` in Bangkok ISO
+(`2026-09-25T14:30:05.123+07:00`), a `service` field, and whatever `logMixin` returns (issue 05 adds
+`trace_id`/`span_id` there).
 
-Each successful request writes one light line: `method`, `path` (no query string), `route`,
-`status`, `durationMs`, and `userId` when authenticated. `/health*` is not logged. `onError` in
-`src/index.ts` classifies errors into expected (`VALIDATION`, `INVALID_FILE_TYPE`, `PARSE` → 400),
-`NOT_FOUND` → 404, and unexpected → 500; `onAfterResponse` logs any 4xx that `onError` didn't. Both
-log `request`, which the shared serializer reduces to `{ method, path }`.
+`src/logging.ts` exports `createLogging(stream?, mixin?)`: the API's logger plus the
+request-logging plugin `src/index.ts` mounts; tests pass a stream to capture lines. Each successful
+request writes one light line: `method`, `path` (no query string), `route`, `status`, `durationMs`,
+and `userId` when authenticated. The three health routes (`isHealthPath`) are not logged. `onError`
+classifies errors into expected (`VALIDATION`, `INVALID_FILE_TYPE`, `PARSE` → 400), `NOT_FOUND` →
+404, and unexpected → 500; `onAfterResponse` logs any 4xx/5xx that `onError` didn't. Both log
+`request`, which the shared serializer reduces to `{ method, path }`.
 
 **No PII or secrets in logs.** Never log query strings, headers, bodies, IPs, user-agents, email
 addresses, names, phone numbers, tokens, cookies, passwords or OTPs; refer to people by internal IDs

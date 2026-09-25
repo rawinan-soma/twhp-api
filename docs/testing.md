@@ -6,12 +6,14 @@ For environment setup and service ports, see [Development](./development.md). Fo
 
 ## Current status
 
-- **18 test files and 315 declared test cases** were found.
-- **8 files are isolated** unit, configuration, schema, pagination, or in-process route tests.
+- **23 test files and 346 declared test cases** were found.
+- **11 files are isolated** unit, configuration, schema, pagination, or in-process route tests.
 - **10 files are PostgreSQL integration tests.**
 - The eight isolated files were run together on 2026-09-02 with Bun 1.3.6: **201 passed, 0 failed,
   489 `expect()` calls, 408 ms**. The run count exceeds the declared count because several files
-  generate cases from tables.
+  generate cases from tables. On 2026-09-25, with `src/routes/index.test.ts`, `src/logging.test.ts` and
+  `src/service/health.test.ts` added, the eleven isolated files gave **234 passed, 0 failed, 544
+  `expect()` calls**.
 - The integration tests were **not run** during this refresh. Their setup performs real inserts and
   deletes against `DATABASE_URL`, whose test preload fallback names the ordinary local `twhp`
   database.
@@ -30,7 +32,7 @@ Do not summarize the repository as having "no tests," and do not describe the fu
 
 Counts are declared `it(...)`/`test(...)` cases in each file.
 
-### Isolated tests (8 files, 140 declared / 201 executed)
+### Isolated tests (13 files)
 
 | File | Cases | Scope |
 |---|---:|---|
@@ -39,10 +41,13 @@ Counts are declared `it(...)`/`test(...)` cases in each file.
 | `src/service/authentication.2fa.test.ts` | 30 | OTP generation, hashing, TTL, attempts, resend, masking, and role routing with mocked DB/Redis/queue |
 | `src/routes/authentication/index.test.ts` | 22 | In-process Elysia login, OTP, bypass, error, and request-validation behavior with mocked authentication/JWT modules |
 | `src/service/coverStatus.test.ts` | 17 | Shared latest-cover-log resolution: ordering by serial `id`, `LIMIT 1`, and both query shapes (ADR-0010) |
+| `src/service/health.test.ts` | 4 | MinIO readiness probe through the real minio-js client against local HTTP servers: S3 200/404 are up; 403 and non-S3 servers (empty 404, HTML 404, plain 200) are down |
 | `src/service/pagination.test.ts` | 25 | `PaginationQuery`/`PaginatedResponse` contract, coercion, bounds, and `meta` arithmetic (ADR-0007, ADR-0009) |
 | `src/service/pagination-routes.test.ts` | 9 | Route-level composition of the envelope, unwrapped 404s, and envelope parity across the nine staff lists |
+| `src/logging.test.ts` | 7 | Request-logging plugin from `src/logging.ts` with a captured pino stream: health routes (including the 503) write no line; ordinary 200/400/404 requests still do; the light request line (no query/cookie/user-agent, `route`, `userId`, mixin fields) |
+| `src/routes/index.test.ts` | 9 | Health routes: `/health` and `/health/live` liveness, `/health/ready` 200/503 with injected fake PostgreSQL/Redis/MinIO clients and the 1 s timeout, and the log-exclusion path set |
 | `src/service/score.test.ts` | 27 | Score arithmetic, category breakdown, `n/a` handling, boundaries, and TypeBox response shape |
-| `src/logger.test.ts` | 12 | Shared pino config: Bangkok ISO time, Drizzle param scrubbing, `service`, redaction, the light request line, `userId`, mixin seam, `/health` exclusion |
+| `src/logger.test.ts` | 7 | Shared pino config: Bangkok ISO time, Drizzle param scrubbing, `service`, redaction, the `{ method, path }` request serializer |
 | `src/worker/email.test.ts` | 4 | Worker job logs carry `jobId`/`jobName`/counts and no email address, name or SMTP error text (mocked BullMQ/nodemailer) |
 
 ### PostgreSQL integration tests (10 files, 175 declared)
@@ -62,12 +67,12 @@ Counts are declared `it(...)`/`test(...)` cases in each file.
 
 ## Safely running the isolated tests
 
-All ten isolated files run cleanly in one process:
+All thirteen isolated files run cleanly in one process:
 
 ```bash
-bun test src/config.test.ts src/routes/authentication/index.test.ts \
+bun test src/config.test.ts src/logging.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
-  src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
+  src/service/coverStatus.test.ts src/service/health.test.ts src/service/pagination-routes.test.ts \
   src/service/pagination.test.ts src/service/score.test.ts \
   src/logger.test.ts src/worker/email.test.ts
 ```
@@ -76,8 +81,9 @@ Observed on 2026-09-02 with Bun 1.3.6: **201 pass, 0 fail, 489 expect() calls, 4
 prints `[ioredis] Unhandled error event` lines because module-level imports create a Redis client
 that finds no server; they do not fail the run.
 
-Observed on 2026-09-25 with Bun 1.3.6, after `src/logger.test.ts` (12) and
-`src/worker/email.test.ts` (4) were added: **224 pass, 0 fail.**
+Observed on 2026-09-25 with Bun 1.3.6, after `src/logger.test.ts` (7) and
+`src/worker/email.test.ts` (4) were added and five request-line cases moved into
+`src/logging.test.ts`: **250 pass, 0 fail, 585 expect() calls** across the thirteen files.
 
 If mock contamination reappears, fall back to one process per file — repository history records that
 the authentication files register overlapping top-level `mock.module(...)` replacements and once

@@ -6,14 +6,16 @@ TWHP is a Bun/TypeScript backend for factory enrollment, annual assessment, hier
 scoring, authentication, and evidence files. It uses ElysiaJS and TypeBox, Drizzle/PostgreSQL,
 BullMQ/Redis, MinIO, Nodemailer, Docker Compose, and Biome.
 
-The API prefix is `/twhp/api`; OpenAPI is `/twhp/api/document`; `/twhp/api/health` is liveness-only
-and does not verify dependencies. Treat source and configuration as authoritative for current
+The API prefix is `/twhp/api`; OpenAPI is `/twhp/api/document`; `/twhp/api/health` and
+`/twhp/api/health/live` are liveness-only; `/twhp/api/health/ready` checks PostgreSQL, Redis and MinIO
+but not SMTP or the worker. Treat source and configuration as authoritative for current
 behavior. When they conflict with prose, report the conflict and consult the relevant ADR or
 maintainer rather than silently choosing.
 
 ## Repository boundaries
 
-- `src/index.ts`: API bootstrap, global errors/logging, route autoload, and request-size limit.
+- `src/index.ts`: API bootstrap, route autoload, and request-size limit.
+- `src/logging.ts`: pino logger, request logging, and global error classification (`onError`/`onAfterResponse`).
 - `src/routes/**`: HTTP groups, guards, TypeBox/OpenAPI contracts. Nested paths are autoloaded; do
   not manually register routes or create a controller layer.
 - `src/service/*.ts`: business and database behavior. Most modules expose a database-taking factory
@@ -121,10 +123,10 @@ bun run start
 # Side-effecting worker: consumes Redis jobs, sends email, and registers a repeatable reminder
 bun run worker
 
-# Safe isolated tests — all ten files, one process (224 pass as of 2026-09-25)
-bun test src/config.test.ts src/routes/authentication/index.test.ts \
+# Safe isolated tests — all thirteen files, one process (250 pass as of 2026-09-25)
+bun test src/config.test.ts src/logging.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
-  src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
+  src/service/coverStatus.test.ts src/service/health.test.ts src/service/pagination-routes.test.ts \
   src/service/pagination.test.ts src/service/score.test.ts \
   src/logger.test.ts src/worker/email.test.ts
 
@@ -156,7 +158,7 @@ Run `bun run worker` only with explicitly approved non-production PostgreSQL, Re
 Validate proportionally: focused tests first; integration tests only with the safe database
 precondition; then the non-mutating check. For route/schema changes, compare runtime behavior with
 OpenAPI. For Docker/config changes, validate Compose expansion and the affected profile. Never claim
-completion from the static health endpoint alone.
+completion from the health endpoints alone.
 
 ## Documentation reading map
 
@@ -198,7 +200,7 @@ Local issues and PRDs use `.scratch/<feature>/`; follow `docs/agents/issue-track
   constraints and are race-prone.
 - Do not assume an authenticated evaluator may read arbitrary IDs or an authenticated user may
   presign arbitrary known filenames.
-- Do not assume API success means email delivery, `/health` means dependencies are ready, or
+- Do not assume API success means email delivery, `/health` or `/health/live` means dependencies are ready, `/health/ready` means the worker or SMTP works, or
   `APP_PORT` can differ from 3000 in the current container topology.
 - Do not assume staging is production-like: it uses the dev image, hot reload, `db:push`, and seed.
 - Do not assume production Compose migrates, imports, backs up, rolls back, pins images, or

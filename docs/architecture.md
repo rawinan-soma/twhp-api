@@ -35,7 +35,7 @@ flowchart LR
 | Object storage | MinIO | `src/utils.ts` |
 | Jobs and temporary state | BullMQ and Redis | `src/queue/email.ts`, `src/workers.ts` |
 | Email | Nodemailer in a separate worker | `src/worker/email.ts` |
-| Logging | pino via `@bogeychan/elysia-logger`, one shared config for API and worker | `src/logger.ts`, `src/index.ts`, `src/worker/email.ts` |
+| Logging | pino via `@bogeychan/elysia-logger`, one shared config for API and worker | `src/logger.ts`, `src/logging.ts`, `src/worker/email.ts` |
 
 The checkout lockfile fixes current dependency resolution. The Bun runtime is pinned to 1.4.2 (`.bun-version`, `package.json` `engines.bun`, and the Dockerfile's `oven/bun:1.4.2` / `oven/bun:1.4.2-slim` stages), and `elysia` and `bun-types` are pinned to exact versions.
 
@@ -53,7 +53,7 @@ The checkout lockfile fixes current dependency resolution. The Bun runtime is pi
 6. Autoload `src/routes/`, ignoring test/spec files.
 7. Listen on `APP_PORT` with a 130 MB request-body limit.
 
-`src/routes/index.ts` supplies `/twhp/api/health`. This is a liveness response only: it returns a constant string and does not check PostgreSQL, Redis, MinIO, SMTP, or the worker.
+`src/routes/index.ts` supplies the health endpoints. `/twhp/api/health/live` and its alias `/twhp/api/health` are liveness only and return a constant string. `/twhp/api/health/ready` calls `healthService.getReadiness()` (`src/service/health.ts`). Its `checkReadiness()` probes PostgreSQL, Redis and MinIO in parallel with a 1 s timeout each; Redis counts as `down` without a PING while the shared ioredis connection is not `ready`, so polling during an outage does not grow its offline queue. The route answers 200 or 503. It does not check SMTP or the worker.
 
 The release image deliberately runs the API from TypeScript source. `elysia-autoload` needs the route filesystem at runtime, so `Dockerfile` copies `src/` rather than compiling the API into a standalone binary.
 
@@ -198,9 +198,9 @@ Canonical deployed values, secret storage, Redis security settings, and environm
 
 ## Logging and operational visibility
 
-The API and worker share one pino configuration (`src/logger.ts`): JSON lines with Bangkok ISO timestamps (`+07:00`, milliseconds), a `service` field, and redaction of secret and personal keys. Each successful request writes one line with method, path without query string, route template, status, duration and `userId`; health routes are excluded. Expected parse/validation errors become 400, framework not-found errors become 404, and unexpected errors become generic 500 responses; their log lines carry the request as method and path only. Worker job lines carry `jobId`, `jobName` and recipient counts, never addresses.
+The API and worker share one pino configuration (`src/logger.ts`): JSON lines with Bangkok ISO timestamps (`+07:00`, milliseconds), a `service` field, and redaction of secret and personal keys. The API's request plugin and error hooks live in `src/logging.ts`. Each successful request writes one line with method, path without query string, route template, status, duration and `userId`; the three health routes (`isHealthPath` in `src/routes/index.ts`) are excluded from that line and from the 4xx/5xx log in `onAfterResponse`. Expected parse/validation errors become 400, framework not-found errors become 404, and unexpected errors become generic 500 responses; their log lines carry the request as method and path only. Worker job lines carry `jobId`, `jobName` and recipient counts, never addresses.
 
-MinIO deletion, some service fallback, and seed paths still use `console.log`/`console.error`. No metrics, tracing, request correlation ID, BullMQ event monitoring, or dependency-aware readiness check exists in source.
+MinIO deletion, some service fallback, and seed paths still use `console.log`/`console.error`. No metrics, tracing, request correlation ID, or BullMQ event monitoring exists in source; `/health/ready` is the only dependency-aware check.
 
 The production log aggregation, alerting, metrics, tracing, and health-check ownership are **Unknown / Requires Organizational Knowledge**.
 

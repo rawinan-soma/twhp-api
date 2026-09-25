@@ -2,9 +2,9 @@ import { openapi } from "@elysiajs/openapi";
 import { Elysia } from "elysia";
 import { autoload } from "elysia-autoload";
 import { env } from "./config";
-import { createLogger, requestLogger, scrubErrorMessage } from "./logger";
+import { createLogging } from "./logging";
 
-const globalLogger = createLogger("twhp-api");
+const { globalLogger, requestLogging } = createLogging();
 
 // Dev OTP bypass is hard-blocked in production (see ADR-4). Warn once if it is configured there.
 if (env.DEV_SKIP_OTP && env.COOKIE_SECURE) {
@@ -13,67 +13,9 @@ if (env.DEV_SKIP_OTP && env.COOKIE_SECURE) {
   );
 }
 
-const EXPECTED_CODES = new Set(["VALIDATION", "INVALID_FILE_TYPE", "PARSE"]);
-
 const app = new Elysia({ prefix: "/twhp/api" })
   .use(openapi({ path: "document" }))
-  .use(requestLogger())
-  .onError(({ code, error, set, request, log, store }) => {
-    const activeLogger = log ?? globalLogger;
-    const errorMessage = error instanceof Error ? error.message : "";
-    (store as Record<string, unknown>).__logged = true;
-    if (EXPECTED_CODES.has(code as string)) {
-      set.status = 400;
-      try {
-        const parsed = JSON.parse(errorMessage);
-        activeLogger.error(
-          {
-            status: 400,
-            on: parsed.on,
-            property: parsed.property,
-            detail: parsed.message,
-            summary: parsed.summary,
-            request,
-          },
-          "Validation error",
-        );
-        return {
-          message: parsed.message,
-          on: parsed.on,
-          property: parsed.property,
-          summary: parsed.summary,
-        };
-      } catch {
-        activeLogger.error({ status: 400, code, detail: errorMessage, request }, "Expected error");
-        return { message: errorMessage };
-      }
-    }
-
-    if (code === "NOT_FOUND") {
-      set.status = 404;
-      activeLogger.error({ status: 404, detail: "NOT_FOUND", request }, "Not found");
-      return { message: "Not found" };
-    }
-
-    set.status = 500;
-    activeLogger.error(
-      { status: 500, detail: scrubErrorMessage(errorMessage), request },
-      "Unexpected error occurred",
-    );
-    return { message: "Unexpected error" };
-  })
-  .onAfterResponse(({ set, request, log, responseValue, store }) => {
-    if ((store as Record<string, unknown>).__logged) return;
-    const status = typeof set.status === "number" ? set.status : 200;
-    if (status >= 400) {
-      const body =
-        typeof responseValue === "object" && responseValue !== null
-          ? (responseValue as Record<string, unknown>)
-          : null;
-      const detail = (body?.response as Record<string, unknown>)?.message ?? body?.message;
-      (log ?? globalLogger).error({ status, detail, request }, "Client error");
-    }
-  })
+  .use(requestLogging)
   .use(
     await autoload({
       dir: "./routes",

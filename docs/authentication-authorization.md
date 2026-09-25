@@ -101,7 +101,7 @@ The role is taken from a signed access token until that token expires. Refresh i
 
 ### Public at the Elysia application layer
 
-- `GET /health`
+- `GET /health`, `GET /health/live`, `GET /health/ready`
 - OpenAPI UI/assets below `GET /document`
 - `GET /location/provinces`
 - `GET /location/provinces/:provinceId/districts`
@@ -187,7 +187,7 @@ Evaluator and Provincial first-login routes are protected by their normal role g
 
 ## Input validation, serialization, and upload controls
 
-Elysia TypeBox schemas validate route bodies, queries, parameters, cookies, and responses. The root `onError` converts validation, parse, and invalid-file-type failures to HTTP 400 and returns selected validation details. Route-only authentication tests observe Elysia's default 422 because they do not mount the root handler (`src/index.ts`; `src/routes/authentication/index.test.ts`).
+Elysia TypeBox schemas validate route bodies, queries, parameters, cookies, and responses. The root `onError` converts validation, parse, and invalid-file-type failures to HTTP 400 and returns selected validation details. Route-only authentication tests observe Elysia's default 422 because they do not mount the root handler (`src/logging.ts`, mounted by `src/index.ts`; `src/routes/authentication/index.test.ts`).
 
 Response schemas reduce accidental field leakage, but naming and error shapes are inconsistent: authentication uses `full_name`, `change_pw`, and `eval_level`; JWT failures use `{message}`; RBAC uses a bare string. OpenAPI has no cookie security scheme (**Verified**).
 
