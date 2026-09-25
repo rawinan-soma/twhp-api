@@ -35,7 +35,7 @@ flowchart LR
 | Object storage | MinIO | `src/utils.ts` |
 | Jobs and temporary state | BullMQ and Redis | `src/queue/email.ts`, `src/workers.ts` |
 | Email | Nodemailer in a separate worker | `src/worker/email.ts` |
-| Logging | `@bogeychan/elysia-logger`; console logging remains in worker/utilities | `src/logging.ts`, `src/worker/email.ts` |
+| Logging | pino via `@bogeychan/elysia-logger`, one shared config for API and worker | `src/logger.ts`, `src/logging.ts`, `src/worker/email.ts` |
 
 The checkout lockfile fixes current dependency resolution. The Bun runtime is pinned to 1.4.2 (`.bun-version`, `package.json` `engines.bun`, and the Dockerfile's `oven/bun:1.4.2` / `oven/bun:1.4.2-slim` stages), and `elysia` and `bun-types` are pinned to exact versions.
 
@@ -198,9 +198,9 @@ Canonical deployed values, secret storage, Redis security settings, and environm
 
 ## Logging and operational visibility
 
-The API uses structured request/error logging with Bangkok-local timestamps. It records method, URL, content type, authorization-header presence, forwarded IP, and user agent; the three health routes (`isHealthPath` in `src/routes/index.ts`) are excluded from automatic request logs and from the 4xx/5xx log in `onAfterResponse`. Expected parse/validation errors become 400, framework not-found errors become 404, and unexpected errors become generic 500 responses.
+The API and worker share one pino configuration (`src/logger.ts`): JSON lines with Bangkok ISO timestamps (`+07:00`, milliseconds), a `service` field, and redaction of secret and personal keys. The API's request plugin and error hooks live in `src/logging.ts`. Each successful request writes one line with method, path without query string, route template, status, duration and `userId`; the three health routes (`isHealthPath` in `src/routes/index.ts`) are excluded from that line and from the 4xx/5xx log in `onAfterResponse`. Expected parse/validation errors become 400, framework not-found errors become 404, and unexpected errors become generic 500 responses; their log lines carry the request as method and path only. Worker job lines carry `jobId`, `jobName` and recipient counts, never addresses.
 
-Worker delivery, MinIO deletion, some service fallback, seed, and startup paths still use `console.log`/`console.error`. No metrics, tracing, request correlation ID, or BullMQ event monitoring exists in source; `/health/ready` is the only dependency-aware check.
+MinIO deletion, some service fallback, and seed paths still use `console.log`/`console.error`. No metrics, tracing, request correlation ID, or BullMQ event monitoring exists in source; `/health/ready` is the only dependency-aware check.
 
 The production log aggregation, alerting, metrics, tracing, and health-check ownership are **Unknown / Requires Organizational Knowledge**.
 

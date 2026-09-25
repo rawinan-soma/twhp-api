@@ -26,6 +26,8 @@ src/
 ├── workers.ts                worker composition root and repeat schedule
 ├── config.ts                 eager environment parser/validator
 ├── utils.ts                  fiscal-year, Redis, and MinIO utilities
+├── logger.ts                 shared pino config for API and worker (time, service, redaction)
+├── logging.ts                API request-log plugin and error classification hooks
 ├── drizzle/
 │   ├── index.ts              production Drizzle client
 │   ├── schema.ts             all tables, enums, and foreign keys
@@ -147,7 +149,7 @@ These modules instantiate infrastructure at import time. Importing a service in 
 
 ## Tests
 
-Tests are colocated as `*.test.ts` under `src/`; `bunfig.toml` preloads `src/test/setup.ts`. There are 18 test files: 8 isolated and 10 PostgreSQL integration.
+Tests are colocated as `*.test.ts` under `src/`; `bunfig.toml` preloads `src/test/setup.ts`. There are 23 test files: 13 isolated and 10 PostgreSQL integration.
 
 The real test runner is:
 

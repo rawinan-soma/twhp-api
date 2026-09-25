@@ -1,49 +1,65 @@
-import { createPinoLogger, logger, type pino } from "@bogeychan/elysia-logger";
+import { isContext, logger } from "@bogeychan/elysia-logger";
 import { Elysia } from "elysia";
+import {
+  createLogger,
+  createLoggerOptions,
+  type LogMixin,
+  type LogStream,
+  logMixin,
+  pathOf,
+  scrubErrorMessage,
+} from "./logger";
 import { isHealthPath } from "./routes";
-
-const bangkokTimestamp = () =>
-  `,"time":"${new Date().toLocaleString("en-GB", { timeZone: "Asia/Bangkok", hour12: false, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}"`;
 
 const EXPECTED_CODES = new Set(["VALIDATION", "INVALID_FILE_TYPE", "PARSE"]);
 
+type RequestContext = {
+  request: Request;
+  route?: string;
+  set: { status?: number | string };
+  store: { responseTime?: number };
+  jwtPayload?: { sub?: string };
+};
+
+const requestLine = (ctx: RequestContext) => ({
+  method: ctx.request.method,
+  path: pathOf(ctx.request),
+  ...(ctx.route ? { route: ctx.route } : {}),
+  status: typeof ctx.set.status === "number" ? ctx.set.status : 200,
+  durationMs: Math.round((ctx.store.responseTime ?? 0) * 10) / 10,
+  ...(ctx.jwtPayload?.sub ? { userId: ctx.jwtPayload.sub } : {}),
+});
+
 /**
- * The API's pino logger plus the request-logging plugin: one auto-logged line per successful
- * request, error classification in `onError`, and a line for any unlogged 4xx/5xx in
- * `onAfterResponse`. Health routes are excluded from the request line and the 4xx/5xx line. `stream` defaults to stdout;
- * tests pass one to capture lines.
+ * The API's logger plus the request-logging plugin `src/index.ts` mounts, both on the shared pino
+ * configuration in `src/logger.ts`:
+ * - one light line per successful request (method, path, route, status, durationMs, userId);
+ * - error classification in `onError`;
+ * - a line for any 4xx/5xx `onError` didn't log, in `onAfterResponse`.
+ * Health routes are excluded from the request line and the `onAfterResponse` line; a health
+ * handler that throws still reaches `onError`. `stream` defaults to stdout and `mixin` to
+ * `logMixin`; tests pass their own.
  */
-export const createLogging = (stream?: pino.DestinationStream) => {
-  const globalLogger = createPinoLogger({
-    level: "info",
-    timestamp: bangkokTimestamp,
-    stream,
-  });
+export const createLogging = (stream?: LogStream, mixin: LogMixin = logMixin) => {
+  const setup = { stream, mixin };
+  const globalLogger = createLogger("twhp-api", setup);
 
   const requestLogging = new Elysia()
     .use(
       logger({
-        level: "info",
-        timestamp: bangkokTimestamp,
-        stream,
-        serializers: {
-          request: (req) => ({
-            method: req?.method,
-            url: req?.url,
-            contentType: req?.headers?.get("content-type"),
-            authorization: req?.headers?.has("authorization"),
-            ip: req?.headers?.get("x-forwarded-for"),
-            userAgent: req?.headers?.get("user-agent"),
-          }),
-        },
-        customProps() {
-          return {};
+        ...createLoggerOptions("twhp-api", setup),
+        // The plugin logs the whole Elysia context. pino has already merged the mixin into it, but
+        // the plugin's default formatter would throw those fields away, so rebuild the line here.
+        formatters: {
+          log: (object: Record<string, unknown>) =>
+            isContext(object)
+              ? { ...mixin(), ...requestLine(object as unknown as RequestContext) }
+              : object,
         },
         autoLogging: {
           ignore(ctx) {
-            if (isHealthPath(new URL(ctx.request.url).pathname)) return true;
-            if (ctx.isError || (ctx.set?.status as number) >= 400) return true;
-            return false;
+            if (isHealthPath(pathOf(ctx.request))) return true;
+            return ctx.isError || (ctx.set?.status as number) >= 400;
           },
         },
       }),
@@ -90,7 +106,7 @@ export const createLogging = (stream?: pino.DestinationStream) => {
 
       set.status = 500;
       activeLogger.error(
-        { status: 500, detail: errorMessage, request },
+        { status: 500, detail: scrubErrorMessage(errorMessage), request },
         "Unexpected error occurred",
       );
       return { message: "Unexpected error" };
@@ -98,7 +114,7 @@ export const createLogging = (stream?: pino.DestinationStream) => {
     .onAfterResponse(({ set, request, log, responseValue, store }) => {
       if ((store as Record<string, unknown>).__logged) return;
       // A 503 from /health/ready is a probe answer, not a client error.
-      if (isHealthPath(new URL(request.url).pathname)) return;
+      if (isHealthPath(pathOf(request))) return;
       const status = typeof set.status === "number" ? set.status : 200;
       if (status >= 400) {
         const body =

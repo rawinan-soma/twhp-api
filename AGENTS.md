@@ -123,11 +123,12 @@ bun run start
 # Side-effecting worker: consumes Redis jobs, sends email, and registers a repeatable reminder
 bun run worker
 
-# Safe isolated tests — all eight files, one process (201 pass as of 2026-09-02)
-bun test src/config.test.ts src/routes/authentication/index.test.ts \
+# Safe isolated tests — all thirteen files, one process (251 pass as of 2026-09-25)
+bun test src/config.test.ts src/logging.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
-  src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
-  src/service/pagination.test.ts src/service/score.test.ts
+  src/service/coverStatus.test.ts src/service/health.test.ts src/service/pagination-routes.test.ts \
+  src/service/pagination.test.ts src/service/score.test.ts \
+  src/logger.test.ts src/worker/email.test.ts
 
 # Non-mutating static check
 bun ./node_modules/.bin/biome check src
