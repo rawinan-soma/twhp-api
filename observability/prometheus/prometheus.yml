@@ -1,0 +1,39 @@
+# Prometheus for the twhp-elysia `observability` profile.
+# 30-day retention is set via --storage.tsdb.retention.time on the container
+# command (docker-compose.yaml), not here.
+
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: node-exporter
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # api/worker targets exist ahead of issue 07 landing; they read as down
+  # until the app exposes :9464. Dev/staging service names — see issue 09
+  # for production naming (api/worker).
+  - job_name: twhp-api
+    static_configs:
+      - targets: ["api-dev:9464"]
+        labels:
+          service: twhp-api
+
+  - job_name: twhp-worker
+    static_configs:
+      - targets: ["worker-dev:9464"]
+        labels:
+          service: twhp-worker
+
+  # Authenticated per MinIO's Prometheus docs: a bearer token generated with
+  # `mc admin prometheus generate <alias>` against the running MinIO, stored
+  # in observability.env as MINIO_PROMETHEUS_TOKEN (never in this file) and
+  # written to a file at container start — see docker-compose.yaml.
+  - job_name: minio
+    metrics_path: /minio/v2/metrics/cluster
+    scheme: http
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/minio_prometheus_token
+    static_configs:
+      - targets: ["minio:9000"]

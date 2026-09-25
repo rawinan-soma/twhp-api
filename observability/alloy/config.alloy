@@ -1,0 +1,118 @@
+// Grafana Alloy config for the twhp-elysia `observability` profile.
+//
+// Log pipeline: discover this Compose project's containers, label streams
+// with `service` (Compose service name) and `env`, parse the JSON `time`
+// field written by src/logger.ts as the log timestamp, promote `level` to a
+// label, and ship to Loki. `trace_id` stays in the line (not a label) to
+// avoid unbounded label cardinality.
+//
+// Trace pipeline: receive OTLP/HTTP from the API and worker, strip any
+// header/cookie/query attributes an instrumentation library might set
+// (defense in depth for ADR decision 5 — issue 05 never sets them, but we
+// don't want a future dependency bump to leak one), then forward to Tempo.
+
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  // Only tail containers belonging to this Compose project.
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = "twhp-elysia"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    target_label = "env"
+    replacement  = sys.env("DEPLOYMENT_ENV")
+  }
+}
+
+loki.source.docker "containers" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.relabel.containers.output
+  relabel_rules = discovery.relabel.containers.rules
+  forward_to    = [loki.process.containers.receiver]
+}
+
+loki.process "containers" {
+  forward_to = [loki.write.default.receiver]
+
+  // Parse the JSON line issue 02 produces; pull `time` and `level` out.
+  stage.json {
+    expressions = {
+      time  = "time",
+      level = "level",
+    }
+  }
+
+  // Use the app's own ISO 8601 +07:00 timestamp as the log timestamp,
+  // instead of the time Alloy observed the line.
+  stage.timestamp {
+    source = "time"
+    format = "2006-01-02T15:04:05.000Z07:00"
+  }
+
+  // Promote level to a label; trace_id is intentionally left in the line.
+  stage.labels {
+    values = {
+      level = "",
+    }
+  }
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+otelcol.receiver.otlp "default" {
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    traces = [otelcol.processor.transform.scrub.input]
+  }
+}
+
+// Defense in depth: delete any header/cookie/query-string span attributes
+// before export, even though issue 05 never sets them.
+otelcol.processor.transform "scrub" {
+  error_mode = "ignore"
+
+  trace_statements {
+    context = "span"
+    statements = [
+      "delete_matching_keys(attributes, \"^http\\\\.request\\\\.header\\\\..*$\")",
+      "delete_matching_keys(attributes, \"^http\\\\.response\\\\.header\\\\.set-cookie$\")",
+      "delete_key(attributes, \"http.request.cookie\")",
+      "delete_key(attributes, \"url.query\")",
+      "delete_key(attributes, \"url.full\")",
+    ]
+  }
+
+  output {
+    traces = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "tempo:4317"
+
+    tls {
+      insecure = true
+    }
+  }
+}

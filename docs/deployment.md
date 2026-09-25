@@ -107,6 +107,86 @@ The API itself accepts up to 130 MiB. Docker's internal health check talks direc
 
 The production Nginx service joins `shared-web-network`, which is declared external and must already exist. TLS termination, public DNS, the external edge proxy, certificate rotation, and ownership of that network are not defined in this repository.
 
+## Observability
+
+An opt-in `observability` Compose profile adds Alloy, Loki, Tempo, Prometheus and Grafana, plus
+`node-exporter` for host metrics. It combines with any other profile:
+
+```bash
+docker compose --profile dev up                        # dev, no observability services
+docker compose --profile dev --profile observability up -d      # dev + observability
+docker compose --profile staging --profile observability up -d  # staging + observability
+```
+
+The Compose project name is pinned to `twhp-elysia` (top of `docker-compose.yaml`) so Alloy's
+container filter, and named volumes, stay stable no matter which directory or git worktree the
+repository is checked out into.
+
+| Service | Role | Exposure | Data |
+| --- | --- | --- | --- |
+| `alloy` | Tails this Compose project's container logs to Loki; receives OTLP traces on 4318 and forwards to Tempo, stripping header/cookie/query span attributes first | Docker network only | `alloy_data` volume (positions, WAL) |
+| `loki` | Log storage, 90-day retention (`retention_period: 2160h`, compactor-enforced) | Docker network only | `loki_data` volume |
+| `tempo` | Trace storage, 7-day retention (`block_retention: 168h`) | Docker network only | `tempo_data` volume |
+| `prometheus` | Scrapes metrics every 15 s, 30-day retention (`--storage.tsdb.retention.time=30d`) | Docker network only | `prometheus_data` volume |
+| `grafana` | Explore UI, alerting (dashboards land in a later issue) | **`127.0.0.1:3001`** only | `grafana_data` volume |
+| `node-exporter` | Host CPU/RAM/disk, via host `/` mounted read-only | Docker network only | none |
+
+Config lives under `observability/` (`alloy/config.alloy`, `loki/loki-config.yaml`,
+`tempo/tempo-config.yaml`, `prometheus/prometheus.yml`, `grafana/provisioning/`).
+
+### Secrets
+
+The profile reads `observability.env` (gitignored; copy from `observability.env.example`), never
+`docker.env` — the app containers (`api`, `api-dev`, `worker`, `worker-dev`) never see the Grafana
+admin password or the Discord webhook used by alerting. It carries:
+
+- `GF_SECURITY_ADMIN_USER` / `GF_SECURITY_ADMIN_PASSWORD` — Grafana admin login. Anonymous access
+  and sign-up are disabled unconditionally in `docker-compose.yaml`.
+- `DEPLOYMENT_ENV` — the `env` label Alloy attaches to every log line; keep it in sync with the
+  same key in `docker.env`.
+- `MINIO_PROMETHEUS_TOKEN` — a bearer token for Prometheus to scrape MinIO's authenticated
+  `/minio/v2/metrics/cluster`. Generate it against the running MinIO with (`mc`'s own Prometheus
+  helper — see MinIO's Prometheus docs):
+  ```bash
+  docker run --rm --network twhp-elysia_default quay.io/minio/mc \
+    alias set target http://minio:9000 <MINIO_ROOT_USER> <MINIO_ROOT_PASSWORD>
+  docker run --rm --network twhp-elysia_default quay.io/minio/mc \
+    admin prometheus generate target
+  ```
+  Copy only the `bearer_token` value into `MINIO_PROMETHEUS_TOKEN`; the Prometheus container writes
+  it to a file at startup and never commits it to a config file.
+- `DISCORD_WEBHOOK_URL` — reserved for Grafana alert notifications (wired up alongside dashboards
+  and alert rules in a later issue).
+
+### App wiring
+
+`api`, `api-dev`, `worker` and `worker-dev` get `OTEL_EXPORTER_OTLP_ENDPOINT` (default
+`http://alloy:4318`) and `DEPLOYMENT_ENV` (default `development`/`production`) from the
+`environment:` block in `docker-compose.yaml`, overridable via a top-level `.env` file or the shell
+environment. With the `observability` profile off, `alloy` doesn't resolve on the Docker network;
+the app must still work in that case (see the API tracing issue).
+
+### Docker socket access
+
+Alloy mounts `/var/run/docker.sock` **read-only** to discover containers and tail their logs. This
+is still root-equivalent access to the host's Docker daemon — a compromised Alloy container can
+read the config, environment and logs of every other container on the host, and read (though not
+write, given the read-only mount) daemon state. Treat the `observability` profile as trusted
+infrastructure, not something to expose to less-trusted operators.
+
+### Access
+
+Grafana is reachable only at `127.0.0.1:3001` on the host — never published beyond loopback and
+never proxied by Nginx. To reach it from another machine, use an SSH tunnel:
+
+```bash
+ssh -L 3001:127.0.0.1:3001 <host>
+```
+
+Then open `http://localhost:3001`. In Explore, the Loki datasource has a derived field that turns a
+log line's `trace_id` into a link to the matching Tempo trace; Tempo's datasource is configured with
+trace-to-logs back to Loki.
+
 ## Environment variables
 
 This inventory lists keys and safe shapes only. It does not reproduce values from `.env` or `docker.env`. “Required” describes current behavior; the eager `src/config.ts` import means API and worker processes validate settings they may not directly consume.
@@ -151,6 +231,8 @@ This inventory lists keys and safe shapes only. It does not reproduce values fro
 | `NGINX_API_UPSTREAM` | Required by staging/production template | Docker DNS name for API upstream | Compose service name | Public configuration |
 | `NODE_ENV` | Set by Dockerfile/API Compose; no application read found | Runtime convention | Recognized environment name | Public configuration |
 | `TZ` | Set by Compose; not validated by app | Container timezone, including worker schedule | IANA timezone name | Public configuration |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Set by Compose (`api`/`api-dev`/`worker`/`worker-dev`), default `http://alloy:4318`; not yet read by the app | Trace/metric export target once tracing lands | Absolute HTTP URL | Public configuration |
+| `DEPLOYMENT_ENV` | Set by Compose, default `development`/`production`; not yet read by the app | Deployment label for traces/logs once tracing lands; also drives Alloy's log `env` label | Recognized environment name | Public configuration |
 | `MINIO_ROOT_USER` | Hard-coded in Compose, not sourced from env file | MinIO root identity | Managed admin identifier | Sensitive |
 | `MINIO_ROOT_PASSWORD` | Hard-coded in Compose, not sourced from env file | MinIO root credential | High-entropy managed secret | Secret |
 | `MINIO_BROWSER_REDIRECT_URL` | Hard-coded in Compose | MinIO console redirect base | Absolute HTTPS URL | Public configuration |

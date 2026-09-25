@@ -29,6 +29,7 @@ bun-build/
 .env.*
 !.env.example
 docker.env
+observability.env
 *.pem
 *.key
 
