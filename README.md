@@ -108,14 +108,15 @@ Read-only lint: `bun ./node_modules/.bin/biome check src`.
 
 ## Tests
 
-18 test files, 315 declared cases. 8 files are isolated; 10 are PostgreSQL integration tests.
+20 test files. 10 files are isolated; 10 are PostgreSQL integration tests.
 
 ```bash
-# Isolated, safe to run anywhere. 201 pass / 0 fail as of 2026-09-02 (Bun 1.3.6).
+# Isolated, safe to run anywhere. 222 pass / 0 fail as of 2026-09-25 (Bun 1.3.6).
 bun test src/config.test.ts src/routes/authentication/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
-  src/service/pagination.test.ts src/service/score.test.ts
+  src/service/pagination.test.ts src/service/score.test.ts \
+  src/logger.test.ts src/worker/email.test.ts
 ```
 
 > **Do not run bare `bun test`** until `DATABASE_URL` names a disposable database. The integration

@@ -1,16 +1,10 @@
-import { createPinoLogger, logger } from "@bogeychan/elysia-logger";
 import { openapi } from "@elysiajs/openapi";
 import { Elysia } from "elysia";
 import { autoload } from "elysia-autoload";
 import { env } from "./config";
+import { createLogger, requestLogger } from "./logger";
 
-const bangkokTimestamp = () =>
-  `,"time":"${new Date().toLocaleString("en-GB", { timeZone: "Asia/Bangkok", hour12: false, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}"`;
-
-const globalLogger = createPinoLogger({
-  level: "info",
-  timestamp: bangkokTimestamp,
-});
+const globalLogger = createLogger("twhp-api");
 
 // Dev OTP bypass is hard-blocked in production (see ADR-4). Warn once if it is configured there.
 if (env.DEV_SKIP_OTP && env.COOKIE_SECURE) {
@@ -23,33 +17,7 @@ const EXPECTED_CODES = new Set(["VALIDATION", "INVALID_FILE_TYPE", "PARSE"]);
 
 const app = new Elysia({ prefix: "/twhp/api" })
   .use(openapi({ path: "document" }))
-  .use(
-    logger({
-      level: "info",
-      timestamp: bangkokTimestamp,
-      serializers: {
-        request: (req) => ({
-          method: req?.method,
-          url: req?.url,
-          contentType: req?.headers?.get("content-type"),
-          authorization: req?.headers?.has("authorization"),
-          ip: req?.headers?.get("x-forwarded-for"),
-          userAgent: req?.headers?.get("user-agent"),
-        }),
-      },
-      customProps() {
-        return {};
-      },
-      autoLogging: {
-        ignore(ctx) {
-          const url = new URL(ctx.request.url);
-          if (url.pathname === "/twhp/api/health") return true;
-          if (ctx.isError || (ctx.set?.status as number) >= 400) return true;
-          return false;
-        },
-      },
-    }),
-  )
+  .use(requestLogger())
   .onError(({ code, error, set, request, log, store }) => {
     const activeLogger = log ?? globalLogger;
     const errorMessage = error instanceof Error ? error.message : "";
@@ -114,4 +82,4 @@ export type App = typeof app;
 
 app.listen({ port: env.APP_PORT, maxRequestBodySize: 130 * 1024 * 1024 });
 
-console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
+globalLogger.info(`Elysia is running at ${app.server?.hostname}:${app.server?.port}`);

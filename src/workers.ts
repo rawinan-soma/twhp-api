@@ -1,4 +1,5 @@
 import "./worker/email";
+import { createLogger } from "./logger";
 import { emailQueue } from "./queue/email";
 
 // Register daily repeatable job: 8:30 AM Bangkok Time (server local time UTC+7)
@@ -13,4 +14,4 @@ await emailQueue.add(
   },
 );
 
-console.log("Workers running....");
+createLogger("twhp-worker").info("Workers running");

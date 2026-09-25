@@ -1,0 +1,155 @@
+import { describe, expect, it } from "bun:test";
+import { Elysia } from "elysia";
+import { createLogger, requestLogger, toBangkokIso } from "./logger";
+
+const ISO_BANGKOK = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\+07:00$/;
+
+const capture = () => {
+  const raw: string[] = [];
+  return {
+    raw,
+    stream: { write: (line: string) => raw.push(line) },
+    lines: () => raw.map((line) => JSON.parse(line) as Record<string, unknown>),
+  };
+};
+
+// The plugin writes its request line in onAfterResponse, after `handle` resolves.
+const flush = () => new Promise((resolve) => setTimeout(resolve, 10));
+
+const buildApp = (sink: ReturnType<typeof capture>, mixin?: () => Record<string, unknown>) =>
+  new Elysia({ prefix: "/twhp/api" })
+    .use(requestLogger({ stream: sink.stream, mixin }))
+    .get("/health", () => "ok")
+    .get("/file/presigned", () => "url")
+    .group("/factories", (app) =>
+      app
+        .derive(() => ({ jwtPayload: { sub: "42", role: "Factory" } }))
+        .get("/:id", ({ params }) => ({ id: params.id })),
+    );
+
+describe("toBangkokIso", () => {
+  it("renders ISO 8601 with the +07:00 offset and milliseconds", () => {
+    expect(toBangkokIso(new Date("2026-09-25T07:30:05.123Z"))).toBe(
+      "2026-09-25T14:30:05.123+07:00",
+    );
+  });
+
+  it("rolls the date over at Bangkok midnight", () => {
+    expect(toBangkokIso(new Date("2026-09-30T17:00:00.000Z"))).toBe(
+      "2026-10-01T00:00:00.000+07:00",
+    );
+  });
+});
+
+describe("createLogger", () => {
+  it("stamps time as Bangkok ISO and tags the service", () => {
+    const sink = capture();
+    createLogger("twhp-worker", { stream: sink.stream }).info("hello");
+
+    const [line] = sink.lines();
+    expect(line.time).toMatch(ISO_BANGKOK);
+    expect(line.service).toBe("twhp-worker");
+    expect(line.msg).toBe("hello");
+  });
+
+  it("redacts secrets and personal fields at any depth", () => {
+    const sink = capture();
+    createLogger("twhp-worker", { stream: sink.stream }).info({
+      email: "a@example.com",
+      job: {
+        data: { to: "b@example.com", cc: ["c@example.com"], bcc: "d@example.com", otp: "123456" },
+        auth: { password: "pw", token: "tkn" },
+      },
+      headers: { authorization: "Bearer x", cookie: "Authentication=y", "set-cookie": "Refresh=z" },
+      nested: { a: { b: { c: { email: "deep@example.com" } } } },
+      list: [{ email: "e@example.com" }],
+    });
+
+    const [raw] = sink.raw;
+    for (const secret of ["@", "123456", '"pw"', "tkn", "Bearer", "Authentication=", "Refresh="]) {
+      expect(raw).not.toContain(secret);
+    }
+  });
+
+  it("serializes a logged request to method and path only", () => {
+    const sink = capture();
+    const request = new Request("http://api.local/twhp/api/file/presigned?fileName=secret", {
+      headers: { cookie: "Authentication=cookie-value", "user-agent": "curl/8.0" },
+    });
+    createLogger("twhp-api", { stream: sink.stream }).error({ status: 404, request }, "Not found");
+
+    const [line] = sink.lines();
+    expect(line.request).toEqual({ method: "GET", path: "/twhp/api/file/presigned" });
+  });
+});
+
+describe("requestLogger", () => {
+  it("writes one light line without query string, cookie or user-agent", async () => {
+    const sink = capture();
+    const app = buildApp(sink);
+
+    await app.handle(
+      new Request("http://api.local/twhp/api/file/presigned?fileName=secret", {
+        headers: { cookie: "Authentication=cookie-value", "user-agent": "curl/8.0" },
+      }),
+    );
+    await flush();
+
+    expect(sink.raw).toHaveLength(1);
+    const [raw] = sink.raw;
+    expect(raw).not.toContain("secret");
+    expect(raw).not.toContain("cookie-value");
+    expect(raw).not.toContain("curl");
+    const [line] = sink.lines();
+    expect(line.path).toBe("/twhp/api/file/presigned");
+    expect(line.method).toBe("GET");
+    expect(line.time).toMatch(ISO_BANGKOK);
+    expect(line.service).toBe("twhp-api");
+  });
+
+  it("writes exactly one line with userId, status, durationMs and route when authenticated", async () => {
+    const sink = capture();
+    const app = buildApp(sink);
+
+    const response = await app.handle(new Request("http://api.local/twhp/api/factories/7"));
+    await flush();
+
+    expect(response.status).toBe(200);
+    expect(sink.raw).toHaveLength(1);
+    const [line] = sink.lines();
+    expect(line).toMatchObject({
+      method: "GET",
+      path: "/twhp/api/factories/7",
+      route: "/twhp/api/factories/:id",
+      status: 200,
+      userId: "42",
+    });
+    expect(typeof line.durationMs).toBe("number");
+  });
+
+  it("omits userId when the request is anonymous", async () => {
+    const sink = capture();
+    await buildApp(sink).handle(new Request("http://api.local/twhp/api/file/presigned"));
+    await flush();
+
+    expect(sink.lines()[0]).not.toHaveProperty("userId");
+  });
+
+  it("keeps mixin fields on the plugin's own request line", async () => {
+    const sink = capture();
+    await buildApp(sink, () => ({ probe: 1 })).handle(
+      new Request("http://api.local/twhp/api/factories/7"),
+    );
+    await flush();
+
+    expect(sink.lines()[0]).toMatchObject({ probe: 1, route: "/twhp/api/factories/:id" });
+  });
+
+  it("does not log /health", async () => {
+    const sink = capture();
+    await buildApp(sink).handle(new Request("http://api.local/twhp/api/health"));
+    await flush();
+
+    expect(sink.raw).toHaveLength(0);
+  });
+});

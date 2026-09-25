@@ -35,7 +35,7 @@ flowchart LR
 | Object storage | MinIO | `src/utils.ts` |
 | Jobs and temporary state | BullMQ and Redis | `src/queue/email.ts`, `src/workers.ts` |
 | Email | Nodemailer in a separate worker | `src/worker/email.ts` |
-| Logging | `@bogeychan/elysia-logger`; console logging remains in worker/utilities | `src/index.ts`, `src/worker/email.ts` |
+| Logging | pino via `@bogeychan/elysia-logger`, one shared config for API and worker | `src/logger.ts`, `src/index.ts`, `src/worker/email.ts` |
 
 The checkout lockfile fixes current dependency resolution. The Bun runtime is pinned to 1.4.2 (`.bun-version`, `package.json` `engines.bun`, and the Dockerfile's `oven/bun:1.4.2` / `oven/bun:1.4.2-slim` stages), and `elysia` and `bun-types` are pinned to exact versions.
 
@@ -198,9 +198,9 @@ Canonical deployed values, secret storage, Redis security settings, and environm
 
 ## Logging and operational visibility
 
-The API uses structured request/error logging with Bangkok-local timestamps. It records method, URL, content type, authorization-header presence, forwarded IP, and user agent; the health route is excluded from automatic request logs. Expected parse/validation errors become 400, framework not-found errors become 404, and unexpected errors become generic 500 responses.
+The API and worker share one pino configuration (`src/logger.ts`): JSON lines with Bangkok ISO timestamps (`+07:00`, milliseconds), a `service` field, and redaction of secret and personal keys. Each successful request writes one line with method, path without query string, route template, status, duration and `userId`; health routes are excluded. Expected parse/validation errors become 400, framework not-found errors become 404, and unexpected errors become generic 500 responses; their log lines carry the request as method and path only. Worker job lines carry `jobId`, `jobName` and recipient counts, never addresses.
 
-Worker delivery, MinIO deletion, some service fallback, seed, and startup paths still use `console.log`/`console.error`. No metrics, tracing, request correlation ID, BullMQ event monitoring, or dependency-aware readiness check exists in source.
+MinIO deletion, some service fallback, and seed paths still use `console.log`/`console.error`. No metrics, tracing, request correlation ID, BullMQ event monitoring, or dependency-aware readiness check exists in source.
 
 The production log aggregation, alerting, metrics, tracing, and health-check ownership are **Unknown / Requires Organizational Knowledge**.
 

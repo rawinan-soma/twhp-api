@@ -99,6 +99,7 @@ export const createAdminService = (database: typeof db) => {
     getPendingValidationData: async () => {
       const doedAdmins = await database
         .select({
+          accountId: accounts.id,
           email: accounts.email,
           firstName: adminsDoed.firstName,
           lastName: adminsDoed.lastName,
