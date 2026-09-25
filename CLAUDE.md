@@ -20,11 +20,11 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 ```
 
 `package.json`'s `test` script is a placeholder that exits 1. The real runner is `bun test <files>`.
-There are 18 test files: 8 isolated and 10 PostgreSQL integration.
+There are 19 test files: 9 isolated and 10 PostgreSQL integration.
 
 ```bash
-# Isolated only — safe anywhere. 201 pass / 0 fail as of 2026-09-02.
-bun test src/config.test.ts src/routes/authentication/index.test.ts \
+# Isolated only — safe anywhere. 222 pass / 0 fail as of 2026-09-25.
+bun test src/config.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
   src/service/pagination.test.ts src/service/score.test.ts
@@ -56,7 +56,7 @@ rebuilt and pushed, not just restarted.
 
 **Runtime**: Bun + ElysiaJS. Prefer `Bun.env`, `Bun.SHA256` etc. over Node equivalents.
 
-**API prefix**: All routes under `/twhp/api`. OpenAPI docs at `/twhp/api/document`. Health check at `/twhp/api/health` (skipped from request logs).
+**API prefix**: All routes under `/twhp/api`. OpenAPI docs at `/twhp/api/document`. Health: `/twhp/api/health/live` (alias `/twhp/api/health`) for liveness, `/twhp/api/health/ready` for PostgreSQL/Redis/MinIO readiness; all three are skipped from request logs. Container healthchecks must use `live`.
 
 ### Routing (autoload)
 
