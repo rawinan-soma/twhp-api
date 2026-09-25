@@ -1,3 +1,8 @@
+# Pinned so the Compose project name (and the container/service labels Alloy
+# filters on) stay stable regardless of the checkout directory name — this
+# repo is routinely checked out into differently-named git worktrees.
+name: twhp-elysia
+
 services:
   # Dev Migration (one-shot: runs db:push + db:seed then exits)
   migrate-dev:
@@ -28,6 +33,8 @@ services:
     environment:
       - NODE_ENV=development
       - TZ=Asia/Bangkok
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://alloy:4318}
+      - DEPLOYMENT_ENV=${DEPLOYMENT_ENV:-development}
     env_file:
       - docker.env
     volumes:
@@ -78,6 +85,8 @@ services:
     environment:
       - NODE_ENV=production
       - TZ=Asia/Bangkok
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://alloy:4318}
+      - DEPLOYMENT_ENV=${DEPLOYMENT_ENV:-production}
     env_file:
       - docker.env
     healthcheck:
@@ -110,6 +119,8 @@ services:
     restart: always
     environment:
       - TZ=Asia/Bangkok
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://alloy:4318}
+      - DEPLOYMENT_ENV=${DEPLOYMENT_ENV:-development}
     env_file:
       - docker.env
     profiles:
@@ -129,6 +140,8 @@ services:
     restart: always
     environment:
       - TZ=Asia/Bangkok
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://alloy:4318}
+      - DEPLOYMENT_ENV=${DEPLOYMENT_ENV:-production}
     env_file:
       - docker.env
     profiles:
@@ -263,10 +276,143 @@ services:
       - default
       - shared-web-network
 
+  # --- Observability profile (opt-in): logs, traces, metrics, dashboards ---
+  # See docs/deployment.md "Observability" for ports, retention and access.
+
+  alloy:
+    image: grafana/alloy:v1.5.1
+    container_name: twhp-alloy
+    restart: always
+    profiles:
+      - observability
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy/data
+    env_file:
+      - observability.env
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:12345/-/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - loki
+      - tempo
+
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: twhp-loki
+    restart: always
+    profiles:
+      - observability
+    volumes:
+      - ./observability/loki/loki-config.yaml:/etc/loki/config.yaml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/config.yaml
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3100/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: twhp-tempo
+    restart: always
+    profiles:
+      - observability
+    volumes:
+      - ./observability/tempo/tempo-config.yaml:/etc/tempo/config.yaml:ro
+      - tempo_data:/var/tempo
+    command: -config.file=/etc/tempo/config.yaml
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3200/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    container_name: twhp-prometheus
+    restart: always
+    profiles:
+      - observability
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    env_file:
+      - observability.env
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        mkdir -p /etc/prometheus/secrets
+        printf '%s' "$$MINIO_PROMETHEUS_TOKEN" > /etc/prometheus/secrets/minio_prometheus_token
+        exec /bin/prometheus \
+          --config.file=/etc/prometheus/prometheus.yml \
+          --storage.tsdb.path=/prometheus \
+          --storage.tsdb.retention.time=30d \
+          --web.console.libraries=/usr/share/prometheus/console_libraries \
+          --web.console.templates=/usr/share/prometheus/consoles
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: twhp-grafana
+    restart: always
+    profiles:
+      - observability
+    ports:
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_USERS_ALLOW_SIGN_UP=false
+    env_file:
+      - observability.env
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - loki
+      - tempo
+      - prometheus
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: twhp-node-exporter
+    restart: always
+    profiles:
+      - observability
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    command:
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+  alloy_data:
+  loki_data:
+  tempo_data:
+  prometheus_data:
+  grafana_data:
 
 networks:
   shared-web-network:
