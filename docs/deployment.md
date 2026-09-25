@@ -192,6 +192,16 @@ log line's `trace_id` into a link to the matching Tempo trace; Tempo's datasourc
 trace-to-logs back to Loki. That link searches every Loki stream for `"trace_id":"<id>"` in the JSON
 body within ±5 minutes of the span, so it finds any app line (API or worker) carrying the trace ID.
 
+### Metrics
+
+The API and worker each serve `GET /metrics` (`prom-client`, `text/plain` exposition format) on
+`METRICS_PORT` (default `9464`) via their own `Bun.serve` listener — never a route under
+`/twhp/api`, so Nginx can't proxy it, and never published by Compose (see ADR-0014). The
+`observability` profile's Prometheus scrapes `api-dev:9464` and `worker-dev:9464` every 15 s
+(`observability/prometheus/prometheus.yml`). Covers HTTP request duration by route template,
+dependency readiness (`twhp_dependency_up`), and the email queue depth/outcome counters — see
+`.scratch/observability/issues/07-metrics.md` for the exact metric names and labels.
+
 ## Environment variables
 
 This inventory lists keys and safe shapes only. It does not reproduce values from `.env` or `docker.env`. “Required” describes current behavior; the eager `src/config.ts` import means API and worker processes validate settings they may not directly consume.
@@ -200,6 +210,7 @@ This inventory lists keys and safe shapes only. It does not reproduce values fro
 | --- | --- | --- | --- | --- |
 | `DATABASE_URL` | Required; startup fails unless it parses as a `postgres://`/`postgresql://` URL with a host and exactly one database path segment, so Unix-socket URLs are rejected (the error never echoes the value; see ADR-0014 decision 5) | PostgreSQL connection; config, runtime Drizzle, Drizzle Kit, seed. A malformed value (e.g. quotes kept by `docker run --env-file`) would otherwise reach spans as `db.namespace`; Alloy also redacts a `db.namespace` containing `://` or `@` | PostgreSQL URL with user, password, host, port, database | Secret |
 | `APP_PORT` | Required; must be 3000 in Compose | Elysia listen port; config and API entry point | Integer TCP port | Public configuration |
+| `METRICS_PORT` | Optional; default `9464` | `GET /metrics` listener port for the API and worker (Prometheus scrape target); config and `src/metrics.ts` | Integer TCP port | Public configuration |
 | `AUTH_JWT_SECRET` | Required | Access-token signing and verification; auth/JWT middleware | High-entropy random string | Secret |
 | `AUTH_TOKEN_EXP` | Required | Access-token and cookie lifetime | Positive integer seconds | Public configuration |
 | `REFRESH_JWT_SECRET` | Required | Refresh-token signing; current rotation fails to verify refresh signature/expiry (known Critical defect) | Independent high-entropy random string | Secret |

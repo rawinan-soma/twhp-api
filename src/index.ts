@@ -3,6 +3,8 @@ import { Elysia } from "elysia";
 import { autoload } from "elysia-autoload";
 import { env } from "./config";
 import { createLogging } from "./logging";
+import { startMetricsServer } from "./metrics";
+import { apiRegistry, httpMetrics } from "./service/metrics";
 import { isTelemetryStarted, startTelemetry } from "./telemetry";
 import { requestTracing } from "./tracing";
 
@@ -35,6 +37,7 @@ const app = new Elysia({ prefix: "/twhp/api" })
   .use(requestTracing)
   .use(openapi({ path: "document" }))
   .use(requestLogging)
+  .use(httpMetrics)
   .use(
     await autoload({
       dir: "./routes",
@@ -45,5 +48,6 @@ const app = new Elysia({ prefix: "/twhp/api" })
 export type App = typeof app;
 
 app.listen({ port: env.APP_PORT, maxRequestBodySize: 130 * 1024 * 1024 });
+startMetricsServer(env.METRICS_PORT, apiRegistry);
 
 globalLogger.info(`Elysia is running at ${app.server?.hostname}:${app.server?.port}`);

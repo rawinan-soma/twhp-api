@@ -83,6 +83,31 @@ describe("config — 001 dev bypass env vars", () => {
   });
 });
 
+const METRICS_PORT_SNIPPET =
+  "import('./src/config.ts')" +
+  ".then(m=>process.stdout.write(JSON.stringify({port:m.env.METRICS_PORT})))" +
+  ".catch(e=>{process.stderr.write(String((e&&e.message)||e));process.exit(1)})";
+
+describe("config — METRICS_PORT", () => {
+  it("defaults to 9464 when unset", async () => {
+    const { exitCode, out } = await loadConfig({ METRICS_PORT: undefined }, METRICS_PORT_SNIPPET);
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(out)).toEqual({ port: 9464 });
+  });
+
+  it("is overridable", async () => {
+    const { exitCode, out } = await loadConfig({ METRICS_PORT: "9465" }, METRICS_PORT_SNIPPET);
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(out)).toEqual({ port: 9465 });
+  });
+
+  it("throws naming the var when malformed", async () => {
+    const { exitCode, err } = await loadConfig({ METRICS_PORT: "nope" }, METRICS_PORT_SNIPPET);
+    expect(exitCode).not.toBe(0);
+    expect(err).toContain("METRICS_PORT");
+  });
+});
+
 // TEMPORARY (FY2026 extension, revert 2026-10-16)
 const PERIOD_SNIPPET =
   "import('./src/config.ts')" +

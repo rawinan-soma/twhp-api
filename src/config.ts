@@ -91,6 +91,9 @@ export const env = {
   // App
   APP_PORT: requireEnvNumber("APP_PORT"),
 
+  // Metrics
+  METRICS_PORT: optionalEnvNumber("METRICS_PORT", 9464),
+
   // Auth
   AUTH_JWT_SECRET: requireEnv("AUTH_JWT_SECRET"),
   AUTH_TOKEN_EXP: requireEnvNumber("AUTH_TOKEN_EXP"),
