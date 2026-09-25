@@ -1,12 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import { Elysia, status } from "elysia";
+import type { LogMixin } from "./logger";
 import { createLogging } from "./logging";
 import { createHealthRoutes } from "./routes";
 import { createHealthService } from "./service/health";
 
-// Proves the request-logging plugin `src/index.ts` mounts is what keeps health routes out of the
-// logs — including the 503 from /health/ready, which the 4xx/5xx `onAfterResponse` hook would
-// otherwise record. Log lines are captured from the pino stream instead of stdout.
+// Proves the request-logging plugin `src/index.ts` mounts writes the light request line and keeps
+// health routes out of the logs — including the 503 from /health/ready, which the 4xx/5xx
+// `onAfterResponse` hook would otherwise record. Log lines are captured from the pino stream instead of stdout.
 
 const down = async () => {
   throw new Error("down");
@@ -56,5 +57,113 @@ describe("request logging", () => {
     expect((await get(app, path)).status).toBe(expected);
     await settle();
     expect(lines.length).toBeGreaterThan(0);
+  });
+});
+
+const ISO_BANGKOK = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\+07:00$/;
+
+const capture = () => {
+  const raw: string[] = [];
+  return {
+    raw,
+    stream: { write: (line: string) => raw.push(line) },
+    lines: () => raw.map((line) => JSON.parse(line) as Record<string, unknown>),
+  };
+};
+
+const buildApp = (sink: ReturnType<typeof capture>, mixin?: LogMixin) =>
+  new Elysia({ prefix: "/twhp/api" })
+    .use(createLogging(sink.stream, mixin).requestLogging)
+    .get("/file/presigned", () => "url")
+    .get("/boom", () => {
+      throw new Error("Failed query: select 1\nparams: someone@example.com");
+    })
+    .group("/factories", (app) =>
+      app
+        .derive(() => ({ jwtPayload: { sub: "42", role: "Factory" } }))
+        .get("/:id", ({ params }) => ({ id: params.id })),
+    );
+
+describe("request line", () => {
+  it("writes one light line without query string, cookie or user-agent", async () => {
+    const sink = capture();
+    const app = buildApp(sink);
+
+    await app.handle(
+      new Request("http://api.local/twhp/api/file/presigned?fileName=secret", {
+        headers: { cookie: "Authentication=cookie-value", "user-agent": "curl/8.0" },
+      }),
+    );
+    await settle();
+
+    expect(sink.raw).toHaveLength(1);
+    const [raw] = sink.raw;
+    expect(raw).not.toContain("secret");
+    expect(raw).not.toContain("cookie-value");
+    expect(raw).not.toContain("curl");
+    const [line] = sink.lines();
+    expect(line.path).toBe("/twhp/api/file/presigned");
+    expect(line.method).toBe("GET");
+    expect(line.time).toMatch(ISO_BANGKOK);
+    expect(line.service).toBe("twhp-api");
+  });
+
+  it("writes exactly one line with userId, status, durationMs and route when authenticated", async () => {
+    const sink = capture();
+    const app = buildApp(sink);
+
+    const response = await app.handle(new Request("http://api.local/twhp/api/factories/7"));
+    await settle();
+
+    expect(response.status).toBe(200);
+    expect(sink.raw).toHaveLength(1);
+    const [line] = sink.lines();
+    expect(line).toMatchObject({
+      method: "GET",
+      path: "/twhp/api/factories/7",
+      route: "/twhp/api/factories/:id",
+      status: 200,
+      userId: "42",
+    });
+    expect(typeof line.durationMs).toBe("number");
+  });
+
+  it("omits userId when the request is anonymous", async () => {
+    const sink = capture();
+    await buildApp(sink).handle(new Request("http://api.local/twhp/api/file/presigned"));
+    await settle();
+
+    expect(sink.lines()[0]).not.toHaveProperty("userId");
+  });
+
+  it("keeps mixin fields on the plugin's own request line", async () => {
+    const sink = capture();
+    await buildApp(sink, () => ({ probe: 1 })).handle(
+      new Request("http://api.local/twhp/api/factories/7"),
+    );
+    await settle();
+
+    expect(sink.lines()[0]).toMatchObject({ probe: 1, route: "/twhp/api/factories/:id" });
+  });
+});
+
+describe("error lines", () => {
+  it.each([
+    ["/twhp/api/boom", 500],
+    ["/twhp/api/nope", 404],
+  ])("log %s (%i) as method and path only, with no query, cookie, user-agent or params", async (path, expected) => {
+    const sink = capture();
+    const response = await buildApp(sink).handle(
+      new Request(`http://api.local${path}?fileName=secret`, {
+        headers: { cookie: "Authentication=cookie-value", "user-agent": "curl/8.0" },
+      }),
+    );
+    await settle();
+
+    expect(response.status).toBe(expected);
+    expect(sink.raw).toHaveLength(1);
+    const [raw] = sink.raw;
+    for (const leak of ["secret", "cookie-value", "curl", "@"]) expect(raw).not.toContain(leak);
+    expect(sink.lines()[0]).toMatchObject({ status: expected, request: { method: "GET", path } });
   });
 });

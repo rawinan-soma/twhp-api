@@ -1,26 +1,30 @@
 import { Worker } from "bullmq";
 import * as nodemailer from "nodemailer";
 import { env } from "../config";
+import { createLogger, type Logger } from "../logger";
 import { adminService } from "../service/admin";
+
+const logger = createLogger("twhp-worker");
 
 export const emailWorker = new Worker(
   "email",
   async (job) => {
+    const log = logger.child({ jobId: job.id, jobName: job.name });
     switch (job.name) {
       case "password-reset-request":
-        await sendPasswordResetEmail(job.data);
+        await sendPasswordResetEmail(job.data, log);
         break;
       case "factory-validation-reminder":
-        await sendFactoryValidationReminderEmail();
+        await sendFactoryValidationReminderEmail(log);
         break;
       case "2fa-otp":
-        await sendOtpEmail(job.data);
+        await sendOtpEmail(job.data, log);
         break;
       case "verdict-result-finished":
-        await sendVerdictResultFinishedEmail(job.data);
+        await sendVerdictResultFinishedEmail(job.data, log);
         break;
       case "verdict-result-in-progress":
-        await sendVerdictResultInProgressEmail(job.data);
+        await sendVerdictResultInProgressEmail(job.data, log);
         break;
       default:
         return "unknown job name";
@@ -44,33 +48,46 @@ const transporter = nodemailer.createTransport({
  * `sendMail` resolves as long as the relay accepted *at least one* recipient — it reports the
  * rest in `info.rejected`. A verdict email addressed to the factory and cc'ing the safety
  * officer can therefore "succeed" with the cc silently dropped at RCPT time, which is
- * indistinguishable from never having been sent unless we log both lists. Every sender goes
+ * indistinguishable from never having been sent unless we log both counts. Every sender goes
  * through here so that distinction is always on the record.
+ *
+ * Only counts are logged, never the addresses. The `messageId` is logged without its
+ * `@domain` part, which is enough to find the message in the relay's own logs.
  *
  * A partial rejection is logged, never thrown: throwing would make BullMQ retry the whole job
  * and re-deliver to the recipients the relay already accepted.
  */
-const sendAndLog = async (label: string, options: nodemailer.SendMailOptions) => {
+const sendAndLog = async (log: Logger, options: nodemailer.SendMailOptions) => {
   const info = await transporter.sendMail(options);
-  const rejected = info.rejected ?? [];
+  const fields = {
+    accepted: info.accepted?.length ?? 0,
+    rejected: info.rejected?.length ?? 0,
+    messageId: info.messageId?.replace(/^<|@.*$/g, ""),
+  };
 
-  if (rejected.length > 0) {
-    console.error(`[${label}] relay rejected ${rejected.length} recipient(s)`, {
-      accepted: info.accepted,
-      rejected,
-      messageId: info.messageId,
-      response: info.response,
-    });
+  if (fields.rejected > 0) {
+    log.error(fields, "Relay rejected recipient(s)");
   } else {
-    console.log(`[${label}] sent`, { accepted: info.accepted, messageId: info.messageId });
+    log.info(fields, "Email sent");
   }
 
   return info;
 };
 
-const sendOtpEmail = async (data: { email: string; code: string }) => {
+/**
+ * Only the error's class and SMTP codes are logged: nodemailer messages and properties quote the
+ * rejected addresses. BullMQ keeps the full message as the job's `failedReason`.
+ */
+const errorFields = (error: unknown) => {
+  const e = error as { name?: string; code?: string; responseCode?: number; command?: string };
+  return {
+    err: { type: e?.name, code: e?.code, responseCode: e?.responseCode, command: e?.command },
+  };
+};
+
+const sendOtpEmail = async (data: { email: string; code: string }, log: Logger) => {
   try {
-    await sendAndLog("2fa-otp", {
+    await sendAndLog(log, {
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
       subject: "รหัส OTP สำหรับเข้าสู่ระบบ",
@@ -92,16 +109,16 @@ const sendOtpEmail = async (data: { email: string; code: string }) => {
              </div>`,
     });
   } catch (error) {
-    console.error("Failed to send OTP email", error);
+    log.error(errorFields(error), "Failed to send OTP email");
     throw error; // Let BullMQ retry
   }
 };
 
-const sendPasswordResetEmail = async (data: { email: string; token: string }) => {
+const sendPasswordResetEmail = async (data: { email: string; token: string }, log: Logger) => {
   const resetLink = `${env.FRONTEND_URL}/resetpassword?token=${data.token}`;
 
   try {
-    await sendAndLog("password-reset-request", {
+    await sendAndLog(log, {
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
       subject: "รีเซ็ตรหัสผ่าน เว็บไซต์ โครงการพัฒนาสถานประกอบการปลอดโรค ปลอดภัย กายใจเป็นสุข",
@@ -125,7 +142,7 @@ const sendPasswordResetEmail = async (data: { email: string; token: string }) =>
            </div>`,
     });
   } catch (error) {
-    console.error("Failed to send email", error);
+    log.error(errorFields(error), "Failed to send email");
     throw error; // Let BullMQ retry
   }
 };
@@ -137,15 +154,18 @@ const GRADE_LABEL: Record<string, string> = {
   joined: "ใบประกาศเกียรติคุณเข้าร่วมโครงการฯ",
 };
 
-const sendVerdictResultFinishedEmail = async (data: {
-  email: string;
-  cc?: string;
-  grade: string | null;
-  factoryNameTh: string;
-}) => {
+const sendVerdictResultFinishedEmail = async (
+  data: {
+    email: string;
+    cc?: string;
+    grade: string | null;
+    factoryNameTh: string;
+  },
+  log: Logger,
+) => {
   const gradeLabel = data.grade ? (GRADE_LABEL[data.grade] ?? data.grade) : "-";
   try {
-    await sendAndLog("verdict-result-finished", {
+    await sendAndLog(log, {
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
       cc: data.cc,
@@ -167,18 +187,21 @@ const sendVerdictResultFinishedEmail = async (data: {
              </div>`,
     });
   } catch (error) {
-    console.error("Failed to send verdict-result-finished email", error);
+    log.error(errorFields(error), "Failed to send verdict-result-finished email");
     throw error;
   }
 };
 
-const sendVerdictResultInProgressEmail = async (data: {
-  email: string;
-  cc?: string;
-  factoryNameTh: string;
-}) => {
+const sendVerdictResultInProgressEmail = async (
+  data: {
+    email: string;
+    cc?: string;
+    factoryNameTh: string;
+  },
+  log: Logger,
+) => {
   try {
-    await sendAndLog("verdict-result-in-progress", {
+    await sendAndLog(log, {
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
       cc: data.cc,
@@ -200,16 +223,16 @@ const sendVerdictResultInProgressEmail = async (data: {
              </div>`,
     });
   } catch (error) {
-    console.error("Failed to send verdict-result-in-progress email", error);
+    log.error(errorFields(error), "Failed to send verdict-result-in-progress email");
     throw error;
   }
 };
 
-const sendFactoryValidationReminderEmail = async () => {
+const sendFactoryValidationReminderEmail = async (log: Logger) => {
   const { doedAdmins, pendingFactories } = await adminService.getPendingValidationData();
 
   if (pendingFactories.length === 0) {
-    console.log("No pending factories — skipping validation reminder email.");
+    log.info("No pending factories — skipping validation reminder email.");
     return;
   }
 
@@ -253,7 +276,7 @@ const sendFactoryValidationReminderEmail = async () => {
   for (const admin of doedAdmins) {
     const personalizedHtml = html.replace("__ADMIN_NAME__", `${admin.firstName} ${admin.lastName}`);
     try {
-      await sendAndLog("factory-validation-reminder", {
+      await sendAndLog(log, {
         from: `Total Worker health support <${env.SMTP_USER}>`,
         to: admin.email,
         subject: `แจ้งเตือน: โรงงานรอการอนุมัติ ${pendingFactories.length} แห่ง`,
@@ -261,7 +284,10 @@ const sendFactoryValidationReminderEmail = async () => {
         html: personalizedHtml,
       });
     } catch (error) {
-      console.error(`Failed to send validation reminder to ${admin.email}`, error);
+      log.error(
+        { ...errorFields(error), adminAccountId: admin.accountId },
+        "Failed to send validation reminder",
+      );
       throw error;
     }
   }

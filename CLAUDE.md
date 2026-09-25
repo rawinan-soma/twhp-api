@@ -20,14 +20,15 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 ```
 
 `package.json`'s `test` script is a placeholder that exits 1. The real runner is `bun test <files>`.
-There are 21 test files: 11 isolated and 10 PostgreSQL integration.
+There are 23 test files: 13 isolated and 10 PostgreSQL integration.
 
 ```bash
-# Isolated only — safe anywhere. 234 pass / 0 fail as of 2026-09-25.
+# Isolated only — safe anywhere. 251 pass / 0 fail as of 2026-09-25.
 bun test src/config.test.ts src/logging.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/health.test.ts src/service/pagination-routes.test.ts \
-  src/service/pagination.test.ts src/service/score.test.ts
+  src/service/pagination.test.ts src/service/score.test.ts \
+  src/logger.test.ts src/worker/email.test.ts
 
 bun ./node_modules/.bin/biome check src   # read-only lint; the package scripts all --write
 ```
@@ -174,7 +175,26 @@ All env vars are validated at startup in `src/config.ts`. Missing or malformed v
 
 ### Logging
 
-`src/logging.ts` exports `createLogging(stream?)`, the pino logger plus the request-logging plugin `src/index.ts` mounts; tests pass a stream to capture lines. Uses `@bogeychan/elysia-logger` with custom Bangkok timestamp. `onError` classifies errors into expected (`VALIDATION`, `INVALID_FILE_TYPE`, `PARSE` → 400), `NOT_FOUND` → 404, and unexpected → 500. `onAfterResponse` logs any 4xx that wasn't already logged by `onError`. Don't add ad-hoc `console.log` for error handling — rely on this flow.
+One pino configuration in `src/logger.ts` serves the API and the worker
+(`createLogger("twhp-api" | "twhp-worker")`). Lines are JSON with `time` in Bangkok ISO
+(`2026-09-25T14:30:05.123+07:00`), a `service` field, and whatever `logMixin` returns (issue 05 adds
+`trace_id`/`span_id` there).
+
+`src/logging.ts` exports `createLogging(stream?, mixin?)`: the API's logger plus the
+request-logging plugin `src/index.ts` mounts; tests pass a stream to capture lines. Each successful
+request writes one light line: `method`, `path` (no query string), `route`, `status`, `durationMs`,
+and `userId` when authenticated. The three health routes (`isHealthPath`) are not logged. `onError`
+classifies errors into expected (`VALIDATION`, `INVALID_FILE_TYPE`, `PARSE` → 400), `NOT_FOUND` →
+404, and unexpected → 500; `onAfterResponse` logs any 4xx/5xx that `onError` didn't. Both log
+`request`, which the shared serializer reduces to `{ method, path }`.
+
+**No PII or secrets in logs.** Never log query strings, headers, bodies, IPs, user-agents, email
+addresses, names, phone numbers, tokens, cookies, passwords or OTPs; refer to people by internal IDs
+(`userId`, `factoryId`, `jobId`). Worker job lines carry `jobId`, `jobName` and recipient counts, and
+SMTP errors are logged as class and codes only. Unexpected-error lines pass the message through
+`scrubErrorMessage`, which drops Drizzle's bound `params:`. `redact` in `src/logger.ts` is a safety
+net, not permission, and reaches only six levels deep. Don't add `console.*` to the API or worker —
+use these loggers (`src/utils.ts` and the evaluator email enqueue path still predate this rule).
 
 ## Human-Agent Collaboration Model
 

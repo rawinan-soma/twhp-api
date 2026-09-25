@@ -27,4 +27,4 @@ export type App = typeof app;
 
 app.listen({ port: env.APP_PORT, maxRequestBodySize: 130 * 1024 * 1024 });
 
-console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
+globalLogger.info(`Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
