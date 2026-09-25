@@ -77,9 +77,26 @@ describe("GET /twhp/api/health/ready", () => {
     expect(pinged).toBe(false);
   });
 
-  it("marks minio down when the configured bucket does not exist", async () => {
+  // The bucket is created lazily by the first upload (`utilities().uploadFile`), so a fresh
+  // deployment has none. Readiness asks whether MinIO answers, not whether anyone has uploaded yet.
+  it("counts minio up when it answers that the bucket does not exist yet", async () => {
     const res = await get(
       appWith({ minio: { bucketExists: async () => false } }),
+      "/twhp/api/health/ready",
+    );
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { checks: ReadinessChecks }).checks.minio).toBe("up");
+  });
+
+  it("marks minio down when the bucket-exists call fails", async () => {
+    const res = await get(
+      appWith({
+        minio: {
+          bucketExists: async () => {
+            throw new Error("S3Error: InvalidAccessKeyId");
+          },
+        },
+      }),
       "/twhp/api/health/ready",
     );
     expect(res.status).toBe(503);

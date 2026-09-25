@@ -37,7 +37,8 @@ export const createHealthService = (
         async () => redis.status === "ready" && (await redis.ping().then(() => true)),
         timeoutMs,
       ),
-      check(() => storage.client.bucketExists(storage.bucket), timeoutMs),
+      // Any answer is "up": the first upload creates the bucket, so a fresh deployment has none.
+      check(() => storage.client.bucketExists(storage.bucket).then(() => true), timeoutMs),
     ]);
     return { postgres, redis: redisCheck, minio };
   };

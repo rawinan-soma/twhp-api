@@ -80,7 +80,7 @@ nginx-backend-prod <--> shared-web-network <--> external edge (not defined here)
 The API exposes two health endpoints (`src/routes/index.ts`, `src/service/health.ts`):
 
 - `GET /twhp/api/health/live` — liveness. 200 whenever the process serves; checks no dependencies. `GET /twhp/api/health` is a kept alias that still returns `Ready to work!!`.
-- `GET /twhp/api/health/ready` — readiness. Checks PostgreSQL (`select 1`), Redis (`PING`) and MinIO (the configured bucket exists) in parallel, each with a 1 s timeout. 200 `{ "status": "ready", "checks": { "postgres": "up", "redis": "up", "minio": "up" } }` when all pass, otherwise 503 with `"status": "not_ready"` and the failing checks `"down"`. It never returns error messages or hostnames.
+- `GET /twhp/api/health/ready` — readiness. Checks PostgreSQL (`select 1`), Redis (`PING`) and MinIO (answers a bucket-exists call for the configured bucket) in parallel, each with a 1 s timeout. A bucket that does not exist yet still counts as `up`: the first upload creates it. 200 `{ "status": "ready", "checks": { "postgres": "up", "redis": "up", "minio": "up" } }` when all pass, otherwise 503 with `"status": "not_ready"` and the failing checks `"down"`. It never returns error messages or hostnames.
 
 The Compose healthchecks for `api` and `api-dev` call `/health/live`, **not** `/health/ready`, so a dependency blip does not mark the API unhealthy or restart it. Readiness does not cover SMTP, queue processing, or the worker, and the worker has no Compose health check. All three health paths are excluded from request logs.
 

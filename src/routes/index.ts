@@ -38,7 +38,7 @@ export const createHealthRoutes = (health: HealthService) =>
       detail: {
         summary: "Readiness",
         description:
-          "Checks PostgreSQL (`select 1`), Redis (`PING`) and MinIO (bucket exists) in parallel, each with a 1 s timeout. 200 when all are up, otherwise 503 with the failing ones marked `down`.",
+          "Checks PostgreSQL (`select 1`), Redis (`PING`) and MinIO (answers a bucket-exists call; a not-yet-created bucket still counts as up) in parallel, each with a 1 s timeout. 200 when all are up, otherwise 503 with the failing ones marked `down`.",
       },
     });
 
