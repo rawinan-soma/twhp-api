@@ -1,0 +1,27 @@
+# Discord contact point for the `observability` profile.
+#
+# `url` is expanded from the Grafana process's own environment at load time (Grafana's generic
+# provisioning-file variable expansion, the same mechanism datasources.yaml would use for a
+# secret) — the webhook itself lives only in `observability.env` (gitignored), never here. Grafana
+# reads `DISCORD_WEBHOOK_URL` because the `grafana` service in docker-compose.yaml has
+# `env_file: observability.env`.
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: discord
+    receivers:
+      - uid: discord-default
+        type: discord
+        disableResolveMessage: false
+        settings:
+          url: $DISCORD_WEBHOOK_URL
+          use_discord_username: true
+          # Default title already carries status + alert name; the message adds the `env` label,
+          # the plain-language summary and a link to the dashboard named in each rule's
+          # `dashboard` annotation (see rules.yaml).
+          message: |-
+            {{ range .Alerts }}**{{ .Labels.alertname }}** — env: `{{ .Labels.env }}`
+            {{ .Annotations.summary }}
+            {{ .Annotations.dashboard }}
+            {{ end }}

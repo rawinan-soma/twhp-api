@@ -623,6 +623,33 @@ docker inspect --format '{{.RestartCount}} {{.State.Status}} {{.State.StartedAt}
 
 - Evidence cannot be correlated, log retention is insufficient, personal/security data leaked, manual replay/repair is needed, or an incident spans PostgreSQL plus Redis/BullMQ/MinIO.
 
+## 16. Alert fired: what to check first
+
+**Classification:** Verified provisioning (`observability/grafana/provisioning/alerting/`); actual firing history Unknown.
+
+A Discord message names the alert, the `env` label, a one-line summary, and links the relevant
+Grafana dashboard. Open that dashboard first; each entry below is the next step.
+
+- **API down** — confirm with `docker compose --profile <profile> ps api api-dev` and the
+  container logs. A crash-looping process, a failed dependency at startup, or the container simply
+  not running are the usual causes; see section 1.
+- **Worker down** — same check against `worker`/`worker-dev`. Queued emails wait safely in Redis
+  while it's down (BullMQ), so this is not data loss by itself; see section 7.
+- **Email jobs failing** — check the Email queue dashboard's failed-rate panel, then worker logs for
+  the SMTP error class/code (never the message body). See section 6.
+- **Email queue stuck** — the worker process is usually still `up` but not draining the queue
+  (stuck job, SMTP hanging past its timeout, Redis latency). Check `twhp_email_queue_jobs{state="active"}`
+  on the same dashboard before restarting anything. See section 7.
+- **Server errors** — open the API overview dashboard's error-rate and recent-error-logs panels,
+  follow a `trace_id` into Tempo, then match the failure to sections 3–11 by symptom.
+- **Slow API** — check the latency-by-route panel for which route is slow, then whether PostgreSQL,
+  Redis, or MinIO is the shared bottleneck (dependency status panel, same dashboard).
+- **Dependency down** — the summary names the dependency (`postgres`, `redis`, or `minio`). Jump to
+  section 3, 5, or 8 respectively; `/twhp/api/health/ready` gives the same up/down read directly.
+- **Disk almost full** — check `df -h /` on the host. Loki (90-day retention), Tempo (7-day),
+  Prometheus (30-day) and Postgres data all live on the same disk; the retention windows are in the
+  "Observability" section of `docs/deployment.md`.
+
 ## Contradictions and operational decisions required
 
 | Item | Evidence/classification | Operational consequence | Decision owner needed |

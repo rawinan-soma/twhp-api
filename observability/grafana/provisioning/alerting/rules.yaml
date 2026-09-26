@@ -1,0 +1,253 @@
+# The eight starter alert rules for the `observability` profile (ticket 08). One group, evaluated
+# every minute so a `for: 2m`/`5m` rule fires within one extra minute of its window closing —
+# that's where the "Worker down ... within about 6 minutes" acceptance check comes from (5m `for`
+# + up to 1m to the next evaluation).
+#
+# Every rule carries `env: $DEPLOYMENT_ENV`, expanded from the Grafana process's environment the
+# same way contact-points.yaml expands the Discord webhook — kept in sync with the same key in
+# observability.env/docker.env.
+#
+# Each `dashboard` annotation is a literal `http://localhost:3001/d/...` link, not `$externalURL` —
+# docs/deployment.md's documented access path for every environment is an SSH tunnel to
+# `127.0.0.1:3001` followed by opening `http://localhost:3001` on the operator's own machine, so
+# this is the one URL that's actually correct after that tunnel, in dev, staging or production
+# alike. It only resolves for someone who already has that tunnel open.
+#
+# Job labels: `up{job="twhp-api"}`/`up{job="twhp-worker"}` match this repo's current dev/staging
+# Prometheus config (observability/prometheus/prometheus.yml scrapes `api-dev`/`worker-dev` under
+# those job names — see its "Dev/staging service names" comment). Ticket 08's own alert table
+# shorthands these as `job="api"`/`job="worker"`, the eventual production job names from issue 09;
+# that issue must either rename these jobs to match everywhere, or add `job=~"api|twhp-api"` /
+# `job=~"worker|twhp-worker"` here, when it wires up production scraping.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: twhp-alerts
+    folder: TWHP
+    interval: 1m
+    rules:
+      - uid: twhp-alert-api-down
+        title: API down
+        condition: A
+        for: 2m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels:
+          env: $DEPLOYMENT_ENV
+        annotations:
+          summary: The API process is not responding to Prometheus scrapes.
+          dashboard: http://localhost:3001/d/api-overview/api-overview
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: up{job="twhp-api"} == 0
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+
+      - uid: twhp-alert-worker-down
+        title: Worker down
+        condition: A
+        for: 5m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels:
+          env: $DEPLOYMENT_ENV
+        annotations:
+          summary: >-
+            The email worker process is not responding to Prometheus scrapes; queued emails are
+            not being sent.
+          dashboard: http://localhost:3001/d/email-queue/email-queue
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: up{job="twhp-worker"} == 0
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+
+      - uid: twhp-alert-email-jobs-failing
+        title: Email jobs failing
+        condition: A
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          env: $DEPLOYMENT_ENV
+        annotations:
+          summary: At least one email job failed in the last 15 minutes.
+          dashboard: http://localhost:3001/d/email-queue/email-queue
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: increase(twhp_email_jobs_total{outcome="failed"}[15m]) > 0
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+
+      - uid: twhp-alert-email-queue-stuck
+        title: Email queue stuck
+        condition: A
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          env: $DEPLOYMENT_ENV
+        annotations:
+          summary: >-
+            The oldest waiting email job has been queued for more than 10 minutes; the worker may
+            be stalled.
+          dashboard: http://localhost:3001/d/email-queue/email-queue
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: twhp_email_queue_oldest_waiting_seconds > 600
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+
+      - uid: twhp-alert-server-errors
+        title: Server errors
+        condition: A
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          env: $DEPLOYMENT_ENV
+        annotations:
+          summary: >-
+            More than 1% of API requests returned a 5xx in the last 10 minutes, out of at least 20
+            requests.
+          dashboard: http://localhost:3001/d/api-overview/api-overview
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: |-
+                (
+                  sum(increase(http_server_request_duration_seconds_count{status_class="5xx"}[10m]))
+                  /
+                  sum(increase(http_server_request_duration_seconds_count[10m]))
+                ) > 0.01
+                and
+                sum(increase(http_server_request_duration_seconds_count[10m])) >= 20
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+
+      - uid: twhp-alert-slow-api
+        title: Slow API
+        condition: A
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          env: $DEPLOYMENT_ENV
+        annotations:
+          summary: The API's 95th-percentile request latency has been above 2 seconds for 10 minutes.
+          dashboard: http://localhost:3001/d/api-overview/api-overview
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: >-
+                histogram_quantile(0.95,
+                sum(rate(http_server_request_duration_seconds_bucket[10m])) by (le)) > 2
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+
+      - uid: twhp-alert-dependency-down
+        title: Dependency down
+        condition: A
+        for: 2m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels:
+          env: $DEPLOYMENT_ENV
+        annotations:
+          summary: "{{ $labels.dependency }} has failed the API's readiness check."
+          dashboard: http://localhost:3001/d/api-overview/api-overview
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: twhp_dependency_up == 0
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+
+      - uid: twhp-alert-disk-almost-full
+        title: Disk almost full
+        condition: A
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          env: $DEPLOYMENT_ENV
+        annotations:
+          summary: The root filesystem is more than 85% full.
+          dashboard: http://localhost:3001/d/host/host
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: >-
+                100 - (node_filesystem_avail_bytes{mountpoint="/"} /
+                node_filesystem_size_bytes{mountpoint="/"} * 100) > 85
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200

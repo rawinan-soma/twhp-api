@@ -62,3 +62,14 @@ After issue 04, Grafana has data sources but no dashboards, alert rules or conta
 - Threshold tuning. That happens after two weeks in production and is tracked as a follow-up.
 - On-call rotation or paging.
 - Business dashboards.
+
+## Comments
+
+**2026-09-26 — implementation note.** This ticket's own alert table shorthands the API/worker
+`up` job labels as `job="api"`/`job="worker"` — the eventual production names from issue 09.
+Today's `observability/prometheus/prometheus.yml` (dev/staging) scrapes under `job="twhp-api"`/
+`job="twhp-worker"`, so `rules.yaml` uses those literal values — anything else would never fire on
+dev/staging, where the acceptance criteria (stop the worker container, watch Discord) are actually
+run. Issue 09 must either rename these Prometheus job names to match everywhere, or broaden
+`rules.yaml`'s two `up{job=...}` expressions to `job=~"api|twhp-api"` / `job=~"worker|twhp-worker"`,
+when it adds production scrape targets.
