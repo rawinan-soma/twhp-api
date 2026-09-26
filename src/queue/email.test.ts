@@ -4,28 +4,38 @@ import { Queue } from "bullmq";
 import { testSpans } from "../test/spans";
 import { emailQueue } from "./email";
 
-// Until BullMQ's own telemetry lands (issue 06), enqueueing gets a hand-written CLIENT span. The job
-// payload carries email addresses, so the span names the queue and job only. Redis is not touched:
-// BullMQ's `add` is stubbed.
+// Enqueueing is BullMQ's own PRODUCER span (`bullmq-otel`). The job payload carries email addresses,
+// so the span must name the queue and job only. Redis is not touched: BullMQ's `addJob`, the
+// telemetry-free half of `add`, is stubbed. Propagation into the worker is covered by
+// `src/worker/tracing.redis.test.ts`.
 
 beforeEach(() => testSpans.reset());
 
 describe("emailQueue.add", () => {
-  it("is one CLIENT span naming the queue and job, never the payload", async () => {
-    const add = spyOn(Queue.prototype, "add").mockResolvedValue({ id: "1" } as never);
+  it("is one PRODUCER span naming the queue and job, never the payload", async () => {
+    // `addJob` is protected, hence the cast.
+    const addJob = spyOn(
+      Queue.prototype as unknown as { addJob: Queue["add"] },
+      "addJob",
+    ).mockResolvedValue({ id: "1" } as never);
 
     await emailQueue.add("verdict-result-finished", { to: ["someone@example.com"] });
 
-    expect(add).toHaveBeenCalledTimes(1);
-    add.mockRestore();
+    expect(addJob).toHaveBeenCalledTimes(1);
+    const opts = addJob.mock.calls[0][2];
+    addJob.mockRestore();
     const [span] = testSpans.getFinishedSpans();
-    expect(span.name).toBe("email add");
-    expect(span.kind).toBe(SpanKind.CLIENT);
+    expect(span.name).toBe("add email.verdict-result-finished");
+    expect(span.kind).toBe(SpanKind.PRODUCER);
     expect(span.attributes).toEqual({
-      "messaging.system": "bullmq",
-      "messaging.destination.name": "email",
-      "messaging.operation.name": "add",
+      "bullmq.queue.name": "email",
+      "bullmq.queue.operation": "add",
       "bullmq.job.name": "verdict-result-finished",
+      "bullmq.job.id": "1",
     });
+    // The trace context the worker continues from.
+    expect(JSON.parse(opts?.telemetry?.metadata ?? "{}").traceparent).toContain(
+      span.spanContext().traceId,
+    );
   });
 });

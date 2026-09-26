@@ -52,12 +52,13 @@ Counts are declared `it(...)`/`test(...)` cases in each file.
 | `src/routes/index.test.ts` | 9 | Health routes: `/health` and `/health/live` liveness, `/health/ready` 200/503 with injected fake PostgreSQL/Redis/MinIO clients and the 1 s timeout, and the log-exclusion path set |
 | `src/service/score.test.ts` | 27 | Score arithmetic, category breakdown, `n/a` handling, boundaries, and TypeBox response shape |
 | `src/logger.test.ts` | 9 | Shared pino config: Bangkok ISO time, Drizzle param scrubbing, `service`, redaction, the `{ method, path }` request serializer, and the `trace_id`/`span_id` mixin |
-| `src/worker/email.test.ts` | 4 | Worker job logs carry `jobId`/`jobName`/counts and no email address, name or SMTP error text (mocked BullMQ/nodemailer) |
+| `src/worker/email.test.ts` | 8 | Worker job logs carry `jobId`/`jobName`/counts and no email address, name or SMTP error text; `smtp.send` and `db.pending_factories` spans: counts only, error on throw or all-rejected (processor called directly, mocked nodemailer) |
 | `src/telemetry.test.ts` | 4 | Tracer provider: OTLP export only when an endpoint is set, resource attributes, no slowdown with a closed collector port |
 | `src/clientSpan.test.ts` | 2 | Hand-written CLIENT spans: given attributes only; failures by error type, never message |
 | `src/tracing.test.ts` | 10 | Request-span plugin: route-template SERVER span with a child pg span (unreachable DB), attribute allow-list, ignored `traceparent`, 5xx error and scrubbed exception, health untraced, the grace-period end, `X-Request-Id` equal to the log line's `trace_id` on 200/400/401/404/500 |
 | `src/utils.test.ts` | 5 | MinIO helper spans (stubbed client): operation and bucket only, never object names or presigned URLs |
-| `src/queue/email.test.ts` | 1 | `emailQueue.add` span names queue and job, never the payload (stubbed BullMQ) |
+| `src/bullmqTelemetry.test.ts` | 3 | BullMQ span adapter: event attributes reduced to the job ID, exceptions recorded as `error.type` only (no message, no stack) |
+| `src/queue/email.test.ts` | 1 | `emailQueue.add` is BullMQ's PRODUCER span naming queue and job, never the payload, and stores the trace context on the job (stubbed `addJob`) |
 
 ### PostgreSQL integration tests (10 files, 175 declared)
 
@@ -97,6 +98,18 @@ Observed on 2026-09-25 with Bun 1.3.6, after `src/logger.test.ts` (7) and
 the five tracing files were added: **296 pass, 0 fail, 763 expect() calls** across eighteen. The test
 preload also starts tracing with an in-memory exporter (`src/test/spans.ts`) and no OTLP export.
 `src/tracing.test.ts` prints `ECONNREFUSED` traces from its deliberately unreachable pg client.
+
+On 2026-09-26 (issue 06) the twenty-one isolated files in `CLAUDE.md` gave **318 pass, 0 fail, 800
+expect() calls**. `src/worker/tracing.redis.test.ts` (3) is neither isolated nor a PostgreSQL test:
+it needs a real Redis and runs a real BullMQ queue and worker on a random queue name, which it
+obliterates. It proves a job enqueued inside a span is processed, SMTP span included, in that span's
+trace, that a failed job's SMTP error message (which quotes addresses) reaches no span, and that
+the daily reminder stores no parent context:
+
+```bash
+docker run -d --rm --name redis-test -p 6390:6379 redis:7-alpine
+REDIS_PORT=6390 bun test src/worker/tracing.redis.test.ts
+```
 
 If mock contamination reappears, fall back to one process per file — repository history records that
 the authentication files register overlapping top-level `mock.module(...)` replacements and once

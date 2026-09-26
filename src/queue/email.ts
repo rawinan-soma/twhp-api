@@ -1,26 +1,13 @@
 import { Queue } from "bullmq";
-import { withClientSpan } from "../clientSpan";
+import { bullmqTelemetry } from "../bullmqTelemetry";
 import { env } from "../config";
 
 /**
- * `add` runs in a CLIENT span naming the queue and job, never the payload (it carries email
- * addresses). Stopgap until BullMQ's own telemetry is switched on (issue 06), which replaces it.
+ * BullMQ's own telemetry: `add` is a PRODUCER span, and the active trace context rides in the job's
+ * options so the worker's `process` span joins the request's trace. The worker uses the same option
+ * (`src/worker/email.ts`). Span attributes name the queue, job name and job ID, never the payload.
  */
-class TracedQueue extends Queue {
-  override add(...args: Parameters<Queue["add"]>) {
-    return withClientSpan(
-      `${this.name} add`,
-      {
-        "messaging.system": "bullmq",
-        "messaging.destination.name": this.name,
-        "messaging.operation.name": "add",
-        "bullmq.job.name": args[0],
-      },
-      () => super.add(...args),
-    );
-  }
-}
-
-export const emailQueue = new TracedQueue("email", {
+export const emailQueue = new Queue("email", {
   connection: { host: env.REDIS_HOST, port: env.REDIS_PORT },
+  telemetry: bullmqTelemetry(),
 });
