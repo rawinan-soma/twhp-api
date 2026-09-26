@@ -20,23 +20,25 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 ```
 
 `package.json`'s `test` script is a placeholder that exits 1. The real runner is `bun test <files>`.
-There are 34 test files: 13 PostgreSQL integration and 21 isolated — the 20 below plus the temporary `src/service/evaluationPeriod.test.ts`.
+There are 36 test files: 13 PostgreSQL integration, 1 Redis (`src/worker/tracing.redis.test.ts`) and 22 isolated — the 21 below plus the temporary `src/service/evaluationPeriod.test.ts`.
 
 ```bash
-# Isolated only — safe anywhere. 311 pass / 0 fail as of 2026-09-25.
+# Isolated only — safe anywhere. 318 pass / 0 fail as of 2026-09-26.
 bun test src/config.test.ts src/logging.test.ts src/routes/authentication/index.test.ts src/routes/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/health.test.ts src/service/pagination-routes.test.ts \
   src/service/pagination.test.ts src/service/score.test.ts \
   src/logger.test.ts src/worker/email.test.ts \
   src/telemetry.test.ts src/clientSpan.test.ts src/tracing.test.ts src/utils.test.ts src/queue/email.test.ts \
-  src/service/metrics.test.ts src/worker/metrics.test.ts
+  src/service/metrics.test.ts src/worker/metrics.test.ts src/bullmqTelemetry.test.ts
 
 bun ./node_modules/.bin/biome check src   # read-only lint; the package scripts all --write
 ```
 
 Never run bare `bun test` or a `*.integration.test.ts` file until `DATABASE_URL` names a disposable
 database — the preload falls back to the ordinary local `twhp` database and the tests mutate it.
+`src/worker/tracing.redis.test.ts` needs a reachable Redis at `REDIS_HOST:REDIS_PORT`, ideally a
+throwaway one (`docker run --rm -p 6390:6379 redis:7-alpine`, then `REDIS_PORT=6390 bun test …`).
 
 **Docker** (uses `docker.env`):
 ```bash
@@ -178,12 +180,19 @@ command preloads `./src/telemetry.api.ts` (package scripts, Dockerfile, Compose)
 before Drizzle loads it; it is deliberately not a `bunfig.toml` preload, which would also run in the
 worker and `db:*`. `--preload` goes before the entry file and never before `run` — `bun --preload
 <file> … run` prints Bun's help and exits; `dev` is `bun --watch --preload <file> src/index.ts`.
+The worker has no preload: `src/workers.ts` imports `./telemetry.worker` **first**, which works in
+the compiled `worker-bin`. The queue and worker both pass `telemetry: bullmqTelemetry()` from `src/bullmqTelemetry.ts`
+(`bullmq-otel` pinned at 1.3.0; later versions need a newer BullMQ), which scrubs BullMQ's spans —
+it would otherwise export a failed job's `err.message`, and nodemailer's quote addresses — so a job's `process` span joins
+the trace that enqueued it; the daily reminder is added with `omitContext` so each run is its own
+root trace. Worker spans are hand-written: `smtp.send` (job name and recipient/accepted/rejected
+counts, `messageId` without its domain) and `db.pending_factories` — no `pg` spans in the binary.
 `src/telemetry.ts` holds the provider (OTLP export only when
 `OTEL_EXPORTER_OTLP_ENDPOINT` is set). `src/tracing.ts` is the request-span plugin mounted before
 autoload: one SERVER span per request named `<METHOD> <route>`, an **allow-list** of attributes
 (method, route, path without query, status, `enduser.id`), inbound `traceparent` ignored, health not
 traced, and `X-Request-Id` = trace ID on every response. Calls Bun can't auto-instrument get a
-`withClientSpan` from `src/clientSpan.ts` (MinIO helpers, `emailQueue.add`): operation and bucket
+`withClientSpan` from `src/clientSpan.ts` (MinIO helpers, the worker's SMTP and DB reads): operation and bucket
 or queue/job name only — never object names, URLs, payloads or error messages. Tests read spans
 from `testSpans` (`src/test/spans.ts`), registered by the test preload.
 

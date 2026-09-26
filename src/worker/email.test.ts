@@ -1,21 +1,12 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import * as realLogger from "../logger";
+import { testSpans } from "../test/spans";
 
 // ── Mock definitions (must precede dynamic import) ────────────────────────
 
 const logLines: string[] = [];
 const stream = { write: (line: string) => logLines.push(line) };
-
-type Processor = (job: { id: string; name: string; data: unknown }) => Promise<unknown>;
-let processor: Processor = async () => undefined;
-
-mock.module("bullmq", () => ({
-  Worker: class {
-    constructor(_queue: string, fn: Processor) {
-      processor = fn;
-    }
-  },
-}));
 
 const mockSendMail = mock(async (..._: unknown[]) => ({
   accepted: ["factory@example.com", "officer@example.com"],
@@ -54,7 +45,7 @@ mock.module("../logger", () => ({
   createLogger: (service: "twhp-worker") => loggerExports.createLogger(service, { stream }),
 }));
 
-await import("./email");
+const { processEmailJob: processor } = await import("./email");
 
 const VERDICT_JOB = {
   id: "job-17",
@@ -139,5 +130,67 @@ describe("email worker logs", () => {
     expect(raw).not.toContain("@");
     expect(raw).not.toContain("Somchai");
     expect(lines()[0]).toMatchObject({ jobName: "factory-validation-reminder", accepted: 2 });
+  });
+});
+
+describe("email worker spans", () => {
+  beforeEach(() => testSpans.reset());
+
+  const smtpSpans = () => testSpans.getFinishedSpans().filter((s) => s.name === "smtp.send");
+
+  it("wraps a send in an smtp.send span with counts and the local messageId only", async () => {
+    await processor(VERDICT_JOB);
+
+    const [span] = smtpSpans();
+    expect(span.kind).toBe(SpanKind.CLIENT);
+    expect(span.status.code).toBe(SpanStatusCode.UNSET);
+    expect(span.attributes).toEqual({
+      "email.job.name": "verdict-result-finished",
+      "email.recipients.count": 2,
+      "email.accepted.count": 2,
+      "email.rejected.count": 0,
+      "email.message_id": "0a1b2c3d",
+    });
+  });
+
+  it("marks the span an error when the relay accepts no recipient", async () => {
+    mockSendMail.mockImplementationOnce(async () => ({
+      accepted: [],
+      rejected: ["factory@example.com", "officer@example.com"],
+      messageId: "<0a1b2c3d@twhp.example.com>",
+      response: "550",
+    }));
+
+    await processor(VERDICT_JOB);
+
+    expect(smtpSpans()[0].status.code).toBe(SpanStatusCode.ERROR);
+  });
+
+  it("marks the span an error with the SMTP code, never the message, when the relay throws", async () => {
+    mockSendMail.mockImplementationOnce(async () => {
+      throw Object.assign(new Error("rejected: <officer@example.com>"), { code: "EENVELOPE" });
+    });
+
+    await expect(processor(VERDICT_JOB)).rejects.toThrow();
+
+    const [span] = smtpSpans();
+    expect(span.status.code).toBe(SpanStatusCode.ERROR);
+    expect(span.attributes["error.type"]).toBe("EENVELOPE");
+    expect(span.events).toEqual([]);
+  });
+
+  it("wraps the reminder's DB read in db.pending_factories, parent of its sends", async () => {
+    await processor({ id: "job-18", name: "factory-validation-reminder", data: {} });
+
+    const spans = testSpans.getFinishedSpans();
+    const db = spans.find((s) => s.name === "db.pending_factories");
+    expect(db?.attributes).toEqual({
+      "db.system.name": "postgresql",
+      "twhp.doed_admins.count": 1,
+      "twhp.pending_factories.count": 1,
+    });
+    expect(smtpSpans()).toHaveLength(1);
+    const values = spans.flatMap((s) => Object.values(s.attributes).map(String));
+    expect(values.filter((v) => v.includes("@") || v.includes("Somchai"))).toEqual([]);
   });
 });

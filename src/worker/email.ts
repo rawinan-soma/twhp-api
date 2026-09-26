@@ -1,42 +1,70 @@
-import { Worker } from "bullmq";
+import { SpanStatusCode } from "@opentelemetry/api";
+import { type ConnectionOptions, type Job, type Queue, Worker } from "bullmq";
 import * as nodemailer from "nodemailer";
+import { bullmqTelemetry } from "../bullmqTelemetry";
+import { withClientSpan } from "../clientSpan";
 import { env } from "../config";
 import { createLogger, type Logger } from "../logger";
 import { adminService } from "../service/admin";
 
 const logger = createLogger("twhp-worker");
 
-export const emailWorker = new Worker(
-  "email",
-  async (job) => {
-    const log = logger.child({ jobId: job.id, jobName: job.name });
-    switch (job.name) {
-      case "password-reset-request":
-        await sendPasswordResetEmail(job.data, log);
-        break;
-      case "factory-validation-reminder":
-        await sendFactoryValidationReminderEmail(log);
-        break;
-      case "2fa-otp":
-        await sendOtpEmail(job.data, log);
-        break;
-      case "verdict-result-finished":
-        await sendVerdictResultFinishedEmail(job.data, log);
-        break;
-      case "verdict-result-in-progress":
-        await sendVerdictResultInProgressEmail(job.data, log);
-        break;
-      default:
-        return "unknown job name";
-    }
-  },
-  {
-    connection: {
-      host: env.REDIS_HOST,
-      port: env.REDIS_PORT,
+/** What every sender needs about the job it runs in: a job-scoped logger and the job name. */
+type JobContext = { log: Logger; jobName: string };
+
+export const processEmailJob = async (job: Pick<Job, "id" | "name" | "data">) => {
+  const ctx: JobContext = {
+    log: logger.child({ jobId: job.id, jobName: job.name }),
+    jobName: job.name,
+  };
+  switch (job.name) {
+    case "password-reset-request":
+      await sendPasswordResetEmail(job.data, ctx);
+      break;
+    case "factory-validation-reminder":
+      await sendFactoryValidationReminderEmail(ctx);
+      break;
+    case "2fa-otp":
+      await sendOtpEmail(job.data, ctx);
+      break;
+    case "verdict-result-finished":
+      await sendVerdictResultFinishedEmail(job.data, ctx);
+      break;
+    case "verdict-result-in-progress":
+      await sendVerdictResultInProgressEmail(job.data, ctx);
+      break;
+    default:
+      return "unknown job name";
+  }
+};
+
+/**
+ * The email worker, with BullMQ's telemetry: its `process` span continues the trace the producer
+ * stored on the job, so the sender spans below join the API request that enqueued it.
+ * `src/workers.ts` creates the production one on `email`; tests pass their own queue.
+ */
+export const createEmailWorker = (
+  queueName = "email",
+  connection: ConnectionOptions = { host: env.REDIS_HOST, port: env.REDIS_PORT },
+) => new Worker(queueName, processEmailJob, { connection, telemetry: bullmqTelemetry() });
+
+/**
+ * Daily at 08:30 Bangkok time (the worker's local time, `TZ=Asia/Bangkok`). `omitContext` keeps the
+ * scheduling call's trace off the job, so every run starts its own root trace rather than hanging
+ * off the worker's startup for days.
+ */
+export const scheduleValidationReminder = (queue: Queue) =>
+  queue.add(
+    "factory-validation-reminder",
+    {},
+    {
+      repeat: { pattern: "30 8 * * *" },
+      jobId: "factory-validation-reminder",
+      removeOnComplete: true,
+      removeOnFail: { count: 10 },
+      telemetry: { omitContext: true },
     },
-  },
-);
+  );
 
 const transporter = nodemailer.createTransport({
   host: env.SMTP_HOST,
@@ -44,7 +72,19 @@ const transporter = nodemailer.createTransport({
   auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
 });
 
+/** Recipients in a `to`/`cc`/`bcc` field: a string may hold a comma-separated list. */
+const countAddresses = (field: nodemailer.SendMailOptions["to"]) =>
+  (Array.isArray(field) ? field : field ? [field] : []).reduce<number>(
+    (count, entry) =>
+      count + (typeof entry === "string" ? entry.split(",").filter((p) => p.trim()).length : 1),
+    0,
+  );
+
 /**
+ * Every send is one `smtp.send` span carrying the same counts and `messageId` as the log line, and
+ * the job name — never addresses, subject or body. It is an error when the relay throws or
+ * accepts no recipient.
+ *
  * `sendMail` resolves as long as the relay accepted *at least one* recipient — it reports the
  * rest in `info.rejected`. A verdict email addressed to the factory and cc'ing the safety
  * officer can therefore "succeed" with the cc silently dropped at RCPT time, which is
@@ -57,22 +97,37 @@ const transporter = nodemailer.createTransport({
  * A partial rejection is logged, never thrown: throwing would make BullMQ retry the whole job
  * and re-deliver to the recipients the relay already accepted.
  */
-const sendAndLog = async (log: Logger, options: nodemailer.SendMailOptions) => {
-  const info = await transporter.sendMail(options);
-  const fields = {
-    accepted: info.accepted?.length ?? 0,
-    rejected: info.rejected?.length ?? 0,
-    messageId: info.messageId?.replace(/^<|@.*$/g, ""),
-  };
+const sendAndLog = ({ log, jobName }: JobContext, options: nodemailer.SendMailOptions) =>
+  withClientSpan(
+    "smtp.send",
+    {
+      "email.job.name": jobName,
+      "email.recipients.count":
+        countAddresses(options.to) + countAddresses(options.cc) + countAddresses(options.bcc),
+    },
+    async (span) => {
+      const info = await transporter.sendMail(options);
+      const fields = {
+        accepted: info.accepted?.length ?? 0,
+        rejected: info.rejected?.length ?? 0,
+        messageId: info.messageId?.replace(/^<|@.*$/g, ""),
+      };
+      span.setAttributes({
+        "email.accepted.count": fields.accepted,
+        "email.rejected.count": fields.rejected,
+        ...(fields.messageId ? { "email.message_id": fields.messageId } : {}),
+      });
 
-  if (fields.rejected > 0) {
-    log.error(fields, "Relay rejected recipient(s)");
-  } else {
-    log.info(fields, "Email sent");
-  }
+      if (fields.accepted === 0) span.setStatus({ code: SpanStatusCode.ERROR });
+      if (fields.rejected > 0) {
+        log.error(fields, "Relay rejected recipient(s)");
+      } else {
+        log.info(fields, "Email sent");
+      }
 
-  return info;
-};
+      return info;
+    },
+  );
 
 /**
  * Only the error's class and SMTP codes are logged: nodemailer messages and properties quote the
@@ -85,9 +140,10 @@ const errorFields = (error: unknown) => {
   };
 };
 
-const sendOtpEmail = async (data: { email: string; code: string }, log: Logger) => {
+const sendOtpEmail = async (data: { email: string; code: string }, ctx: JobContext) => {
+  const { log } = ctx;
   try {
-    await sendAndLog(log, {
+    await sendAndLog(ctx, {
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
       subject: "รหัส OTP สำหรับเข้าสู่ระบบ",
@@ -114,11 +170,12 @@ const sendOtpEmail = async (data: { email: string; code: string }, log: Logger) 
   }
 };
 
-const sendPasswordResetEmail = async (data: { email: string; token: string }, log: Logger) => {
+const sendPasswordResetEmail = async (data: { email: string; token: string }, ctx: JobContext) => {
+  const { log } = ctx;
   const resetLink = `${env.FRONTEND_URL}/resetpassword?token=${data.token}`;
 
   try {
-    await sendAndLog(log, {
+    await sendAndLog(ctx, {
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
       subject: "รีเซ็ตรหัสผ่าน เว็บไซต์ โครงการพัฒนาสถานประกอบการปลอดโรค ปลอดภัย กายใจเป็นสุข",
@@ -161,11 +218,12 @@ const sendVerdictResultFinishedEmail = async (
     grade: string | null;
     factoryNameTh: string;
   },
-  log: Logger,
+  ctx: JobContext,
 ) => {
+  const { log } = ctx;
   const gradeLabel = data.grade ? (GRADE_LABEL[data.grade] ?? data.grade) : "-";
   try {
-    await sendAndLog(log, {
+    await sendAndLog(ctx, {
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
       cc: data.cc,
@@ -198,10 +256,11 @@ const sendVerdictResultInProgressEmail = async (
     cc?: string;
     factoryNameTh: string;
   },
-  log: Logger,
+  ctx: JobContext,
 ) => {
+  const { log } = ctx;
   try {
-    await sendAndLog(log, {
+    await sendAndLog(ctx, {
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
       cc: data.cc,
@@ -228,8 +287,21 @@ const sendVerdictResultInProgressEmail = async (
   }
 };
 
-const sendFactoryValidationReminderEmail = async (log: Logger) => {
-  const { doedAdmins, pendingFactories } = await adminService.getPendingValidationData();
+const sendFactoryValidationReminderEmail = async (ctx: JobContext) => {
+  const { log } = ctx;
+  // One span for the reminder's reads: no `pg` spans exist in the compiled worker (ADR-0014).
+  const { doedAdmins, pendingFactories } = await withClientSpan(
+    "db.pending_factories",
+    { "db.system.name": "postgresql" },
+    async (span) => {
+      const data = await adminService.getPendingValidationData();
+      span.setAttributes({
+        "twhp.doed_admins.count": data.doedAdmins.length,
+        "twhp.pending_factories.count": data.pendingFactories.length,
+      });
+      return data;
+    },
+  );
 
   if (pendingFactories.length === 0) {
     log.info("No pending factories — skipping validation reminder email.");
@@ -276,7 +348,7 @@ const sendFactoryValidationReminderEmail = async (log: Logger) => {
   for (const admin of doedAdmins) {
     const personalizedHtml = html.replace("__ADMIN_NAME__", `${admin.firstName} ${admin.lastName}`);
     try {
-      await sendAndLog(log, {
+      await sendAndLog(ctx, {
         from: `Total Worker health support <${env.SMTP_USER}>`,
         to: admin.email,
         subject: `แจ้งเตือน: โรงงานรอการอนุมัติ ${pendingFactories.length} แห่ง`,
