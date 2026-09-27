@@ -59,7 +59,7 @@ The release image deliberately runs the API from TypeScript source. `elysia-auto
 
 ### Worker process
 
-`src/workers.ts` is the worker composition root used by `bun run worker`. Importing `src/worker/email.ts` creates the BullMQ worker as a module side effect. The process consumes these `email` queue job names:
+`src/workers.ts` is the worker composition root used by `bun run worker` and compiled into `worker-bin`. Its first import, `src/telemetry.worker.ts`, starts tracing (`service.name=twhp-worker`); it then creates the BullMQ worker with `createEmailWorker()` from `src/worker/email.ts`. The process consumes these `email` queue job names:
 
 - `password-reset-request`
 - `factory-validation-reminder`
@@ -67,7 +67,7 @@ The release image deliberately runs the API from TypeScript source. `elysia-auto
 - `verdict-result-finished`
 - `verdict-result-in-progress`
 
-The bootstrap also registers `factory-validation-reminder` with cron pattern `30 8 * * *`. The pattern has no explicit timezone. Its intended 08:30 Bangkok execution relies on the worker process environment; Compose sets `TZ=Asia/Bangkok`. Any non-Compose launch must preserve that invariant.
+The bootstrap also registers `factory-validation-reminder` (`scheduleValidationReminder`) with cron pattern `30 8 * * *`. The pattern has no explicit timezone. Its intended 08:30 Bangkok execution relies on the worker process environment; Compose sets `TZ=Asia/Bangkok`. Any non-Compose launch must preserve that invariant.
 
 Worker replica count, repeat-job ownership, job replay, delivery monitoring, and dead-letter procedures are **Unknown / Requires Organizational Knowledge**.
 
@@ -200,7 +200,7 @@ Canonical deployed values, secret storage, Redis security settings, and environm
 
 The API and worker share one pino configuration (`src/logger.ts`): JSON lines with Bangkok ISO timestamps (`+07:00`, milliseconds), a `service` field, and redaction of secret and personal keys. The API's request plugin and error hooks live in `src/logging.ts`. Each successful request writes one line with method, path without query string, route template, status, duration and `userId`; the three health routes (`isHealthPath` in `src/routes/index.ts`) are excluded from that line and from the 4xx/5xx log in `onAfterResponse`. Expected parse/validation errors become 400, framework not-found errors become 404, and unexpected errors become generic 500 responses; their log lines carry the request as method and path only. Worker job lines carry `jobId`, `jobName` and recipient counts, never addresses.
 
-MinIO deletion, some service fallback, and seed paths still use `console.log`/`console.error`. No metrics, tracing, request correlation ID, or BullMQ event monitoring exists in source; `/health/ready` is the only dependency-aware check.
+MinIO deletion, some service fallback, and seed paths still use `console.log`/`console.error`. Tracing follows ADR-0014: API request spans (`src/tracing.ts`, `X-Request-Id`), and BullMQ's own telemetry (`bullmq-otel`) on the email queue and worker, so a job's `process` span, its `smtp.send` span and the reminder's `db.pending_factories` span join the trace of the request that enqueued it. Worker log lines carry that trace's `trace_id`/`span_id`. The daily reminder starts a fresh root trace each run.
 
 The production log aggregation, alerting, metrics, tracing, and health-check ownership are **Unknown / Requires Organizational Knowledge**.
 

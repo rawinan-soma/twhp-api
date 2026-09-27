@@ -168,7 +168,9 @@ the API still serves normally: spans are exported in the background and failed e
 silently. Unset `OTEL_EXPORTER_OTLP_ENDPOINT` to stop export entirely — spans, `X-Request-Id` and
 log `trace_id` keep working. The API commands preload `src/telemetry.api.ts`; without it the API
 still traces requests but logs a warning and has no PostgreSQL spans. Every API response except the
-health routes carries `X-Request-Id`, its trace ID: paste it into Grafana → Explore → Tempo.
+health routes carries `X-Request-Id`, its trace ID: paste it into Grafana → Explore → Tempo. A
+request that enqueues email shows the worker's `process email`, `smtp.send` spans in the same trace.
+The worker (`worker-bin` or `bun run worker`) starts tracing itself on its first import; no preload.
 
 ### Docker socket access
 
@@ -247,7 +249,7 @@ This inventory lists keys and safe shapes only. It does not reproduce values fro
 | `NGINX_API_UPSTREAM` | Required by staging/production template | Docker DNS name for API upstream | Compose service name | Public configuration |
 | `NODE_ENV` | Set by Dockerfile/API Compose; no application read found | Runtime convention | Recognized environment name | Public configuration |
 | `TZ` | Set by Compose; not validated by app | Container timezone, including worker schedule | IANA timezone name | Public configuration |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Optional; unset/empty exports nothing. Set by Compose (`api`/`api-dev`/`worker`/`worker-dev`), default `http://alloy:4318` | OTLP/HTTP base URL the API exports traces to (`/v1/traces` appended); read by config and `src/telemetry.api.ts`. The worker does not read it yet (issue 06) | Absolute http(s) URL; anything else fails startup | Public configuration |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Optional; unset/empty exports nothing. Set by Compose (`api`/`api-dev`/`worker`/`worker-dev`), default `http://alloy:4318` | OTLP/HTTP base URL the API exports traces to (`/v1/traces` appended); read by config, `src/telemetry.api.ts` and `src/telemetry.worker.ts` | Absolute http(s) URL; anything else fails startup | Public configuration |
 | `DEPLOYMENT_ENV` | Optional, default `development`; Compose sets `development`/`production` | `deployment.environment` on every API span; also drives Alloy's log `env` label | Recognized environment name | Public configuration |
 | `MINIO_ROOT_USER` | Hard-coded in Compose, not sourced from env file | MinIO root identity | Managed admin identifier | Sensitive |
 | `MINIO_ROOT_PASSWORD` | Hard-coded in Compose, not sourced from env file | MinIO root credential | High-entropy managed secret | Secret |

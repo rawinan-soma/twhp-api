@@ -15,7 +15,8 @@ maintainer rather than silently choosing.
 ## Repository boundaries
 
 - `src/index.ts`: API bootstrap, route autoload, and request-size limit.
-- `src/telemetry.ts`, `src/telemetry.api.ts` (the API's `--preload`), `src/tracing.ts` (request
+- `src/telemetry.ts`, `src/telemetry.api.ts` (the API's `--preload`), `src/telemetry.worker.ts`
+  (imported first by `src/workers.ts`), `src/tracing.ts` (request
   spans, `X-Request-Id`), `src/clientSpan.ts` (hand-written CLIENT spans): tracing per ADR-0014.
 - `src/logging.ts`: pino logger, request logging, and global error classification (`onError`/`onAfterResponse`).
 - `src/routes/**`: HTTP groups, guards, TypeBox/OpenAPI contracts. Nested paths are autoloaded; do

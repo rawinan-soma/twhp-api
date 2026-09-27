@@ -1,25 +1,17 @@
-import "./worker/email";
+// First: registers the tracer provider and W3C propagator before BullMQ or anything else loads.
+import "./telemetry.worker";
 import { env } from "./config";
 import { createLogger } from "./logger";
 import { startMetricsServer } from "./metrics";
 import { emailQueue } from "./queue/email";
-import { emailWorker } from "./worker/email";
+import { createEmailWorker, scheduleValidationReminder } from "./worker/email";
 import { createEmailQueueGauges, wireEmailJobMetrics, workerRegistry } from "./worker/metrics";
 
+const emailWorker = createEmailWorker();
 wireEmailJobMetrics(emailWorker);
 createEmailQueueGauges(emailQueue);
 startMetricsServer(env.METRICS_PORT, workerRegistry);
 
-// Register daily repeatable job: 8:30 AM Bangkok Time (server local time UTC+7)
-await emailQueue.add(
-  "factory-validation-reminder",
-  {},
-  {
-    repeat: { pattern: "30 8 * * *" },
-    jobId: "factory-validation-reminder",
-    removeOnComplete: true,
-    removeOnFail: { count: 10 },
-  },
-);
+await scheduleValidationReminder(emailQueue);
 
 createLogger("twhp-worker").info("Workers running");
