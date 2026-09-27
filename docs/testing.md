@@ -102,10 +102,14 @@ preload also starts tracing with an in-memory exporter (`src/test/spans.ts`) and
 On 2026-09-26 (issue 06) the twenty-one isolated files in `CLAUDE.md` gave **318 pass, 0 fail, 801
 expect() calls**. `src/worker/tracing.redis.test.ts` (3) is neither isolated nor a PostgreSQL test:
 it needs a real Redis and runs a real BullMQ queue and worker on a random queue name, which it
-obliterates. It stubs SMTP with `spyOn` rather than a module mock, so it also passes in the same
-process as `src/worker/email.test.ts`. It proves a job enqueued inside a span is processed, SMTP span included, in that span's
-trace, that a failed job's SMTP error message (which quotes addresses) reaches no span, and that
-the daily reminder stores no parent context:
+obliterates. It proves a job enqueued inside a span is processed, SMTP span and "Email sent" log
+line included, in that span's trace; that a failed job's SMTP error message (which quotes
+addresses) reaches no span; and that the daily reminder stores no parent context.
+
+It stubs SMTP and the job logger with `spyOn`, not `mock.module`, so it passes alone or in one
+run with `src/worker/email.test.ts`. It **fails** in a run that includes
+`src/service/auth-dev-bypass.test.ts` or `src/service/authentication.2fa.test.ts`: both replace
+`../config` for the whole process, so it never reaches Redis. Run it on its own:
 
 ```bash
 docker run -d --rm --name redis-test -p 6390:6379 redis:7-alpine

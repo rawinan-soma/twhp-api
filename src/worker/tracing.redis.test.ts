@@ -1,18 +1,32 @@
 import { afterAll, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { createPinoLogger } from "@bogeychan/elysia-logger";
 import { SpanKind, trace } from "@opentelemetry/api";
 import type { ReadableSpan } from "@opentelemetry/sdk-trace-node";
 import { Queue } from "bullmq";
 import { bullmqTelemetry } from "../bullmqTelemetry";
 import { env } from "../config";
+import { createLoggerOptions } from "../logger";
 import { testSpans } from "../test/spans";
 
 // Needs a real, disposable Redis at REDIS_HOST:REDIS_PORT (e.g. `docker run --rm -p 6390:6379
 // redis:7-alpine` and REDIS_PORT=6390). Each run uses its own queue name and obliterates it.
-// PostgreSQL is never queried. SMTP is stubbed with `spyOn`, not `mock.module`: the module is
-// evaluated once per `bun test` process, so a module mock here would lose to (or override)
-// `src/worker/email.test.ts`'s when both files run together. Log correlation is asserted there.
+// PostgreSQL is never queried. SMTP and the job logger are stubbed with `spyOn`, not `mock.module`:
+// the module is evaluated once per `bun test` process, so a module mock here would lose to (or
+// override) `src/worker/email.test.ts`'s when both files run together.
 
-const { createEmailWorker, scheduleValidationReminder, transporter } = await import("./email");
+const { createEmailWorker, logger, scheduleValidationReminder, transporter } = await import(
+  "./email"
+);
+
+// Each job's logger is a `logger.child`; route those children to a captured stream. Built from
+// `createLoggerOptions`, not `createLogger`, which `src/worker/email.test.ts` module-mocks.
+const logLines: string[] = [];
+const captured = createPinoLogger(
+  createLoggerOptions("twhp-worker", { stream: { write: (line) => logLines.push(line) } }),
+);
+const child = spyOn(logger, "child").mockImplementation(
+  (bindings) => captured.child(bindings) as never,
+);
 const sendMail = spyOn(transporter, "sendMail").mockImplementation(
   async () =>
     ({
@@ -29,6 +43,7 @@ const worker = createEmailWorker(queueName, connection);
 
 afterAll(async () => {
   sendMail.mockRestore();
+  child.mockRestore();
   await worker.close();
   await queue.obliterate({ force: true });
   await queue.close();
@@ -36,6 +51,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   testSpans.reset();
+  logLines.length = 0;
 });
 
 const allAttributeValues = (spans: ReadableSpan[]) =>
@@ -81,6 +97,9 @@ describe("worker tracing over BullMQ", () => {
       "email.message_id": "0a1b2c3d",
     });
     expect(allAttributeValues(spans).filter((v) => v.includes("@"))).toEqual([]);
+
+    const sent = logLines.map((l) => JSON.parse(l)).find((l) => l.msg === "Email sent");
+    expect(sent).toMatchObject({ trace_id: traceId, span_id: smtp?.spanContext().spanId });
   });
 
   it("keeps the SMTP error message, which quotes addresses, off a failed job's spans", async () => {

@@ -138,7 +138,7 @@ describe("email worker spans", () => {
 
   const smtpSpans = () => testSpans.getFinishedSpans().filter((s) => s.name === "smtp.send");
 
-  it("wraps a send in an smtp.send span with counts and the local messageId, logged in it", async () => {
+  it("wraps a send in an smtp.send span with counts and the local messageId, and logs inside it", async () => {
     await processor(VERDICT_JOB);
 
     const [span] = smtpSpans();

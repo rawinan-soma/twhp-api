@@ -7,7 +7,8 @@ import { env } from "../config";
 import { createLogger, type Logger } from "../logger";
 import { adminService } from "../service/admin";
 
-const logger = createLogger("twhp-worker");
+/** Exported, like `transporter`, so tests can stub it with `spyOn` instead of a module mock. */
+export const logger = createLogger("twhp-worker");
 
 /** What every sender needs about the job it runs in: a job-scoped logger and the job name. */
 type JobContext = { log: Logger; jobName: string };
@@ -66,7 +67,7 @@ export const scheduleValidationReminder = (queue: Queue) =>
     },
   );
 
-/** Exported so the Redis test can stub `sendMail` without a module mock. */
+/** Exported so tests can stub `sendMail` with `spyOn` instead of a module mock. */
 export const transporter = nodemailer.createTransport({
   host: env.SMTP_HOST,
   port: env.SMTP_PORT,
