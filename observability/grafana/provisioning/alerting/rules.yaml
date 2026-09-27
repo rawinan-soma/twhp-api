@@ -7,6 +7,17 @@
 # same way contact-points.yaml expands the Discord webhook — kept in sync with the same key in
 # observability.env/docker.env.
 #
+# `== bool 0` (API down, Worker down, Dependency down), never bare `== 0`: a Grafana-managed rule
+# whose condition is a raw Prometheus query, with no separate reduce/threshold step, alerts when the
+# query returns a non-empty result AND that result's value is non-zero. `up{job=X} == 0` without
+# `bool` is a FILTER, not a boolean test — it keeps the original value, so a down target (up=0)
+# returns a series whose own value is 0 (read as "false", not firing), while a healthy target
+# (up=1) matches nothing and returns empty (read as "no data", which noDataState: Alerting then
+# turns into firing). The result was exactly backwards: firing while healthy, quiet while down —
+# caught live by pr-clearance on ticket 08's PR. `== bool 0` always returns a series (1 when the
+# comparison holds, 0 when it doesn't), so "no data" is reserved for the case that actually deserves
+# it: Prometheus can't find the series at all.
+#
 # Each `dashboard` annotation is a literal `http://localhost:3001/d/...` link, not `$externalURL` —
 # docs/deployment.md's documented access path for every environment is an SSH tunnel to
 # `127.0.0.1:3001` followed by opening `http://localhost:3001` on the operator's own machine, so
@@ -47,7 +58,7 @@ groups:
             model:
               refId: A
               editorMode: code
-              expr: up{job="twhp-api"} == 0
+              expr: up{job="twhp-api"} == bool 0
               instant: true
               range: false
               intervalMs: 1000
@@ -75,7 +86,7 @@ groups:
             model:
               refId: A
               editorMode: code
-              expr: up{job="twhp-worker"} == 0
+              expr: up{job="twhp-worker"} == bool 0
               instant: true
               range: false
               intervalMs: 1000
@@ -218,7 +229,7 @@ groups:
             model:
               refId: A
               editorMode: code
-              expr: twhp_dependency_up == 0
+              expr: twhp_dependency_up == bool 0
               instant: true
               range: false
               intervalMs: 1000
