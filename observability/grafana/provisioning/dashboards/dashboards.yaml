@@ -1,0 +1,17 @@
+# Dashboard provider for the `observability` profile. Dashboards are files, not database rows:
+# `allowUiUpdates: false` means the UI can still open and edit a panel for exploration, but "Save
+# dashboard" is disabled — the workflow is edit -> export JSON -> overwrite the file under
+# `json/` -> commit (see ticket 08).
+apiVersion: 1
+
+providers:
+  - name: TWHP
+    orgId: 1
+    folder: TWHP
+    type: file
+    disableDeletion: false
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards/json
+      foldersFromFilesStructure: false

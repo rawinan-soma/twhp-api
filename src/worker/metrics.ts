@@ -1,5 +1,6 @@
 import { Counter, Gauge, type Registry } from "prom-client";
 import { createRegistry } from "../metrics";
+import { EMAIL_JOB_NAMES } from "./email.jobNames";
 
 export const workerRegistry = createRegistry("twhp-worker");
 
@@ -19,8 +20,21 @@ type EmailWorkerLike = {
   on(event: "failed", listener: (job: { name: string } | undefined, error: Error) => void): unknown;
 };
 
-/** Increments `twhp_email_jobs_total` from the worker's own `completed`/`failed` events. */
+const EMAIL_JOB_OUTCOMES = ["completed", "failed"] as const;
+
+/**
+ * Increments `twhp_email_jobs_total` from the worker's own `completed`/`failed` events. First
+ * pre-registers every known job name (plus the `failed`-only "unknown" fallback) at 0 for both
+ * outcomes: a prom-client counter emits no series at all until its first `.inc()`, so without this
+ * a job's first-ever failure appears to Prometheus as a series born already at 1, with no earlier
+ * sample to diff against — `increase()` reports 0 and the "Email jobs failing" alert misses it.
+ */
 export const wireEmailJobMetrics = (worker: EmailWorkerLike, counter = emailJobsTotal) => {
+  for (const job_name of EMAIL_JOB_NAMES) {
+    for (const outcome of EMAIL_JOB_OUTCOMES) counter.inc({ job_name, outcome }, 0);
+  }
+  counter.inc({ job_name: "unknown", outcome: "failed" }, 0);
+
   worker.on("completed", (job) => {
     counter.inc({ job_name: job.name, outcome: "completed" });
   });

@@ -1,0 +1,13 @@
+# Default notification policy for the `observability` profile: everything routes to the one
+# `discord` contact point (contact-points.yaml). No routing tree is needed — a single team, a
+# single channel per environment (`DISCORD_WEBHOOK_URL` in observability.env), out of scope per
+# ticket 08 ("on-call rotation or paging").
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: discord
+    group_by: ["alertname"]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h

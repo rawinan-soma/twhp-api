@@ -128,11 +128,39 @@ repository is checked out into.
 | `loki` | Log storage, 90-day retention (`retention_period: 2160h`, compactor-enforced) | Docker network only | `loki_data` volume |
 | `tempo` | Trace storage, 7-day retention (`block_retention: 168h`) | Docker network only | `tempo_data` volume |
 | `prometheus` | Scrapes metrics every 15 s, 30-day retention (`--storage.tsdb.retention.time=30d`) | Docker network only | `prometheus_data` volume |
-| `grafana` | Explore UI, alerting (dashboards land in a later issue) | **`127.0.0.1:3001`** only | `grafana_data` volume |
+| `grafana` | Explore UI, three provisioned dashboards, eight provisioned alert rules, Discord notifications | **`127.0.0.1:3001`** only | `grafana_data` volume |
 | `node-exporter` | Host CPU/RAM/disk, via host `/` mounted read-only | Docker network only | none |
 
 Config lives under `observability/` (`alloy/config.alloy`, `loki/loki-config.yaml`,
 `tempo/tempo-config.yaml`, `prometheus/prometheus.yml`, `grafana/provisioning/`).
+
+### Dashboards and alerts
+
+Grafana provisions three read-only dashboards from `observability/grafana/provisioning/dashboards/json/`
+(all in the **TWHP** folder) — editing a panel in the UI works, but "Save dashboard" is disabled;
+the workflow is edit → export JSON → overwrite the file → commit:
+
+- **API overview** (`api-overview`): request rate, 5xx share, p50/p95/p99 latency by route,
+  dependency status, and a Loki panel of recent API error/fatal lines (the Loki datasource's
+  derived field turns each line's `trace_id` into a Tempo link). `src/logger.ts` sets no pino
+  `formatters.level`, so the `level` label Alloy promotes is pino's numeric level, not its name —
+  the panel filters `level=~"50|60"` (error/fatal), not `level="error"`.
+- **Email queue** (`email-queue`): BullMQ job states, oldest waiting job age, completed/failed rate
+  by job name, worker `up`.
+- **Host** (`host`): CPU, RAM, root filesystem, and MinIO storage used.
+
+Eight Grafana-managed alert rules are provisioned from `observability/grafana/provisioning/alerting/rules.yaml`,
+every one labelled `env` and every one carrying a plain-language `summary` annotation: API down,
+Worker down, Email jobs failing, Email queue stuck, Server errors, Slow API, Dependency down (one
+instance per dependency), and Disk almost full. "API down", "Worker down" and "Dependency down"
+treat "no data" as firing, since a target Prometheus can't even reach is itself the failure. See
+`docs/troubleshooting.md` for what to check when each one fires.
+
+All eight route to the single `discord` contact point (`alerting/contact-points.yaml`) via the
+default notification policy (`alerting/policies.yaml`). The webhook URL is never in the repo — it's
+expanded from `DISCORD_WEBHOOK_URL` in `observability.env` at the same load time Grafana expands
+any other provisioning secret. Staging uses the same files, pointed at a test Discord channel via
+its own `observability.env`; production gets its own channel per issue 09.
 
 ### Secrets
 
@@ -155,8 +183,8 @@ admin password or the Discord webhook used by alerting. It carries:
   ```
   Copy only the `bearer_token` value into `MINIO_PROMETHEUS_TOKEN`; the Prometheus container writes
   it to a file at startup and never commits it to a config file.
-- `DISCORD_WEBHOOK_URL` — reserved for Grafana alert notifications (wired up alongside dashboards
-  and alert rules in a later issue).
+- `DISCORD_WEBHOOK_URL` — webhook for Grafana's `discord` contact point; every alert rule routes
+  here (see "Dashboards and alerts" above).
 
 ### App wiring
 

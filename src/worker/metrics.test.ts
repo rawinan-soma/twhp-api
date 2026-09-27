@@ -19,6 +19,22 @@ class FakeWorker {
 }
 
 describe("wireEmailJobMetrics", () => {
+  const valueFor = (values: { labels: Record<string, unknown>; value: number }[], labels: object) =>
+    values.find((v) => Object.entries(labels).every(([k, val]) => v.labels[k] === val))?.value;
+
+  it("pre-registers every known job name and outcome at 0, plus the failed-only unknown fallback", async () => {
+    const registry = new Registry();
+    const counter = createEmailJobsTotal(registry);
+    const worker = new FakeWorker();
+    wireEmailJobMetrics(worker, counter);
+
+    const { values } = await counter.get();
+    expect(valueFor(values, { job_name: "password-reset-request", outcome: "failed" })).toBe(0);
+    expect(valueFor(values, { job_name: "2fa-otp", outcome: "completed" })).toBe(0);
+    expect(valueFor(values, { job_name: "verdict-result-finished", outcome: "failed" })).toBe(0);
+    expect(valueFor(values, { job_name: "unknown", outcome: "failed" })).toBe(0);
+  });
+
   it("increments twhp_email_jobs_total{outcome=completed} on a completed job", async () => {
     const registry = new Registry();
     const counter = createEmailJobsTotal(registry);
@@ -28,16 +44,19 @@ describe("wireEmailJobMetrics", () => {
     worker.emit("completed", { name: "2fa-otp" });
 
     const { values } = await counter.get();
-    expect(values).toEqual([
-      expect.objectContaining({ labels: { job_name: "2fa-otp", outcome: "completed" }, value: 1 }),
-    ]);
+    expect(valueFor(values, { job_name: "2fa-otp", outcome: "completed" })).toBe(1);
   });
 
-  it('increments twhp_email_jobs_total{outcome="failed"} after a forced SMTP failure', async () => {
+  it('increments twhp_email_jobs_total{outcome="failed"} after a forced SMTP failure, from a visible 0', async () => {
     const registry = new Registry();
     const counter = createEmailJobsTotal(registry);
     const worker = new FakeWorker();
     wireEmailJobMetrics(worker, counter);
+
+    const before = await counter.get();
+    expect(
+      valueFor(before.values, { job_name: "verdict-result-finished", outcome: "failed" }),
+    ).toBe(0);
 
     const smtpError = Object.assign(new Error("Recipient address rejected"), {
       code: "EENVELOPE",
@@ -46,12 +65,7 @@ describe("wireEmailJobMetrics", () => {
     worker.emit("failed", { name: "verdict-result-finished" }, smtpError);
 
     const { values } = await counter.get();
-    expect(values).toEqual([
-      expect.objectContaining({
-        labels: { job_name: "verdict-result-finished", outcome: "failed" },
-        value: 1,
-      }),
-    ]);
+    expect(valueFor(values, { job_name: "verdict-result-finished", outcome: "failed" })).toBe(1);
   });
 
   it('labels a failure with no job as job_name="unknown"', async () => {
@@ -63,9 +77,7 @@ describe("wireEmailJobMetrics", () => {
     worker.emit("failed", undefined, new Error("stalled"));
 
     const { values } = await counter.get();
-    expect(values).toEqual([
-      expect.objectContaining({ labels: { job_name: "unknown", outcome: "failed" }, value: 1 }),
-    ]);
+    expect(valueFor(values, { job_name: "unknown", outcome: "failed" })).toBe(1);
   });
 });
 
