@@ -2,7 +2,7 @@
 
 # 08 — Dashboards and the eight alerts, provisioned, to Discord
 
-Status: ready-for-agent
+Status: closed
 Category: enhancement
 Blocked by: 05 (Loki error panel links to traces), 07 (alerts read its metrics)
 Model: Sonnet 5, high effort (verbose provisioning, verified by the recreate-and-fire tests)
@@ -64,6 +64,15 @@ After issue 04, Grafana has data sources but no dashboards, alert rules or conta
 - Business dashboards.
 
 ## Comments
+
+**2026-09-27 — closed.** Merged in #24 (04e8a63). pr-clearance's live verification on the first
+head (fba8984) found "API down"/"Worker down"/"Dependency down" firing backwards (`X == 0` without
+the `bool` modifier reads a healthy target as "no data" and a down one as false) and "Email jobs
+failing" missing a lone first failure (a prom-client counter emits no series until its first
+`.inc()`, so `increase()` has nothing to diff against). Both fixed in 37c1f6a and re-verified live:
+all 5 acceptance criteria pass. Final clearance verdict: Mergeable with caveats — no automated test
+guards rule loading or rule behavior (everything was proved by exercise against a live stack), and
+Discord delivery was proved only against a local HTTP sink, not a real Discord channel.
 
 **2026-09-26 — implementation note.** This ticket's own alert table shorthands the API/worker
 `up` job labels as `job="api"`/`job="worker"` — the eventual production names from issue 09.
