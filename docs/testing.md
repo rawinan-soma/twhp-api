@@ -99,10 +99,11 @@ the five tracing files were added: **296 pass, 0 fail, 763 expect() calls** acro
 preload also starts tracing with an in-memory exporter (`src/test/spans.ts`) and no OTLP export.
 `src/tracing.test.ts` prints `ECONNREFUSED` traces from its deliberately unreachable pg client.
 
-On 2026-09-26 (issue 06) the twenty-one isolated files in `CLAUDE.md` gave **318 pass, 0 fail, 800
+On 2026-09-26 (issue 06) the twenty-one isolated files in `CLAUDE.md` gave **318 pass, 0 fail, 801
 expect() calls**. `src/worker/tracing.redis.test.ts` (3) is neither isolated nor a PostgreSQL test:
 it needs a real Redis and runs a real BullMQ queue and worker on a random queue name, which it
-obliterates. It proves a job enqueued inside a span is processed, SMTP span included, in that span's
+obliterates. It stubs SMTP with `spyOn` rather than a module mock, so it also passes in the same
+process as `src/worker/email.test.ts`. It proves a job enqueued inside a span is processed, SMTP span included, in that span's
 trace, that a failed job's SMTP error message (which quotes addresses) reaches no span, and that
 the daily reminder stores no parent context:
 

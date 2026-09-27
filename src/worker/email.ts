@@ -66,7 +66,8 @@ export const scheduleValidationReminder = (queue: Queue) =>
     },
   );
 
-const transporter = nodemailer.createTransport({
+/** Exported so the Redis test can stub `sendMail` without a module mock. */
+export const transporter = nodemailer.createTransport({
   host: env.SMTP_HOST,
   port: env.SMTP_PORT,
   auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },

@@ -138,12 +138,17 @@ describe("email worker spans", () => {
 
   const smtpSpans = () => testSpans.getFinishedSpans().filter((s) => s.name === "smtp.send");
 
-  it("wraps a send in an smtp.send span with counts and the local messageId only", async () => {
+  it("wraps a send in an smtp.send span with counts and the local messageId, logged in it", async () => {
     await processor(VERDICT_JOB);
 
     const [span] = smtpSpans();
     expect(span.kind).toBe(SpanKind.CLIENT);
     expect(span.status.code).toBe(SpanStatusCode.UNSET);
+    const sent = lines().find((l) => l.msg === "Email sent");
+    expect(sent).toMatchObject({
+      trace_id: span.spanContext().traceId,
+      span_id: span.spanContext().spanId,
+    });
     expect(span.attributes).toEqual({
       "email.job.name": "verdict-result-finished",
       "email.recipients.count": 2,

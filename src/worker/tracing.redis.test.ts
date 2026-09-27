@@ -1,35 +1,26 @@
-import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { SpanKind, trace } from "@opentelemetry/api";
 import type { ReadableSpan } from "@opentelemetry/sdk-trace-node";
 import { Queue } from "bullmq";
 import { bullmqTelemetry } from "../bullmqTelemetry";
 import { env } from "../config";
-import * as realLogger from "../logger";
 import { testSpans } from "../test/spans";
 
 // Needs a real, disposable Redis at REDIS_HOST:REDIS_PORT (e.g. `docker run --rm -p 6390:6379
-// redis:7-alpine` and REDIS_PORT=6390). Each run uses its own queue name and obliterates it. SMTP is
-// mocked; PostgreSQL is never queried.
+// redis:7-alpine` and REDIS_PORT=6390). Each run uses its own queue name and obliterates it.
+// PostgreSQL is never queried. SMTP is stubbed with `spyOn`, not `mock.module`: the module is
+// evaluated once per `bun test` process, so a module mock here would lose to (or override)
+// `src/worker/email.test.ts`'s when both files run together. Log correlation is asserted there.
 
-const logLines: string[] = [];
-const stream = { write: (line: string) => logLines.push(line) };
-
-const mockSendMail = mock(async (..._: unknown[]) => ({
-  accepted: ["someone@example.com"],
-  rejected: [] as string[],
-  messageId: "<0a1b2c3d@twhp.example.com>",
-}));
-mock.module("nodemailer", () => ({
-  createTransport: () => ({ sendMail: mockSendMail }),
-}));
-
-const loggerExports = { ...realLogger };
-mock.module("../logger", () => ({
-  ...loggerExports,
-  createLogger: (service: "twhp-worker") => loggerExports.createLogger(service, { stream }),
-}));
-
-const { createEmailWorker, scheduleValidationReminder } = await import("./email");
+const { createEmailWorker, scheduleValidationReminder, transporter } = await import("./email");
+const sendMail = spyOn(transporter, "sendMail").mockImplementation(
+  async () =>
+    ({
+      accepted: ["someone@example.com"],
+      rejected: [],
+      messageId: "<0a1b2c3d@twhp.example.com>",
+    }) as never,
+);
 
 const connection = { host: env.REDIS_HOST, port: env.REDIS_PORT };
 const queueName = `email-trace-test-${crypto.randomUUID()}`;
@@ -37,6 +28,7 @@ const queue = new Queue(queueName, { connection, telemetry: bullmqTelemetry() })
 const worker = createEmailWorker(queueName, connection);
 
 afterAll(async () => {
+  sendMail.mockRestore();
   await worker.close();
   await queue.obliterate({ force: true });
   await queue.close();
@@ -44,7 +36,6 @@ afterAll(async () => {
 
 beforeEach(() => {
   testSpans.reset();
-  logLines.length = 0;
 });
 
 const allAttributeValues = (spans: ReadableSpan[]) =>
@@ -90,13 +81,10 @@ describe("worker tracing over BullMQ", () => {
       "email.message_id": "0a1b2c3d",
     });
     expect(allAttributeValues(spans).filter((v) => v.includes("@"))).toEqual([]);
-
-    const sent = logLines.map((l) => JSON.parse(l)).find((l) => l.msg === "Email sent");
-    expect(sent).toMatchObject({ trace_id: traceId, span_id: smtp?.spanContext().spanId });
   });
 
   it("keeps the SMTP error message, which quotes addresses, off a failed job's spans", async () => {
-    mockSendMail.mockImplementationOnce(async () => {
+    sendMail.mockImplementationOnce(async () => {
       throw Object.assign(new Error("Recipient rejected: <someone@example.com>"), {
         code: "EENVELOPE",
       });
