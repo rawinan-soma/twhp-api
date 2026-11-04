@@ -12,7 +12,7 @@ import {
 } from "../drizzle/schema";
 import type { CreateFactoryDto, UpdateFactoryDto } from "../schema/factory";
 import { buildPage, type PaginationQueryDto, resolvePage } from "../schema/pagination";
-import { type EvaluationPeriod, evaluationPeriod } from "./evaluationPeriod";
+import { utilities } from "../utils";
 
 /** Shared projection for every factory list variant. The Admin variant prepends `username`. */
 const factoryListColumns = {
@@ -45,15 +45,10 @@ type FactoryListParams = { validated: boolean; enrolled?: boolean } & Pagination
  * at least one enrollment exists, which is what the previous innerJoin did on the region and
  * province variants.
  */
-const enrollExists = (
-  database: typeof db,
-  withFiscalYear: boolean,
-  // TEMPORARY (FY2026 extension, revert 2026-10-16): staff keep the ended year in the window.
-  period: EvaluationPeriod,
-) => {
+const enrollExists = (database: typeof db, withFiscalYear: boolean) => {
   const conditions: (SQL | undefined)[] = [eq(enrolls.factoryId, factories.accountId)];
   if (withFiscalYear) {
-    const { fiscalYearStart, fiscalYearEnd } = period.reviewerFiscalYear();
+    const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
     conditions.push(gte(enrolls.enrollDate, fiscalYearStart.toISOString()));
     conditions.push(lt(enrolls.enrollDate, fiscalYearEnd.toISOString()));
   }
@@ -109,11 +104,7 @@ const createFactoryHelper = (database: typeof db) => {
   };
 };
 
-export const createFactoryService = (
-  database: typeof db,
-  // TEMPORARY (FY2026 extension, revert 2026-10-16)
-  period: EvaluationPeriod = evaluationPeriod,
-) => {
+export const createFactoryService = (database: typeof db) => {
   const helper = createFactoryHelper(database);
   return {
     register: async (dto: CreateFactoryDto) => {
@@ -227,7 +218,7 @@ export const createFactoryService = (
       const predicate = and(
         eq(factories.isValidate, validated),
         eq(factories.provinceId, provinceId),
-        enrollExists(database, enrolled, period),
+        enrollExists(database, enrolled),
       );
 
       const [total, items] = await Promise.all([
@@ -259,7 +250,7 @@ export const createFactoryService = (
       const predicate = and(
         eq(factories.isValidate, validated),
         eq(provinces.healthRegion, region),
-        enrollExists(database, enrolled, period),
+        enrollExists(database, enrolled),
       );
 
       const [total, items] = await Promise.all([
@@ -287,7 +278,7 @@ export const createFactoryService = (
       // are selected while removing the duplicates. See docs/adr/0008.
       const predicate = and(
         eq(factories.isValidate, validated),
-        enrolled ? enrollExists(database, true, period) : undefined,
+        enrolled ? enrollExists(database, true) : undefined,
       );
 
       const [total, items] = await Promise.all([

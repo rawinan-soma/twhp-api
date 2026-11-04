@@ -15,16 +15,11 @@ import type { CreateEnrollWithFilesDto, UpdateEnrollWithFilesDto } from "../sche
 import { buildPage, type PaginationQueryDto, resolvePage } from "../schema/pagination";
 import { utilities } from "../utils";
 import { latestCoverLogLateral } from "./coverStatus";
-import { type EvaluationPeriod, evaluationPeriod } from "./evaluationPeriod";
 
 /** Cover-status filter value. `none` = enroll has no cover yet. */
 export type CoverStatusFilter = "finished" | "in_progress" | "in_review" | "none";
 
-export const createEnrollService = (
-  database: typeof db,
-  // TEMPORARY (FY2026 extension, revert 2026-10-16)
-  period: EvaluationPeriod = evaluationPeriod,
-) => {
+export const createEnrollService = (database: typeof db) => {
   /**
    * Shared join chain for every enrollment list read.
    *
@@ -93,8 +88,7 @@ export const createEnrollService = (
     provinceId?: number;
     coverStatus?: CoverStatusFilter;
   } & PaginationQueryDto) => {
-    // TEMPORARY (FY2026 extension, revert 2026-10-16): staff keep the ended year in the window.
-    const { fiscalYearStart, fiscalYearEnd } = period.reviewerFiscalYear();
+    const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
     const resolved = resolvePage({ page, limit });
     const latest = latestCoverLogLateral(database);
 

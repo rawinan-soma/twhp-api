@@ -6,7 +6,6 @@ import { answers, covers, enrolls, factories, provinces, questions } from "../dr
 import { buildPage, type PaginationQueryDto, resolvePage } from "../schema/pagination";
 import { utilities } from "../utils";
 import { latestCoverLogFor, latestCoverLogLateral } from "./coverStatus";
-import { type EvaluationPeriod, evaluationPeriod } from "./evaluationPeriod";
 import {
   type AnswerWithCategory,
   type CategoryKey,
@@ -26,11 +25,7 @@ type CoverWithFactoryInfo = {
 /** A Cover is scorable once it leaves `in_progress`. See docs/adr/0011. */
 const SCORABLE_STATUSES = ["in_review", "finished"] as const;
 
-export const createScoreService = (
-  database: typeof db,
-  // TEMPORARY (FY2026 extension, revert 2026-10-16)
-  period: EvaluationPeriod = evaluationPeriod,
-) => {
+export const createScoreService = (database: typeof db) => {
   /**
    * Shared join chain for the Score Report list reads. Both the count query and the page query are
    * built from it, so their predicates cannot drift and `meta.total` always describes the same
@@ -128,8 +123,7 @@ export const createScoreService = (
     page,
     limit,
   }: { region?: number; provinceId?: number } & PaginationQueryDto) => {
-    // TEMPORARY (FY2026 extension, revert 2026-10-16): staff keep the ended year in the window.
-    const { fiscalYearStart, fiscalYearEnd } = period.reviewerFiscalYear();
+    const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
     const resolved = resolvePage({ page, limit });
     const latest = latestCoverLogLateral(database);
 
@@ -227,12 +221,7 @@ export const createScoreService = (
         category: a.category as CategoryKey,
       }));
       const scoring = calculateBreakdown(mappedAnswers);
-      // TEMPORARY (FY2026 extension, revert 2026-10-16): factories are not told their Grade
-      // until the Evaluation Period ends. `scoring` stays visible (decision 5b).
-      const grade =
-        coverStatus === "finished" && !period.isOpen()
-          ? computeGrade(scoring, mappedAnswers)
-          : null;
+      const grade = coverStatus === "finished" ? computeGrade(scoring, mappedAnswers) : null;
 
       return {
         factoryId: coverRow.factoryId,
