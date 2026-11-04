@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, it, setSystemTime } from "bun:test";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
@@ -215,19 +215,42 @@ const messageOf = (result: unknown) => {
   return r?.response?.message ?? r?.message;
 };
 
+/**
+ * The evaluation period (1-31 Oct) admits every reviewer level on the year that just ended, so the
+ * "closed" cases pin the clock mid-year (outside the period) and the period case pins it to 2 Oct.
+ * Both are relative to CURRENT_FY, so the suite passes whatever day it really runs.
+ */
+const OUTSIDE_PERIOD = new Date(midFiscalYear(CURRENT_FY));
+const INSIDE_PERIOD = new Date(
+  utilities().getFiscalYear(CURRENT_FY).fiscalYearStart.getTime() + 86_400_000,
+);
+
 describeDb("saveAnswerVerdict — closed fiscal year", () => {
   const body = { decision: "approve" as const };
 
+  afterEach(() => setSystemTime());
+
   it("refuses a Mental evaluator", async () => {
+    setSystemTime(OUTSIDE_PERIOD);
     const result = await service.saveAnswerVerdict(priorCoverId, 1, MENTAL, body);
 
     expect(messageOf(result)).toContain(`fiscal year ${PRIOR_FY} is closed`);
   });
 
   it("refuses a DOH evaluator", async () => {
+    setSystemTime(OUTSIDE_PERIOD);
     const result = await service.saveAnswerVerdict(priorCoverId, 1, DOH, body);
 
     expect(messageOf(result)).toContain(`fiscal year ${PRIOR_FY} is closed`);
+  });
+
+  it("admits Mental and DOH on the prior year during the evaluation period", async () => {
+    setSystemTime(INSIDE_PERIOD);
+    for (const reviewer of [MENTAL, DOH]) {
+      const result = await service.saveAnswerVerdict(priorCoverId, 1, reviewer, body);
+
+      expect(messageOf(result)).toBe("answer not found in this cover");
+    }
   });
 
   it("allows a native ODPC evaluator through the gate", async () => {
