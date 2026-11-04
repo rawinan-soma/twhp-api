@@ -65,24 +65,79 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 
 ### BR-06 — Fiscal-year membership
 
-- **Rule:** Current fiscal year is the half-open range `[Oct 1 00:00, next Oct 1 00:00)`, calculated from application host-local dates and compared in SQL using ISO UTC strings.
-- **Implementation:** `src/utils.ts:getFiscalYear`; all `gte/lt(enrolls.enrollDate)` callers.
-- **Inputs/conditions:** host clock/timezone and timezone-less `Enrolls.enroll_date`.
-- **Result:** current Enrollment/Cover/Answer/Score selection.
-- **Edges/failure:** API containers set Asia/Bangkok, PostgreSQL does not explicitly do so, and columns are `timestamp without time zone`. Live boundary interpretation is therefore **Unknown**. Two separate `new Date()` calls add a small rollover race.
-- **Failure behavior:** no explicit error; a boundary record may be silently included/excluded.
+- **Rule:** A fiscal year is the half-open range `[Oct 1 00:00, next Oct 1 00:00)` in **Asia/Bangkok**, labelled by its **ending** Common Era year: FY2026 runs 2025-10-01 to 2026-09-30. The boundary is pinned to a fixed UTC+7 offset in application code and does **not** depend on the host timezone.
+- **Implementation:** `src/utils.ts:getFiscalYear(fiscalYear?)`; all `gte/lt(enrolls.enrollDate)` callers. Reads the clock exactly once. A nominated year may be supplied; omitting it selects the current fiscal year, except that staff lists use `getReviewerFiscalYear`, which selects the year that just ended during 1–31 Oct (BR-06a).
+- **Inputs/conditions:** an optional Common Era year (2000–2100, validated at the route) and the timezone-less `Enrolls.enroll_date`.
+- **Result:** Enrollment/Cover/Answer/Score selection for the resolved year.
+- **Edges/failure:** none known at the boundary. The former host-timezone dependency and the two-`new Date()` rollover race were both removed.
+- **Failure behavior:** an out-of-range or fractional year is rejected with 400 before any query runs; the resolver throws `RangeError` as a backstop.
 - **Risk of change:** Very high—annual identity and historical selection.
-- **Confidence:** Algorithm **Verified**; database-boundary behavior **Unknown**. See [database](database.md).
+- **Confidence:** Boundary interpretation **Verified** (2026-08-21). Evidence: production PostgreSQL reports `TimeZone = UTC` with no per-database or per-role override; no production code sets `enrollDate` explicitly, so every value comes from `CURRENT_TIMESTAMP` and is UTC wall-clock; the resolver emits `2025-09-30T17:00:00.000Z` for the FY2026 boundary, which **is** midnight on 1 October in Bangkok. Verified by test under `TZ=UTC`, `TZ=Asia/Bangkok`, and `TZ=America/New_York`.
+- **Still open:** fiscal-year identity is **not persisted** — it is re-derived from `enroll_date` on every read. Correctness therefore rests on this one function rather than on stored data. Rows imported directly from CSV (see `CLAUDE.md`, production data import) carry dates that did not originate from `CURRENT_TIMESTAMP` and are outside the verified chain. See [database](database.md).
+
+### BR-06a — Fiscal-year write authority
+
+- **Rule:** Writes target the current fiscal year. A closed year is writable by `Role.DOED` and by
+  `Role.Evaluator` at level `ODPC` without expiry, and never by a Factory, which finishes self-evaluation
+  before the rollover. Every evaluator level may also save verdicts (not finalize) in the year that
+  just ended during the 31-day evaluation period (through 31 Oct), and staff reads default to that year.
+- **Implementation:** `assertYearWritable` in `src/service/evaluator-review.ts` (review and finalize,
+  admitting `evaluationPeriodApplies`); `getReviewerFiscalYear` for staff-read defaults;
+  `resolveWritableYear` in `src/service/answer.ts` refuses a non-current year on the four Factory paths.
+  Hard rejects are refused during the evaluation period (`assertHardRejectAllowed`, on verdict save and finalize).
+- **Inputs/conditions:** the target Cover's Enrollment date, the caller's role and evaluator level,
+  and the current instant.
+- **Result:** the write proceeds, or is refused with a message naming the closed year.
+- **Edges/failure:** an out-of-region caller receives the existing `404 cover not found`, never a
+  year-related message, so the existence of a Cover in a given year is not disclosed.
+- **Failure behavior:** `403` with a distinct message per authority path.
+- **Risk of change:** High—governs who may alter a closed year.
+- **Confidence:** **Verified.** Evaluator authority: a DOED admin is modelled as a national ODPC
+  (`adminReviewerContext`), so the rule reduces to `level === "ODPC"`. Factory refusal and the evaluation-period
+  boundaries are asserted by isolated tests.
+- **Not attributable in the database.** Factory writes are **not** recorded with an
+  acting identity. `CoverLogs.evaluator_id` is semantically an evaluator reference and a Factory is
+  not an evaluator; writing a factory id there would corrupt every query reading that column. Adding
+  a column was out of scope for the intent. Refusals and grants are distinguishable in request logs
+  by their distinct messages, but **per-actor attribution of Factory writes requires a schema change
+  and does not exist.**
+
+### BR-06b — Fiscal-year expiry
+
+- **Rule:** A Cover still `in_progress` when the fiscal year ends remains `in_progress`,
+  permanently.
+- **Implementation:** none — expiry is evaluated at write time by `resolveWritableYear`. No sweep, no
+  scheduled job, no persisted marker.
+- **Result:** the Cover stays readable by every role in scope, writable by DOED/ODPC without
+  deadline, and non-scorable exactly as any `in_progress` Cover already was
+  (`SCORABLE_STATUSES`, unchanged).
+- **Edges/failure:** such Covers accumulate indefinitely and are indistinguishable from any other
+  unfinished Cover. This is intended, not an oversight — `coverStatus` has three values and no
+  terminal state was invented for it.
+- **Risk of change:** Medium—introducing a status later would be a schema change.
+- **Confidence:** **Verified** by test: the log count for an untouched Cover is invariant, and its
+  latest status remains `in_progress`.
 
 ### BR-07 — One Enrollment per Factory per fiscal year
 
 - **Rule:** Enrollment creation pre-checks for an existing row for that Factory in the current fiscal interval.
-- **Implementation:** `enrollService.create` at `src/service/enroll.ts:181-245`; `Enrolls` schema.
+- **Implementation:** `enrollService.create` in `src/service/enroll.ts`; `Enrolls` schema.
 - **Inputs/conditions:** authenticated Factory and no matching row.
 - **Result:** creation proceeds; detected duplicate returns 400.
+- **Gold-tier lockout:** creation is also rejected with 400 when `Awards` holds a `gold` or
+  `consec-gold` row for the Factory in fiscal year Y − 1 or Y − 2 (Y = the enrolment's fiscal year,
+  Common Era). The Gold plaque is valid for three fiscal years, so an award in A closes A + 1 and
+  A + 2 and A + 3 is open. The message names the next eligible fiscal year (Common Era). The check
+  runs after the duplicate guard and before any upload, through `awardHistory.firstEligibleEnrolmentYear`
+  (ADR-0014). `silver`/`certificate`/`joined` and no row carry no lockout; update and delete are
+  unguarded, and there is no override.
 - **Edges/failure:** no database uniqueness or fiscal-year key. Concurrent/direct writes can duplicate; owner lookups use nondeterministic `.limit(1)`.
 - **Risk of change:** Very high—constraint introduction requires timezone policy and duplicate cleanup.
 - **Confidence:** Application rule **Verified**; durable cardinality absent.
+- **Unchanged by intent `013-fiscal-year-addressing`.** That intent added no unique constraint, so
+  `.limit(1)` owner lookups remain arbitrary where duplicates exist. What it *did* add is that a
+  Factory may hold enrollments in two fiscal years (the earlier one is read-only to it); self-reads
+  resolve the intended year, but that is year-disambiguation, not cardinality enforcement.
 
 ### BR-08 — Enrollment fields and standard certificates
 
@@ -248,19 +303,19 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Rule:** Points are 3/2/1/0; N/A is excluded. Percentage is `Math.round(achieved / (3 × scoredCount) × 100)`. Total combines raw Answers, not category percentages. Score is available for `in_review` and `finished`; list endpoints omit `in_progress`.
 - **Implementation:** `scoreHelpers.CHOICE_POINTS/scoreGroup/calculateBreakdown`; `scoreService`; ADR-0001; score tests.
 - **Inputs/conditions:** current-fiscal accessible Cover and current `Answers.selectedChoice` rows.
-- **Result:** on-demand nested Score Report; grade null unless finished.
-- **Edges/failure:** all-N/A/empty group returns zeros. AnswerLogs are not consulted. No completeness gate exists beyond Cover status, and rule changes retroactively rescore history.
+- **Result:** on-demand nested Score Report; `grade` is the stored `Awards` value, null unless finished (or not yet awarded).
+- **Edges/failure:** all-N/A/empty group returns zeros. AnswerLogs are not consulted. No completeness gate exists beyond Cover status. The breakdown is recomputed from current Answers, but the Grade is not: it is stored at finalize and does not change when rules or Answers later change.
 - **Failure behavior:** own missing Cover 404; own in-progress Cover 400; list path silently omits non-ready Covers.
 - **Risk of change:** Very high—published and historical results.
 - **Confidence:** **Verified.**
 
 ### BR-23 — Grade tiers
 
-- **Rule:** Evaluate top-down: gold when every category is >80, total ≥90, and every `special > 0` Answer is `3`; silver when every category is >60 and total ≥80; certificate when total ≥60; otherwise joined. Grade exists only for finished Covers.
-- **Implementation:** `scoreHelpers.computeGrade`; `scoreService`; `evaluatorReviewService.finalize`.
-- **Inputs/conditions:** rounded score groups and current choices.
-- **Result:** one on-demand award tier.
-- **Edges/failure:** code's gold gate includes `special=2`; `CONTEXT.md` says only 1 or 3. Code is authoritative. Empty categories score 0 and prevent gold/silver. Direct grade boundary/special tests are absent.
+- **Rule:** Evaluate top-down, first match wins: **consec-gold** when the gold gate holds, every `special=2` Answer is `3`, and the factory held a gold-tier award (`gold` or `consec-gold`) in the Cover's fiscal year minus 3; **gold** when every category is >80, total ≥90, and every `special=1` Answer is `3`; silver when every category is >60 and total ≥80; certificate when total ≥60; otherwise joined. A special gate needs the literal choice `3` — `n/a` does not satisfy it. Grade exists only for finished Covers. See [ADR-0014](adr/0014-consec-gold-and-the-gold-gate.md).
+- **Implementation:** `scoreHelpers.computeGrade`; `awardHistory.ts` (the one reader of the FY − 3 question); `scoreService`; `evaluatorReviewService.finalize`.
+- **Inputs/conditions:** rounded score groups, current choices, and whether the factory held a gold-tier `Awards` row three fiscal years before the Cover's own (a missing row, or a `silver`/`certificate`/`joined` row, means it did not).
+- **Result:** one award tier, computed once at finalize and stored in `Awards` (ADR-0001, amended); read paths return the stored value.
+- **Edges/failure:** Empty categories score 0 and prevent gold/silver. The `gold` special set is `special=1` only (maintainer's rule, ADR-0014 as amended 2026-09-21); the five `special=2` Questions gate only `consec-gold`, and `special=3` gates no tier. Covers finalized before that change keep their stored Grade (ADR-0014).
 - **Failure behavior:** no explicit error; a prose-based implementation would silently award a different grade.
 - **Risk of change:** Very high—award eligibility and prior reports.
 - **Confidence:** **Verified.**

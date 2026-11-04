@@ -6,6 +6,7 @@ import { ElysiaCustomStatusResponse, t } from "elysia";
 import { Pool } from "pg";
 import {
   accounts,
+  awards,
   coverLogs,
   covers,
   districts,
@@ -129,6 +130,7 @@ async function cleanupFactory(factoryId: number) {
       .where(eq(covers.enrollId, e.id));
     for (const c of prevCovers) {
       await db.delete(coverLogs).where(eq(coverLogs.coverId, c.id));
+      await db.delete(awards).where(eq(awards.factoryId, factoryId));
       await db.delete(covers).where(eq(covers.id, c.id));
     }
     await db.delete(enrolls).where(eq(enrolls.id, e.id));

@@ -2,16 +2,23 @@ import { and, asc, count, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import type { PgSelectQueryBuilder } from "drizzle-orm/pg-core";
 import { status } from "elysia";
 import { db } from "../drizzle";
-import { answers, covers, enrolls, factories, provinces, questions } from "../drizzle/schema";
+import {
+  answers,
+  awards,
+  covers,
+  enrolls,
+  factories,
+  provinces,
+  questions,
+} from "../drizzle/schema";
 import { buildPage, type PaginationQueryDto, resolvePage } from "../schema/pagination";
 import { utilities } from "../utils";
 import { latestCoverLogFor, latestCoverLogLateral } from "./coverStatus";
-import { type EvaluationPeriod, evaluationPeriod } from "./evaluationPeriod";
 import {
   type AnswerWithCategory,
   type CategoryKey,
   calculateBreakdown,
-  computeGrade,
+  type Grade,
 } from "./scoreHelpers";
 
 export { calculateBreakdown, computeGrade, scoreGroup } from "./scoreHelpers";
@@ -26,11 +33,7 @@ type CoverWithFactoryInfo = {
 /** A Cover is scorable once it leaves `in_progress`. See docs/adr/0011. */
 const SCORABLE_STATUSES = ["in_review", "finished"] as const;
 
-export const createScoreService = (
-  database: typeof db,
-  // TEMPORARY (FY2026 extension, revert 2026-10-16)
-  period: EvaluationPeriod = evaluationPeriod,
-) => {
+export const createScoreService = (database: typeof db) => {
   /**
    * Shared join chain for the Score Report list reads. Both the count query and the page query are
    * built from it, so their predicates cannot drift and `meta.total` always describes the same
@@ -97,14 +100,32 @@ export const createScoreService = (
   };
 
   /**
-   * Compute one Score Report. The scoring rules themselves are untouched by this bolt — only the
-   * size of their input changed.
+   * The stored Grade of each Cover, in one query however many Covers are asked for (ADR-0011).
+   * A Cover with no `Awards` row is simply absent from the map: its Grade reads as null.
+   */
+  const storedGrades = async (coverIds: number[]) => {
+    const byCover = new Map<number, Grade>();
+    if (coverIds.length === 0) return byCover;
+    const rows = await database
+      .select({ coverId: awards.coverId, grade: awards.grade })
+      .from(awards)
+      .where(inArray(awards.coverId, coverIds));
+    for (const row of rows) {
+      if (row.coverId !== null) byCover.set(row.coverId, row.grade);
+    }
+    return byCover;
+  };
+
+  /**
+   * Compute one Score Report. The scoring breakdown is computed on demand; the Grade is only read,
+   * from the `Awards` row finalize wrote (ADR-0001, amended).
    *
    * `grade` is non-null only for a `finished` Cover, per intent 011-finished-cover-reward-guard.
    */
   const toScoreReport = (
     cover: CoverWithFactoryInfo & { coverStatus: string },
     coverAnswers: AnswerWithCategory[],
+    storedGrade: Grade | undefined,
   ) => {
     const scoring = calculateBreakdown(coverAnswers);
     return {
@@ -113,7 +134,7 @@ export const createScoreService = (
       coverId: cover.coverId,
       coverStatus: cover.coverStatus,
       enrollId: cover.enrollId,
-      grade: cover.coverStatus === "finished" ? computeGrade(scoring, coverAnswers) : null,
+      grade: cover.coverStatus === "finished" ? (storedGrade ?? null) : null,
       scoring,
     };
   };
@@ -125,11 +146,15 @@ export const createScoreService = (
   const listScoreReports = async ({
     region,
     provinceId,
+    fiscalYear,
     page,
     limit,
-  }: { region?: number; provinceId?: number } & PaginationQueryDto) => {
-    // TEMPORARY (FY2026 extension, revert 2026-10-16): staff keep the ended year in the window.
-    const { fiscalYearStart, fiscalYearEnd } = period.reviewerFiscalYear();
+  }: { region?: number; provinceId?: number; fiscalYear?: number } & PaginationQueryDto) => {
+    const {
+      fiscalYear: resolvedFiscalYear,
+      fiscalYearStart,
+      fiscalYearEnd,
+    } = utilities().getReviewerFiscalYear(fiscalYear);
     const resolved = resolvePage({ page, limit });
     const latest = latestCoverLogLateral(database);
 
@@ -167,20 +192,31 @@ export const createScoreService = (
     ]);
 
     // Phase 2 — hydrate ONLY the page, then compute.
-    const answersByCover = await hydrateAnswers(coverPage.map((c) => c.coverId));
+    const pageCoverIds = coverPage.map((c) => c.coverId);
+    const [answersByCover, gradesByCover] = await Promise.all([
+      hydrateAnswers(pageCoverIds),
+      storedGrades(pageCoverIds),
+    ]);
     const items = coverPage.map((c) =>
       toScoreReport(
         { ...c, coverStatus: c.coverStatus as string },
         answersByCover.get(c.coverId) ?? [],
+        gradesByCover.get(c.coverId),
       ),
     );
 
-    return buildPage(items, total, resolved.page, resolved.limit);
+    const withFiscalYear = items.map((item) => ({ ...item, fiscalYear: resolvedFiscalYear }));
+
+    return buildPage(withFiscalYear, total, resolved.page, resolved.limit);
   };
 
   return {
-    getScoreByFactory: async (factoryId: number) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+    getScoreByFactory: async (factoryId: number, fiscalYear?: number) => {
+      const {
+        fiscalYear: resolvedFiscalYear,
+        fiscalYearStart,
+        fiscalYearEnd,
+      } = utilities().getFiscalYear(fiscalYear);
 
       const coverRow = await database
         .select({
@@ -227,11 +263,9 @@ export const createScoreService = (
         category: a.category as CategoryKey,
       }));
       const scoring = calculateBreakdown(mappedAnswers);
-      // TEMPORARY (FY2026 extension, revert 2026-10-16): factories are not told their Grade
-      // until the Evaluation Period ends. `scoring` stays visible (decision 5b).
       const grade =
-        coverStatus === "finished" && !period.isOpen()
-          ? computeGrade(scoring, mappedAnswers)
+        coverStatus === "finished"
+          ? ((await storedGrades([coverRow.coverId])).get(coverRow.coverId) ?? null)
           : null;
 
       return {
@@ -240,20 +274,25 @@ export const createScoreService = (
         coverId: coverRow.coverId,
         coverStatus,
         enrollId: coverRow.enrollId,
+        fiscalYear: resolvedFiscalYear,
         grade,
         scoring,
       };
     },
 
-    getScoresByRegion: async (region: number, pagination?: PaginationQueryDto) =>
-      listScoreReports({ region, ...pagination }),
+    getScoresByRegion: async (
+      region: number,
+      pagination?: PaginationQueryDto & { fiscalYear?: number },
+    ) => listScoreReports({ region, ...pagination }),
 
-    getScoresByProvince: async (provinceId: number, pagination?: PaginationQueryDto) =>
-      listScoreReports({ provinceId, ...pagination }),
+    getScoresByProvince: async (
+      provinceId: number,
+      pagination?: PaginationQueryDto & { fiscalYear?: number },
+    ) => listScoreReports({ provinceId, ...pagination }),
 
     getAllScores: async (
       filters?: { region?: number; provinceId?: number },
-      pagination?: PaginationQueryDto,
+      pagination?: PaginationQueryDto & { fiscalYear?: number },
     ) => listScoreReports({ ...filters, ...pagination }),
   };
 };

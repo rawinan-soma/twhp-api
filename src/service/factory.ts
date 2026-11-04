@@ -12,7 +12,7 @@ import {
 } from "../drizzle/schema";
 import type { CreateFactoryDto, UpdateFactoryDto } from "../schema/factory";
 import { buildPage, type PaginationQueryDto, resolvePage } from "../schema/pagination";
-import { type EvaluationPeriod, evaluationPeriod } from "./evaluationPeriod";
+import { utilities } from "../utils";
 
 /** Shared projection for every factory list variant. The Admin variant prepends `username`. */
 const factoryListColumns = {
@@ -33,7 +33,11 @@ const factoryListColumns = {
   is_validate: factories.isValidate,
 };
 
-type FactoryListParams = { validated: boolean; enrolled?: boolean } & PaginationQueryDto;
+type FactoryListParams = {
+  validated: boolean;
+  enrolled?: boolean;
+  fiscalYear?: number;
+} & PaginationQueryDto;
 
 /**
  * The `enrolled` filter as a correlated EXISTS rather than a join, so a factory with several
@@ -45,15 +49,20 @@ type FactoryListParams = { validated: boolean; enrolled?: boolean } & Pagination
  * at least one enrollment exists, which is what the previous innerJoin did on the region and
  * province variants.
  */
-const enrollExists = (
-  database: typeof db,
-  withFiscalYear: boolean,
-  // TEMPORARY (FY2026 extension, revert 2026-10-16): staff keep the ended year in the window.
-  period: EvaluationPeriod,
-) => {
+/**
+ * Stamps the resolved fiscal year onto list items.
+ *
+ * Only when the fiscal-year predicate was actually applied. `enrolled=false` disables that
+ * predicate (see `enrollExists`), so those rows may span years and no single value would be
+ * truthful — the field is omitted rather than guessed. Documented in docs/api-conventions.md.
+ */
+const stampFiscalYear = <T>(items: T[], applied: boolean, fiscalYear?: number) =>
+  applied ? items.map((item) => ({ ...item, fiscalYear })) : items;
+
+const enrollExists = (database: typeof db, withFiscalYear: boolean, fiscalYear?: number) => {
   const conditions: (SQL | undefined)[] = [eq(enrolls.factoryId, factories.accountId)];
   if (withFiscalYear) {
-    const { fiscalYearStart, fiscalYearEnd } = period.reviewerFiscalYear();
+    const { fiscalYearStart, fiscalYearEnd } = utilities().getReviewerFiscalYear(fiscalYear);
     conditions.push(gte(enrolls.enrollDate, fiscalYearStart.toISOString()));
     conditions.push(lt(enrolls.enrollDate, fiscalYearEnd.toISOString()));
   }
@@ -109,11 +118,7 @@ const createFactoryHelper = (database: typeof db) => {
   };
 };
 
-export const createFactoryService = (
-  database: typeof db,
-  // TEMPORARY (FY2026 extension, revert 2026-10-16)
-  period: EvaluationPeriod = evaluationPeriod,
-) => {
+export const createFactoryService = (database: typeof db) => {
   const helper = createFactoryHelper(database);
   return {
     register: async (dto: CreateFactoryDto) => {
@@ -217,6 +222,7 @@ export const createFactoryService = (
       validated,
       enrolled = true,
       provinceId,
+      fiscalYear,
       page,
       limit,
     }: FactoryListParams & { provinceId: number }) => {
@@ -227,7 +233,7 @@ export const createFactoryService = (
       const predicate = and(
         eq(factories.isValidate, validated),
         eq(factories.provinceId, provinceId),
-        enrollExists(database, enrolled, period),
+        enrollExists(database, enrolled, fiscalYear),
       );
 
       const [total, items] = await Promise.all([
@@ -244,13 +250,19 @@ export const createFactoryService = (
           .offset(resolved.offset),
       ]);
 
-      return buildPage(items, total, resolved.page, resolved.limit);
+      return buildPage(
+        stampFiscalYear(items, enrolled, utilities().getReviewerFiscalYear(fiscalYear).fiscalYear),
+        total,
+        resolved.page,
+        resolved.limit,
+      );
     },
 
     getAllFactoriesByRegion: async ({
       validated,
       enrolled = true,
       region,
+      fiscalYear,
       page,
       limit,
     }: FactoryListParams & { region: number }) => {
@@ -259,7 +271,7 @@ export const createFactoryService = (
       const predicate = and(
         eq(factories.isValidate, validated),
         eq(provinces.healthRegion, region),
-        enrollExists(database, enrolled, period),
+        enrollExists(database, enrolled, fiscalYear),
       );
 
       const [total, items] = await Promise.all([
@@ -276,10 +288,21 @@ export const createFactoryService = (
           .offset(resolved.offset),
       ]);
 
-      return buildPage(items, total, resolved.page, resolved.limit);
+      return buildPage(
+        stampFiscalYear(items, enrolled, utilities().getReviewerFiscalYear(fiscalYear).fiscalYear),
+        total,
+        resolved.page,
+        resolved.limit,
+      );
     },
 
-    getAllFactories: async ({ validated, enrolled, page, limit }: FactoryListParams) => {
+    getAllFactories: async ({
+      validated,
+      enrolled,
+      fiscalYear,
+      page,
+      limit,
+    }: FactoryListParams) => {
       const resolved = resolvePage({ page, limit });
       // Admin variant previously used leftJoin(enrolls) with the fiscal-year predicate applied only
       // when `enrolled` is true — so an unfiltered call returned every factory, duplicated once per
@@ -287,7 +310,7 @@ export const createFactoryService = (
       // are selected while removing the duplicates. See docs/adr/0008.
       const predicate = and(
         eq(factories.isValidate, validated),
-        enrolled ? enrollExists(database, true, period) : undefined,
+        enrolled ? enrollExists(database, true, fiscalYear) : undefined,
       );
 
       const [total, items] = await Promise.all([
@@ -305,7 +328,16 @@ export const createFactoryService = (
           .offset(resolved.offset),
       ]);
 
-      return buildPage(items, total, resolved.page, resolved.limit);
+      return buildPage(
+        stampFiscalYear(
+          items,
+          Boolean(enrolled),
+          utilities().getReviewerFiscalYear(fiscalYear).fiscalYear,
+        ),
+        total,
+        resolved.page,
+        resolved.limit,
+      );
     },
 
     update: async (accountId: number, dto: UpdateFactoryDto) => {

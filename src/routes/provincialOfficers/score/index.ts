@@ -1,6 +1,7 @@
 import { ElysiaCustomStatusResponse, status, t } from "elysia";
 import type { App } from "../../..";
 import { officerGuard } from "../../../middleware/guards";
+import { FiscalYearQuery } from "../../../schema/fiscal-year";
 import { PaginationQuery } from "../../../schema/pagination";
 import { ScoreReportPageSchema } from "../../../schema/score";
 import { provincialOfficerService } from "../../../service/provincialOfficer";
@@ -17,13 +18,14 @@ export default (app: App) =>
         return await scoreService.getScoresByProvince(po.provinceId, {
           page: query.page,
           limit: query.limit,
+          fiscalYear: query.fiscalYear,
         });
       },
       {
         detail: {
           description: "ดูคะแนนประเมินโรงงานทั้งหมดในจังหวัด (แบ่งหน้าด้วย ?page= ?limit=)",
         },
-        query: PaginationQuery,
+        query: t.Composite([PaginationQuery, FiscalYearQuery]),
         response: {
           200: ScoreReportPageSchema,
           404: t.Object({ message: t.String({ default: "provincial officer not found" }) }),

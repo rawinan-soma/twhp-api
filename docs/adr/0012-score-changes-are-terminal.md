@@ -117,6 +117,15 @@ change ship against live data with **no migration**.
 - **The `accept` branch is retained but unreachable** for score changes, pending confirmation that no
   deployed frontend still calls it.
 
+## Amendment — hard rejects are closed during the evaluation period
+
+During 1–31 Oct, for Covers of the fiscal year that just ended, a hard reject is refused with `400` on
+verdict save and on finalize. Factories no longer have a prior-year write window, so a bounced Cover
+could never be redone and would stay `in_progress` permanently. Rejects saved before the rollover
+must be re-saved as approve or change_score; finalize refuses before any file deletion, DB write or
+email and names the offending answer ids. Before 1 Oct and from 1 Nov the rule above is unchanged.
+Implemented by `assertHardRejectAllowed` in `src/service/evaluator-review.ts`.
+
 ## Provenance
 
 Delivered as intent `score-change-finality`, runs `run-twhp-elysia-005` through `-010`. Each run's

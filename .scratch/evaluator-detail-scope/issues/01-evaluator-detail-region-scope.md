@@ -2,7 +2,7 @@
 
 # 01 — Evaluator enrollment and factory detail reads have no region scope
 
-Status: ready-for-agent
+Status: closed (resolved 2026-09-03 — merged in PR #11, de0d5e8)
 Category: bug
 Raised: 2026-09-03 (spun out of `.scratch/provincial-read-only-review/`)
 Triaged: 2026-09-03 — claim verified against dev; maintainer confirmed no caller depends on the loose read
@@ -74,3 +74,7 @@ Two of the three original questions resolved without the maintainer:
 
 The third was answered by the maintainer on 2026-09-03: **no known caller depends on the loose read**,
 so the endpoints can be tightened directly. No logging period is needed.
+
+## Comments
+
+- 2026-09-21: Closed. Implemented in PR #11 (merge commit `de0d5e8`), merged into `dev` on 2026-09-03 and reached `main` via `608cf91`.

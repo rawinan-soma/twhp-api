@@ -142,7 +142,7 @@ Cover status resolution was consolidated into `src/service/coverStatus.ts` durin
 
 Answer state resolution is **not** consolidated. Changes to answer log ordering or defaults must still be checked across `answer.ts`, `score.ts`, and `evaluator-review.ts`. Per-choice evidence requirements live in `src/service/answerFileRules.ts`.
 
-Scores and grades are derived on demand. They are not persisted. See [Business rules](business-rules.md) and ADR [0001](adr/0001-score-calculated-on-demand.md).
+Scores are derived on demand. The Grade is stored in `Awards` at finalize and never recomputed. See [Business rules](business-rules.md) and ADR [0001](adr/0001-score-calculated-on-demand.md).
 
 ### PostgreSQL and MinIO
 
@@ -226,7 +226,7 @@ Before changing cross-cutting behavior, preserve or explicitly revise these inva
 1. All HTTP routes live under `/twhp/api` and are registered through `src/routes/` autoload.
 2. `src/drizzle/schema.ts` is the single database schema declaration.
 3. Latest log rows determine current cover/answer state.
-4. Scores and grades are calculated on demand.
+4. Scores are calculated on demand; the Grade is stored at finalize.
 5. Standard enum keys, enrollment columns, service mappings, DTOs, and seed data must remain aligned.
 6. File I/O stays outside database transactions and therefore requires failure compensation.
 7. API and Nginx request-body limits both currently allow 130 MB.

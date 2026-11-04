@@ -2,7 +2,7 @@
 
 # 01 — Three-way reviewer scope + province cover gate
 
-Status: ready-for-agent
+Status: closed (resolved 2026-09-03 — merged in PR #8, 286dbee)
 Category: enhancement
 
 ## Agent Brief
@@ -53,3 +53,7 @@ type-level refactor plus one new scope arm.
 - Any route wiring — that is issue 02.
 - The verdict redaction rule — that is issue 02, and lands on top of this scope.
 - Changing what levels mean or adding a level column to Provincial Officers.
+
+## Comments
+
+- 2026-09-21: Closed. Implemented in PR #8 (merge commit `286dbee`), merged into `dev` on 2026-09-03 and reached `main` via `608cf91`.

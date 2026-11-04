@@ -21,7 +21,7 @@ This is not a live-database inventory. `DATABASE_URL` was absent from the audit 
 
 **Verified.** PostgreSQL is the relational source of truth. Redis holds transient OTP/password-reset data and BullMQ state; MinIO holds evidence objects. PostgreSQL stores only MinIO UUID filenames. The application uses `drizzle-orm/node-postgres` through `db` in `src/drizzle/index.ts:1-4` and a single schema file, `src/drizzle/schema.ts`. TypeBox select/insert/update schemas are derived from the Drizzle tables in `src/schema/index.ts:1-87`.
 
-The schema contains 12 tables and 7 PostgreSQL enums. Scores and grades are calculated on demand and are not persisted (`docs/adr/0001-score-calculated-on-demand.md:9-22`, `src/service/score.ts:createScoreService`). Current Cover and Answer state is derived by “latest log wins,” ordered by descending serial `id`, not timestamp (`src/service/cover.ts:72-78`, `src/service/evaluator-review.ts:193-204`, `src/service/answer.ts:323-331`).
+The schema contains 13 tables and 8 PostgreSQL enums. Scores are calculated on demand; the Grade is stored in `Awards` at finalize (`docs/adr/0001-score-calculated-on-demand.md:9-22`, `src/service/score.ts:createScoreService`). Current Cover and Answer state is derived by “latest log wins,” ordered by descending serial `id`, not timestamp (`src/service/cover.ts:72-78`, `src/service/evaluator-review.ts:193-204`, `src/service/answer.ts:323-331`).
 
 ```mermaid
 erDiagram
@@ -38,11 +38,13 @@ erDiagram
     Provinces ||--o{ ProvincialOfficers : "province_id; RESTRICT"
 
     Factories ||--o{ Enrolls : "factory_id; RESTRICT"
+    Factories ||--o{ Awards : "factory_id; RESTRICT"
     Evaluators ||--o{ Enrolls : "eval_doh_id; RESTRICT"
     Evaluators ||--o{ Enrolls : "eval_odpc_id; RESTRICT"
     Evaluators ||--o{ Enrolls : "eval_mental_id; RESTRICT"
     Enrolls ||--o{ Covers : "enroll_id; CASCADE"
     Covers ||--o{ CoverLogs : "cover_id; NO ACTION"
+    Covers ||--o| Awards : "cover_id; RESTRICT; nullable"
     Covers ||--o{ Answers : "cover_id; NO ACTION"
     Questions ||--o{ Answers : "question_id; NO ACTION"
     Answers ||--o{ AnswerLogs : "answer_id; RESTRICT"
@@ -123,6 +125,7 @@ All are **Verified** in `src/drizzle/schema.ts`.
 | `questionCategories` / `QuestionCategories` | `Collaborate`, `Disease`, `Safety`, `Mental`, `Outcome` | lines 316-322 |
 | `standardTypes` / `StandardTypes` | `standardHC`, `standardSAN`, `standardSANPlus`, `standardWellness`, `standardSafety`, `standardTIS18001`, `standardISO45001`, `standardISO14001`, `standardZero`, `standard5S`, `standardHAS` | lines 324-337 |
 | `choices` / `Choices` | `0`, `1`, `2`, `3`, `n/a` | line 351 |
+| `grades` / `Grades` | `consec-gold`, `gold`, `silver`, `certificate`, `joined` | `src/drizzle/schema.ts` |
 
 Several database type names are quoted/mixed-case, so raw SQL must quote them exactly. `AnswerLogs.verdict_choice` physically permits `n/a` because it uses `Choices`; the verdict API restricts score changes to `0`-`3` (`src/schema/evaluator-review.ts:77-85`). That narrower rule is application-only.
 
@@ -235,6 +238,20 @@ There is no uniqueness on Factory/date and no constraint proving evaluator level
 - TypeScript field `startDate` maps to physical column `enroll_date`, `timestamp(3) DEFAULT CURRENT_TIMESTAMP`.
 
 There is no unique constraint on `enroll_id`.
+
+### Awards
+
+`Awards` is the permanent record of what each factory has won, written by finalize (ADR-0001, amended).
+
+- `id serial` — PK.
+- `factory_id` — FK to `Factories.account_id`; delete `RESTRICT`, update cascade.
+- `fiscal_year int` — **Common Era** year the fiscal year ends in (FY2569 is `2026`). `CHECK` between 2000 and 2100 (`Awards_fiscal_year_range`), so a Buddhist Era year is rejected on the first bad write.
+- `grade Grades`.
+- `cover_id int NULL` — FK to `Covers.id`; delete `RESTRICT`, so an awarded Cover cannot be deleted. Null for imported history that has no Cover here.
+- `awarded_at timestamp(3) DEFAULT CURRENT_TIMESTAMP`.
+- Unique `Awards_factory_id_fiscal_year_key` on (`factory_id`, `fiscal_year`), and unique `Awards_cover_id_key` on `cover_id`. Postgres treats nulls as distinct, so many imported rows coexist while each real Cover is awarded at most once.
+
+Finalize inserts the row in the same transaction as the `finished` `CoverLogs` row, with the Cover's own fiscal year, and `ON CONFLICT (cover_id) DO NOTHING` so a repeat finalize keeps the first Grade. The table, column and constraint names are a contract with the manual backfill SQL in `.scratch/consecutive-gold-award/`.
 
 ### CoverLogs
 
@@ -369,11 +386,25 @@ No outbox, compensating cleanup, reconciliation job, object versioning, request 
 
 All persisted timestamps use PostgreSQL `timestamp(3)` **without time zone**, Drizzle string mode, and `CURRENT_TIMESTAMP`: `Enrolls.enroll_date`, `Covers.enroll_date`, `CoverLogs.updated_at`, and `AnswerLogs.updated_at` (`src/drizzle/schema.ts:152-154,291-293,310-312,381-383`). Latest state is ordered by log `id`, avoiding timestamp-tie ambiguity.
 
-`utilities().getFiscalYear()` constructs local JavaScript dates for October 1 00:00 through the next October 1 00:00, then callers compare ISO UTC strings against the timezone-less column (`src/utils.ts:53-61`). API/worker Compose services set `TZ=Asia/Bangkok`, but the PostgreSQL container and `migrate-dev` do not explicitly set it (`docker-compose.yaml:28-30,78-80,111-113,130-132,143-162`).
+`utilities().getFiscalYear(fiscalYear?)` constructs the October 1 00:00 boundaries against a **fixed UTC+7 offset**, not host-local dates, then callers compare ISO UTC strings against the timezone-less column. The FY2026 start therefore serialises to `2025-09-30T17:00:00.000Z` regardless of where the process runs. API/worker Compose services set `TZ=Asia/Bangkok`, and the PostgreSQL container does not set `TZ` — but the resolver no longer depends on either.
 
-### Uncertainty and risk
+### Observed behavior
 
-Server/session timezone was not observed. Comparing timezone-aware ISO strings with `timestamp without time zone` can shift fiscal-boundary membership when application, local shell, migration process, and PostgreSQL session timezone differ. `CURRENT_TIMESTAMP` stored into a timezone-less column also uses database session interpretation.
+Server timezone **was** observed on 2026-08-21. PostgreSQL reports `TimeZone = UTC`, sourced from the configuration file, with no per-database or per-role override; `docker.env` sets no `TZ` or `PGTZ`, and the same `postgres` service definition backs the `dev`, `staging`, and `production` profiles. `LOCALTIMESTAMP` matches host UTC exactly.
+
+Consequently `enroll_date` holds UTC wall-clock, and `2025-09-30T17:00:00.000Z` is exactly midnight on 1 October in Bangkok. Fiscal-boundary membership is correct, and is now covered by tests that run under `TZ=UTC`, `TZ=Asia/Bangkok`, and `TZ=America/New_York`.
+
+### Remaining risk
+
+Fiscal-year identity is **derived, not stored** — every historical read re-computes its own boundary through `getFiscalYear`. Rows imported directly from CSV rather than written by `CURRENT_TIMESTAMP` (see `CLAUDE.md`) carry dates outside that verified chain. To check an environment:
+
+```sql
+SELECT count(*) FROM "Enrolls"
+WHERE (extract(month from enroll_date)=9  AND extract(day from enroll_date)=30)
+   OR (extract(month from enroll_date)=10 AND extract(day from enroll_date)=1);
+```
+
+An empty result means no existing row sits close enough to a boundary to be reclassified.
 
 This is **Inferred risk** with **Unknown live configuration**, not proof that current production rows are wrong. Establish one canonical timezone, verify session settings, test Sep-30/Oct-1 Bangkok boundaries, and consider `timestamptz` for instants. If fiscal membership must be unique, use an enforceable fiscal-year key or equivalent database design rather than only a time-range pre-check.
 

@@ -160,6 +160,12 @@ export const EnrollWithCoverSelect = t.Composite([
     coverStatus: t.Nullable(
       t.Union([t.Literal("finished"), t.Literal("in_progress"), t.Literal("in_review")]),
     ),
+    /**
+     * Common Era fiscal year of this record. Optional because the Factory list with
+     * `enrolled=false` disables fiscal-year filtering entirely, so its rows may span years and no
+     * single value would be truthful. See docs/api-conventions.md.
+     */
+    fiscalYear: t.Optional(t.Number()),
   }),
 ]);
 export const EnrollWithCoverListSchema = t.Array(EnrollWithCoverSelect);
@@ -170,3 +176,11 @@ export const EnrollWithCoverListSchema = t.Array(EnrollWithCoverSelect);
  * See docs/adr/0007-pagination-envelope-scoped-exception.md.
  */
 export const EnrollWithCoverPageSchema = Paginated(EnrollWithCoverSelect);
+
+/**
+ * The 400 message when the gold-tier enrolment lockout rejects a create (docs/adr/0014). Names the
+ * next fiscal year, Common Era, the factory may enrol in. English placeholder until the maintainer
+ * supplies the Thai wording; the service and the OpenAPI example both build it here.
+ */
+export const goldEnrolmentLockoutMessage = (eligibleFiscalYear: number) =>
+  `enrollment is closed after a gold-tier award; next eligible fiscal year is ${eligibleFiscalYear}`;
