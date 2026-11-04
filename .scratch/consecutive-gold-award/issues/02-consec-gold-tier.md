@@ -119,8 +119,10 @@ ad-hoc query over `Awards` is a review failure.
       `consec-gold`, given the FY − 3 history.
 - [ ] A Cover with an `n/a` on a `special == 2` Question grades `gold`, not
       `consec-gold`.
-- [ ] A Cover with a `special == 1` or `special == 3` Answer below `"3"` cannot
-      reach `gold` however high its percentages.
+- [ ] A Cover with a `special == 1` Answer below `"3"` cannot reach `gold`
+      however high its percentages. *(Amended 2026-11-04: originally "`special == 1`
+      or `special == 3`". Ticket 05 narrowed the gate to `special == 1` only, so a
+      `special == 3` Answer below `"3"` no longer blocks `gold`.)*
 - [ ] A Cover with every `special == 1` and `special == 3` Answer at `"3"`, a
       `special == 2` Answer at `"1"`, all categories above 80% and a total of at
       least 90% grades `gold` — the case that was `silver` before this change.
@@ -131,8 +133,10 @@ ad-hoc query over `Awards` is a review failure.
       number of queries that does not grow with page size.
 - [ ] `ScoreReportSchema` accepts `"consec-gold"` and still rejects an unknown
       grade such as `"platinum"`.
-- [ ] `CONTEXT.md`'s Grade table and Question glossary entry need no correction
-      for the `gold` gate - the code now matches what they already say.
+- [ ] `CONTEXT.md`'s Grade table and Question glossary entry match the code for
+      the `gold` gate. *(Amended 2026-11-04: originally "need no correction".
+      Ticket 05 changed the gate to `special == 1` only, so `CONTEXT.md` was
+      rewritten to say so; see ticket 05 criterion 7.)*
 - [ ] BR-23 in `docs/business-rules.md` no longer records a `special=2`
       discrepancy, and its rule text states the settled ladder.
 - [ ] The `Gold requires full score on every special > 0 Question` row is removed
