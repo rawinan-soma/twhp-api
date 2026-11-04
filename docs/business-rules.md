@@ -84,7 +84,7 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Implementation:** `assertYearWritable` in `src/service/evaluator-review.ts` (review and finalize,
   admitting `evaluationPeriodApplies`); `getReviewerFiscalYear` for staff-read defaults;
   `resolveWritableYear` in `src/service/answer.ts` refuses a non-current year on the four Factory paths.
-  Hard rejects are refused during the evaluation period (`isInEvaluationPeriod`, on verdict save and finalize).
+  Hard rejects are refused during the evaluation period (`assertHardRejectAllowed`, on verdict save and finalize).
 - **Inputs/conditions:** the target Cover's Enrollment date, the caller's role and evaluator level,
   and the current instant.
 - **Result:** the write proceeds, or is refused with a message naming the closed year.

@@ -23,7 +23,7 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 There are 31 test files: the 11 isolated ones listed below, 16 `*.integration.test.ts` files that need a disposable PostgreSQL, and a few more that tolerate a missing database.
 
 ```bash
-# Isolated only — safe anywhere. 250 pass / 0 fail as of 2026-11-04.
+# Isolated only — safe anywhere. 251 pass / 0 fail as of 2026-11-04.
 bun test src/config.test.ts src/routes/authentication/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
@@ -137,6 +137,10 @@ The classification is normative and must not be narrowed to a status test:
 Rows written before 2026-08-25 are `rejected` **with** a `verdict_choice`; they are score changes. No
 migration was run. Finalize writes the settled Verdict Score into `answers.selected_choice` and is the
 only writer of `finished`. See `docs/adr/0012-score-changes-are-terminal.md`.
+
+During the evaluation period (1–31 Oct, the prior year) a hard reject is refused with 400 on verdict
+save and on finalize, because the factory can no longer edit a closed year. Approve or change the
+score instead (ADR-0012, amended).
 
 ### Grade ladder
 

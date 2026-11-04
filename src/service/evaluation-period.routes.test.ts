@@ -91,24 +91,30 @@ describe("assertYearWritable during the evaluation period", () => {
   });
 });
 
-describe("isInEvaluationPeriod — gate for the October hard-reject block", () => {
+describe("assertHardRejectAllowed — the October hard-reject block", () => {
   const coverIn = (wallClock: string) => recorder([[iso(wallClock)]]);
+  const helperAt = (now: string, enrollDate = "2026-03-01T12:00:00.000") => {
+    setSystemTime(bkk(now));
+    return createEvaluatorReviewHelper(coverIn(enrollDate).database);
+  };
+  const messageOf = (r: unknown) => (r as { response: { message: string } }).response.message;
 
-  it("is true for a prior-year Cover during 1-31 Oct", async () => {
-    setSystemTime(bkk("2026-10-20T12:00:00.000"));
-    const helper = createEvaluatorReviewHelper(coverIn("2026-03-01T12:00:00.000").database);
-    expect(await helper.isInEvaluationPeriod(1)).toBe(true);
+  it("refuses a prior-year hard reject during 1-31 Oct with 400", async () => {
+    const result = await helperAt("2026-10-20T12:00:00.000").assertHardRejectAllowed(1);
+    expect(result).toBeInstanceOf(ElysiaCustomStatusResponse);
+    expect(messageOf(result)).toContain("approve or change the score");
   });
 
-  it("is false from 1 Nov", async () => {
-    setSystemTime(bkk("2026-11-01T00:00:00.000"));
-    const helper = createEvaluatorReviewHelper(coverIn("2026-03-01T12:00:00.000").database);
-    expect(await helper.isInEvaluationPeriod(1)).toBe(false);
+  it("names the pending reject ids for finalize", async () => {
+    const result = await helperAt("2026-10-20T12:00:00.000").assertHardRejectAllowed(1, [7, 9]);
+    expect(messageOf(result)).toContain("re-save answers 7, 9");
   });
 
-  it("is false for a current-year Cover, so hard rejects work before the rollover", async () => {
-    setSystemTime(bkk("2026-09-20T12:00:00.000"));
-    const helper = createEvaluatorReviewHelper(coverIn("2026-03-01T12:00:00.000").database);
-    expect(await helper.isInEvaluationPeriod(1)).toBe(false);
+  it("allows it from 1 Nov", async () => {
+    expect(await helperAt("2026-11-01T00:00:00.000").assertHardRejectAllowed(1)).toBeNull();
+  });
+
+  it("allows it before the rollover (current-year Cover)", async () => {
+    expect(await helperAt("2026-09-20T12:00:00.000").assertHardRejectAllowed(1)).toBeNull();
   });
 });
