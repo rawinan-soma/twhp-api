@@ -201,10 +201,10 @@ The period is a rule relative to the boundary, not a date range: `EVALUATION_DAY
 
 #### Factory grace window
 
-For **61 days** (1 Oct through 30 Nov) after the fiscal-year boundary, a Factory may continue to complete a prior-year Cover that has not reached `finished`.
+For **31 days** after the fiscal-year boundary, a Factory may continue to complete a prior-year Cover that has not reached `finished`.
 
 ```
-GET  boundary ─────────── +61 days ──────────►
+GET  boundary ─────────── +31 days ──────────►
      │                    │
      │  factory may       │  factory read-only for that year
      │  still complete    │  DOED/ODPC authority continues, without expiry

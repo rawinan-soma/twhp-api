@@ -78,8 +78,8 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 ### BR-06a — Fiscal-year write authority
 
 - **Rule:** Writes target the current fiscal year. A closed year is writable by `Role.DOED` and by
-  `Role.Evaluator` at level `ODPC` without expiry, and by a Factory only during a 61-day grace window
-  (through 30 Nov) following the rollover boundary. Every evaluator level may also save verdicts (not finalize) in the year that
+  `Role.Evaluator` at level `ODPC` without expiry, and by a Factory only during a 31-day grace window
+  following the rollover boundary. Every evaluator level may also save verdicts (not finalize) in the year that
   just ended during the 31-day evaluation period (through 31 Oct), and staff reads default to that year.
 - **Implementation:** `assertYearWritable` in `src/service/evaluator-review.ts` (review and finalize,
   admitting `evaluationPeriodApplies`); `getReviewerFiscalYear` for staff-read defaults;

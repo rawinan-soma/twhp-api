@@ -85,14 +85,14 @@ const getFiscalYearOf = (instant: Date) => {
  * Lives in this module rather than `src/schema/fiscal-year.ts` because it needs the resolver below,
  * and that module is already imported *by* this one; the reverse direction would be circular.
  */
-export const GRACE_DAYS = 61;
+export const GRACE_DAYS = 31;
 
 /**
  * Days after the rollover boundary during which reviewers still audit the fiscal year that just
  * ended: 1 Oct up to 1 Nov 00:00 Bangkok, i.e. through 31 Oct of the next fiscal year.
  *
- * Relative to the rollover so it recurs every year. Factories finish their self-audit later
- * (`GRACE_DAYS`, through 30 Nov), and ODPC may write to a closed year without expiry.
+ * Relative to the rollover so it recurs every year. Factories keep their own grace window
+ * (`GRACE_DAYS`, also 31 days), and ODPC may write to a closed year without expiry.
  */
 export const EVALUATION_DAYS = 31;
 

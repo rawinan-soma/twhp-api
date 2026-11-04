@@ -173,8 +173,8 @@ All enrollment/cover queries are scoped to the current fiscal year (Oct 1 – Se
 Oct 1 rollover (through 31 Oct, `EVALUATION_DAYS`). During it, every reviewer level may save
 verdicts on that year (`finalize` stays ODPC-only), and the nine staff list endpoints default to it
 when `?fiscalYear` is omitted. Staff-side list reads use `utilities().getReviewerFiscalYear()`;
-factory-side reads and writes keep `getFiscalYear()`. Factories may still complete the prior year
-through 30 Nov (`GRACE_DAYS` = 61). Both windows are relative to the rollover, never literal dates.
+factory-side reads and writes keep `getFiscalYear()`. Factories keep their separate 31-day grace to
+complete the prior year (`GRACE_DAYS`). Both windows are relative to the rollover, never literal dates.
 
 ### File storage
 
