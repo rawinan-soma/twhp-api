@@ -2,7 +2,7 @@
 
 # 01 — Permanent 31 Oct evaluation period for staff review
 
-**Status:** ready-for-agent
+**Status:** closed
 **Category:** enhancement
 
 ## Agent Brief
@@ -32,3 +32,7 @@
 8. `GRACE_DAYS` and `factoryGraceApplies` no longer exist.
 9. Docs match: `docs/api-conventions.md`, `docs/business-rules.md` (BR-06, BR-06a, BR-06b), ADR-0012 amendment, `CLAUDE.md`.
 10. The isolated test files pass (see `CLAUDE.md` Commands) and `bun ./node_modules/.bin/biome check src` reports no errors.
+
+## Comments
+
+Merged in #26 (d733ee8).
