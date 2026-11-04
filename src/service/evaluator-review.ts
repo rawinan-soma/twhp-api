@@ -80,7 +80,7 @@ export const adminReviewerContext = (accountId: number): ReviewerContext => ({
   scope: { kind: "national" },
 });
 
-const createEvaluatorReviewHelper = (database: typeof db) => {
+export const createEvaluatorReviewHelper = (database: typeof db) => {
   const assertCoverInRegion = async (coverId: number, region: number) => {
     const row = await database
       .select({ coverId: covers.id })
@@ -154,10 +154,26 @@ const createEvaluatorReviewHelper = (database: typeof db) => {
   };
 
   /**
+   * Refuses a hard reject while the Cover's year is under evaluation (1-31 Oct): the factory can no
+   * longer edit a closed year, so a bounced Cover would be stranded. `pendingRejectIds` is passed by
+   * finalize to name rejects saved before the rollover.
+   */
+  const assertHardRejectAllowed = async (coverId: number, pendingRejectIds?: Iterable<number>) => {
+    const targetYear = await fiscalYearOfCover(coverId);
+    if (targetYear === null || !utilities().evaluationPeriodApplies(targetYear)) return null;
+
+    const resave = pendingRejectIds
+      ? `; re-save answers ${[...pendingRejectIds].join(", ")} as approve or change_score`
+      : "; approve or change the score instead";
+    return status(400, { message: `hard reject is closed during the evaluation period${resave}` });
+  };
+
+  /**
    * Gate on the fiscal year of the target Cover.
    *
    * A closed year is writable only by ODPC — natively, or by a DOED admin, which
-   * `adminReviewerContext` already models as a national ODPC.
+   * `adminReviewerContext` already models as a national ODPC. The one exception is the evaluation
+   * period (1-31 Oct): the year that just ended is writable by every level.
    *
    * The target year comes from the Cover, never from the request. If a write could nominate its own
    * year, a caller could relabel which year it is editing and bypass this gate entirely.
@@ -172,6 +188,9 @@ const createEvaluatorReviewHelper = (database: typeof db) => {
     // Unchanged for every level while the year is open. A blanket ODPC-only rule here would strip
     // Mental and DOH of their legitimate current-year review work.
     if (targetYear === utilities().getFiscalYear().fiscalYear) return null;
+
+    // The year just ended stays open to every reviewer level through 31 Oct.
+    if (utilities().evaluationPeriodApplies(targetYear)) return null;
 
     if (reviewer.level !== "ODPC") {
       return status(403, {
@@ -189,6 +208,7 @@ const createEvaluatorReviewHelper = (database: typeof db) => {
     assertCoverAccess,
     fiscalYearOfCover,
     assertYearWritable,
+    assertHardRejectAllowed,
   };
 };
 
@@ -375,6 +395,11 @@ export const createEvaluatorReviewService = (database: typeof db) => {
       // existing 404 rather than a message revealing that a Cover exists in a particular year.
       const yearCheck = await helper.assertYearWritable(coverId, reviewer);
       if (yearCheck instanceof ElysiaCustomStatusResponse) return yearCheck;
+
+      if (entry.decision === "reject") {
+        const rejectCheck = await helper.assertHardRejectAllowed(coverId);
+        if (rejectCheck instanceof ElysiaCustomStatusResponse) return rejectCheck;
+      }
 
       // Answer must exist within this Cover
       const answerRow = await database
@@ -608,6 +633,13 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           .map((r) => r.answerId),
       );
 
+      // Rejects saved before the rollover but not yet finalized. Refused before any file deletion,
+      // DB write or email.
+      if (hardRejectIds.size > 0) {
+        const rejectCheck = await helper.assertHardRejectAllowed(coverId, hardRejectIds);
+        if (rejectCheck instanceof ElysiaCustomStatusResponse) return rejectCheck;
+      }
+
       // Standard certificates behind a hard-rejected question. A standard-backed Answer holds
       // no per-answer files — `selectedChoice` was forced to "3" from the certificate — so
       // without this a hard reject deletes nothing and the redo re-derives the same "3".
@@ -710,7 +742,7 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         special: a.special,
       }));
       // The Cover's own fiscal year, not the current one: a past-year Cover can be finalized after
-      // rollover (ODPC/DOED past-year authority, the Factory grace window). It is also the year the
+      // rollover (ODPC/DOED past-year authority, the evaluation period). It is also the year the
       // `consec-gold` lookback counts back from.
       const awardFiscalYear = utilities().getFiscalYearOf(new Date(enrollData.enrollDate));
 

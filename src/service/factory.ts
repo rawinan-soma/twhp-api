@@ -62,7 +62,7 @@ const stampFiscalYear = <T>(items: T[], applied: boolean, fiscalYear?: number) =
 const enrollExists = (database: typeof db, withFiscalYear: boolean, fiscalYear?: number) => {
   const conditions: (SQL | undefined)[] = [eq(enrolls.factoryId, factories.accountId)];
   if (withFiscalYear) {
-    const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear(fiscalYear);
+    const { fiscalYearStart, fiscalYearEnd } = utilities().getReviewerFiscalYear(fiscalYear);
     conditions.push(gte(enrolls.enrollDate, fiscalYearStart.toISOString()));
     conditions.push(lt(enrolls.enrollDate, fiscalYearEnd.toISOString()));
   }
@@ -251,7 +251,7 @@ export const createFactoryService = (database: typeof db) => {
       ]);
 
       return buildPage(
-        stampFiscalYear(items, enrolled, utilities().getFiscalYear(fiscalYear).fiscalYear),
+        stampFiscalYear(items, enrolled, utilities().getReviewerFiscalYear(fiscalYear).fiscalYear),
         total,
         resolved.page,
         resolved.limit,
@@ -289,7 +289,7 @@ export const createFactoryService = (database: typeof db) => {
       ]);
 
       return buildPage(
-        stampFiscalYear(items, enrolled, utilities().getFiscalYear(fiscalYear).fiscalYear),
+        stampFiscalYear(items, enrolled, utilities().getReviewerFiscalYear(fiscalYear).fiscalYear),
         total,
         resolved.page,
         resolved.limit,
@@ -329,7 +329,11 @@ export const createFactoryService = (database: typeof db) => {
       ]);
 
       return buildPage(
-        stampFiscalYear(items, Boolean(enrolled), utilities().getFiscalYear(fiscalYear).fiscalYear),
+        stampFiscalYear(
+          items,
+          Boolean(enrolled),
+          utilities().getReviewerFiscalYear(fiscalYear).fiscalYear,
+        ),
         total,
         resolved.page,
         resolved.limit,

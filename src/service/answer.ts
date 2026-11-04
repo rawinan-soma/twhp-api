@@ -13,21 +13,16 @@ import { missingFileForChoice } from "./answerFileRules";
 /**
  * Resolves which fiscal year a Factory write targets, or refuses.
  *
- * Grace WIDENS the selection window rather than gating an existing target: these paths take no
- * coverId, they FIND the Cover using the year window. The year must therefore be resolved before the
- * lookup, not after it — the reverse of `assertYearWritable` on the evaluator paths, where the
- * target already exists.
- *
- * An explicit year is safe here because `factoryId` comes from the JWT subject, so the query is
- * already confined to the caller's own records. Naming a year selects among its OWN Covers.
- * Widening the window while keeping `.limit(1)` would instead pick arbitrarily between two
- * legitimately open years during grace.
+ * A Factory writes only the current fiscal year; it must finish self-evaluation before the
+ * rollover. These paths take no coverId, they FIND the Cover using the year window, so the year is
+ * resolved before the lookup — the reverse of `assertYearWritable` on the evaluator paths, where the
+ * target already exists. An explicit year is accepted only when it equals the current one.
  */
 const resolveWritableYear = (fiscalYear?: number) => {
   const currentYear = utilities().getFiscalYearOf(new Date());
   const targetYear = fiscalYear ?? currentYear;
 
-  if (targetYear !== currentYear && !utilities().factoryGraceApplies(targetYear)) {
+  if (targetYear !== currentYear) {
     return status(403, { message: `fiscal year ${targetYear} is closed to factories` });
   }
 

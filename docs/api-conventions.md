@@ -166,7 +166,7 @@ GET /twhp/api/admins/enrolls?fiscalYear=2026&page=2&limit=50
 
 The value is a **Common Era** year, labelled by the year the fiscal year *ends*: `2026` means 1 October 2025 through 30 September 2026. Buddhist Era is a presentation concern owned by the client, which renders `fiscalYear + 543` (2026 → พ.ศ. 2569). No BE value crosses the API in either direction.
 
-**Omitting the parameter selects the current fiscal year**, which is what every caller did before the parameter existed, so an existing client sees no change. The bounds are 2000–2100 and are declared once in `src/schema/fiscal-year.ts`; an out-of-range or fractional value is rejected with 400 before any query runs. A valid year holding no data returns an empty page (`meta.total: 0`) or the endpoint's existing not-found shape — never an error implying the year itself is invalid.
+**Omitting the parameter selects the current fiscal year**, with one exception: the nine staff list endpoints default to the fiscal year that just ended during 1–31 Oct (see [Evaluation period](#evaluation-period)). Factory-side endpoints always default to the current year. The bounds are 2000–2100 and are declared once in `src/schema/fiscal-year.ts`; an out-of-range or fractional value is rejected with 400 before any query runs. A valid year holding no data returns an empty page (`meta.total: 0`) or the endpoint's existing not-found shape — never an error implying the year itself is invalid.
 
 Addressing is open-ended in both directions and applies to **reads only**. Every write path remains scoped to the current fiscal year.
 
@@ -174,52 +174,46 @@ Responses carry the resolved `fiscalYear` so a client never has to infer it from
 
 #### Fiscal-year write authority
 
-Reads may address any fiscal year (see [Fiscal year](#fiscal-year)). **Writes are current-fiscal-year only, with two exceptions.**
+Reads may address any fiscal year (see [Fiscal year](#fiscal-year)). **Writes are current-fiscal-year only, with two exceptions:** the evaluation period and closed-year authority. A Factory has no exception: it finishes self-evaluation before the 1 Oct rollover.
 
 | Actor | May write a closed fiscal year? |
 |-------|-------------------------------|
+| Any evaluator or DOED admin | **Verdict saves only, during the evaluation period** — 1 Oct through 31 Oct, for the year that just ended (see below). Finalize remains ODPC-only |
 | DOED admin | **Yes**, on review and finalize. Does not expire |
 | Evaluator at level `ODPC` | **Yes**, within its existing region. Does not expire |
 | Evaluator at level `Mental` or `DOH` | No — refused with `fiscal year {N} is closed; only ODPC may write to it` |
 | Provincial Officer | No — has no write path |
-| Factory | **Only during the grace window** (below) |
+| Factory | **No.** Closed years are refused with `fiscal year {N} is closed to factories`; there is no grace window |
 
 The target year of an evaluator write is read from the Cover's Enrollment; it is never named by the request. A request that could nominate its own year could relabel which year it is editing.
 
 Region scope is unchanged by any of this. Authority over a closed year does not widen geographic reach, and an out-of-region caller receives the existing `404 cover not found` rather than a year-related message — so no caller learns that a Cover exists in a particular year.
 
-#### Factory grace window
+#### Evaluation period
 
-For **31 days** after the fiscal-year boundary, a Factory may continue to complete a prior-year Cover that has not reached `finished`.
+For **31 days** after the fiscal-year boundary (1 Oct up to 1 Nov 00:00 Bangkok, i.e. through 31 Oct), the fiscal year that just ended is still being audited. A Factory enrolled in FY2570 is audited until 31 Oct of FY2571. During that period:
 
-```
-GET  boundary ─────────── +31 days ──────────►
-     │                    │
-     │  factory may       │  factory read-only for that year
-     │  still complete    │  DOED/ODPC authority continues, without expiry
-```
+- every Evaluator level and DOED may save verdicts on Covers of that year, not only ODPC. `finalize` stays ODPC-only (ADR-0003);
+- staff list reads (`/{admins,evaluators,provincialOfficers}/{factories,enrolls,score}`) default to that year when `fiscalYear` is omitted. From 1 Nov they default to the current year again. An explicit `fiscalYear` always wins;
+- hard rejects are refused (`400`) on Covers of that year, on verdict save and on finalize, because the factory can no longer edit a closed year and a bounced Cover would be stranded. Approve or change the score instead. Rejects saved before the rollover must be re-saved before finalize;
+- factory-side reads and `getFiscalYear()` are unchanged.
 
-The window is defined **relative to the rollover boundary**, not as fixed calendar dates, so it recurs every fiscal year. Only the immediately preceding year is ever admitted — a year further back is always closed.
+The period is a rule relative to the boundary, not a date range: `EVALUATION_DAYS` and `evaluationPeriodApplies` in `src/utils.ts`.
 
-Grace covers **Cover completion only**. These four endpoints accept `fiscalYear`:
+#### Factory writes
+
+A Factory writes only the **current** fiscal year. These four endpoints accept `fiscalYear`, but only the current year is admitted:
 
 - `POST /factories/assessments/answers`
 - `PATCH /factories/assessments/answers`
 - `POST /factories/assessments/answers/negotiate`
 - `POST /factories/assessments/submission`
 
-These deliberately do **not**, and are current-year only at all times:
-
-- `POST /factories/assessments/covers` — grace completes an assessment, it does not start one
-- `POST /factories/enrolls` and `PATCH /factories/enrolls` — closed-year enrollment data is immutable to its owner
-
-Outside the window a Factory's prior-year write is refused with `fiscal year {N} is closed to factories`.
-
-A Cover already at `in_review` is not Factory-writable — it belongs to the reviewers. A `finished` Cover is never reopened, by anyone.
+The other factory write endpoints (`POST /factories/assessments/covers`, `POST` and `PATCH /factories/enrolls`) are current-year only as well. A prior-year write is refused with `fiscal year {N} is closed to factories`. A Cover already at `in_review` is not Factory-writable, and a `finished` Cover is never reopened by anyone.
 
 #### Fiscal-year expiry
 
-**Nothing happens when the grace window closes.** A Cover still `in_progress` stays `in_progress`, permanently. There is no sweep, no scheduled job, no persisted expiry marker, and no terminal status — `coverStatus` has exactly three values and none was added.
+**Nothing happens at the rollover.** A Cover still `in_progress` stays `in_progress`, permanently. There is no sweep, no scheduled job, no persisted expiry marker, and no terminal status — `coverStatus` has exactly three values and none was added.
 
 Expiry is a change in *who may write*, not in *what the Cover is*. Such a Cover remains readable by every role within its normal scope, remains writable by DOED and ODPC without deadline, and remains non-scorable exactly as any `in_progress` Cover already was.
 
@@ -239,7 +233,7 @@ All nine endpoints below changed from a bare JSON array to the `{ items, meta }`
 
 Item field names, casing, filters, role guards, and region and province scoping are unchanged. A client that read the array directly must now read `items` and page through `meta.totalPages`.
 
-Fiscal-year scoping was subsequently made addressable rather than implicit — see [Fiscal year](#fiscal-year). The default is unchanged: omitting `fiscalYear` still selects the current fiscal year.
+Fiscal-year scoping was subsequently made addressable rather than implicit — see [Fiscal year](#fiscal-year). Omitting `fiscalYear` selects the current fiscal year, except on the staff lists during the evaluation period.
 
 **A consumer that needs the complete data set is not served by these endpoints.** Without paging through every page it now receives the first 20 rows and no error. A dedicated bulk-export path is planned as a separate intent and does not exist yet.
 

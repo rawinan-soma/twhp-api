@@ -1,4 +1,13 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  setSystemTime,
+} from "bun:test";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
@@ -15,7 +24,9 @@ import { utilities } from "../utils";
 import { adminReviewerContext, createEvaluatorReviewService } from "./evaluator-review";
 
 /**
- * The fiscal-year write gate: a closed year is writable only by ODPC.
+ * The fiscal-year write gate: a closed year is writable only by ODPC, except during the evaluation
+ * period (1-31 Oct), when every reviewer level may write the year that just ended. The closed-year
+ * cases pin the clock outside that period so they hold on any day the suite runs.
  *
  * TEST STRATEGY — the gate runs AFTER `assertCoverAccess` and BEFORE the Answer lookup. That
  * ordering lets both branches be exercised without Answer or Question fixtures:
@@ -204,19 +215,34 @@ afterAll(async () => {
   await pool.end();
 });
 
-/** The gate's refusal, distinguishable from every other failure on these paths. */
-const isClosedYearRefusal = (result: unknown) =>
-  typeof (result as { message?: string })?.message === "string" &&
-  (result as { message: string }).message.includes("is closed; only ODPC may write");
-
 const messageOf = (result: unknown) => {
   // Elysia status responses carry their body on `.response`; plain returns carry it directly.
   const r = result as { response?: { message?: string }; message?: string };
   return r?.response?.message ?? r?.message;
 };
 
+/** The gate's refusal, distinguishable from every other failure on these paths. */
+const isClosedYearRefusal = (result: unknown) =>
+  messageOf(result)?.includes("is closed; only ODPC may write") ?? false;
+
+const ONE_DAY_MS = 86_400_000;
+
+/**
+ * The evaluation period (1-31 Oct) admits every reviewer level on the year that just ended, so the
+ * "closed" cases pin the clock mid-year (outside the period) and the period case pins it to 2 Oct.
+ * Both are relative to CURRENT_FY, so the suite passes whatever day it really runs.
+ */
+const OUTSIDE_PERIOD = new Date(midFiscalYear(CURRENT_FY));
+const INSIDE_PERIOD = new Date(
+  utilities().getFiscalYear(CURRENT_FY).fiscalYearStart.getTime() + ONE_DAY_MS,
+);
+
 describeDb("saveAnswerVerdict — closed fiscal year", () => {
   const body = { decision: "approve" as const };
+
+  // Every case defaults to outside the period, so none depends on the day the suite really runs.
+  beforeEach(() => setSystemTime(OUTSIDE_PERIOD));
+  afterEach(() => setSystemTime());
 
   it("refuses a Mental evaluator", async () => {
     const result = await service.saveAnswerVerdict(priorCoverId, 1, MENTAL, body);
@@ -228,6 +254,16 @@ describeDb("saveAnswerVerdict — closed fiscal year", () => {
     const result = await service.saveAnswerVerdict(priorCoverId, 1, DOH, body);
 
     expect(messageOf(result)).toContain(`fiscal year ${PRIOR_FY} is closed`);
+  });
+
+  it.each([
+    ["Mental", MENTAL],
+    ["DOH", DOH],
+  ])("admits a %s evaluator on the prior year during the evaluation period", async (_name, reviewer) => {
+    setSystemTime(INSIDE_PERIOD);
+    const result = await service.saveAnswerVerdict(priorCoverId, 1, reviewer, body);
+
+    expect(messageOf(result)).toBe("answer not found in this cover");
   });
 
   it("allows a native ODPC evaluator through the gate", async () => {
@@ -282,6 +318,9 @@ describeDb("saveAnswerVerdict — current fiscal year is unaffected", () => {
 });
 
 describeDb("finalize — gate ordering", () => {
+  beforeEach(() => setSystemTime(OUTSIDE_PERIOD));
+  afterEach(() => setSystemTime());
+
   it("keeps the existing ODPC-only refusal ahead of any year check", async () => {
     // This gate performs no database read, so a non-ODPC caller is refused for its level and never
     // learns anything about the Cover's year.

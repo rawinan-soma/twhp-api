@@ -1,6 +1,6 @@
 # Testing
 
-This project uses Bun's built-in `bun:test` runner for isolated, HTTP-component, schema, and PostgreSQL integration tests. This page describes the repository as verified on 2026-09-02 on branch `dev`; it does not imply that the full suite is green. Fiscal-year coverage (`src/utils.fiscal-year.test.ts`, `src/service/fiscal-year-routes.test.ts`, `src/service/factory-grace.test.ts`, `src/service/evaluator-review.pastyear.test.ts`, and two integration files) was added on `feat/fiscal-year` and merged into `dev` on 2026-09-21.
+This project uses Bun's built-in `bun:test` runner for isolated, HTTP-component, schema, and PostgreSQL integration tests. This page describes the repository as verified on 2026-09-02 on branch `dev`; it does not imply that the full suite is green. Fiscal-year coverage (`src/utils.fiscal-year.test.ts`, `src/service/fiscal-year-routes.test.ts`, `src/service/factory-closed-year.test.ts`, `src/service/evaluator-review.pastyear.test.ts`, and two integration files) was added on `feat/fiscal-year` and merged into `dev` on 2026-09-21. The evaluation period (`src/service/evaluation-period.test.ts` and `src/service/evaluation-period.routes.test.ts`) is covered by two isolated files; the second records queries through a stubbed pg client and needs no database.
 
 For environment setup and service ports, see [Development](./development.md). For database lifecycle and schema guidance, see [Database](./database.md). Unresolved quality risks are tracked in [Technical debt](./technical-debt.md).
 

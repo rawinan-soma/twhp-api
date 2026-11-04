@@ -12,10 +12,10 @@ import { createScoreService } from "./score";
 /**
  * Two open fiscal years at once.
  *
- * This condition CANNOT OCCUR in the system before `factory-grace-window`: a Factory had exactly one
- * live enrollment, and every `.limit(1)` self-read was written under that assumption. Grace breaks
- * it — a Factory may now hold an unfinished prior-year Cover and a new current-year enrollment
- * simultaneously.
+ * A Factory used to hold exactly one live enrollment, and every `.limit(1)` self-read was written
+ * under that assumption. A Factory can still hold a prior-year Cover (unfinished, read-only to it)
+ * and a new current-year enrollment simultaneously; these tests assert self-reads resolve the
+ * intended year.
  *
  * Every self-read is therefore asserted individually rather than reasoned about.
  */
@@ -158,7 +158,7 @@ beforeAll(async () => {
   for (const id of ALL) await cleanupFactory(id);
   for (const id of ALL) await seedFactory(id);
 
-  // FACTORY holds both years — the condition grace makes possible.
+  // FACTORY holds both years — a prior-year Cover plus a current-year enrollment.
   const [priorEnroll] = await db
     .insert(enrolls)
     .values(enrollValues(FACTORY, midFiscalYear(PRIOR_FY)))
