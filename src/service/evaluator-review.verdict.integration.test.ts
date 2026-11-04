@@ -6,6 +6,7 @@ import {
   accounts,
   answerLogs,
   answers,
+  awards,
   coverLogs,
   covers,
   enrolls,
@@ -196,6 +197,7 @@ async function cleanupFactory() {
       if (aIds.length > 0) await db.delete(answerLogs).where(inArray(answerLogs.answerId, aIds));
       await db.delete(answers).where(eq(answers.coverId, c.id));
       await db.delete(coverLogs).where(eq(coverLogs.coverId, c.id));
+      await db.delete(awards).where(eq(awards.factoryId, TEST_FACTORY_ACCOUNT_ID));
       await db.delete(covers).where(eq(covers.id, c.id));
     }
     await db.delete(enrolls).where(eq(enrolls.id, e.id));
@@ -285,8 +287,11 @@ beforeAll(async () => {
   addSpy = spyOn(emailQueue, "add").mockResolvedValue({} as never);
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   addSpy.mockClear();
+  // Every test finalizes its own Cover under the one fixture factory and fiscal year, which the
+  // one-award-per-factory-per-year constraint forbids in production. Start each test clean.
+  await db.delete(awards).where(eq(awards.factoryId, TEST_FACTORY_ACCOUNT_ID));
 });
 
 afterAll(async () => {
@@ -511,6 +516,8 @@ describe("Settled score changes at finalize", () => {
     // Every answer downgraded 2 → 0 must score lower than the same Cover left at 2.
     const claimed = await seedCover(ALL_CATEGORIES.map((cat) => ({ cat, status: "recommended" })));
     const claimedRes = await reviewService.finalize(claimed.coverId, odpcCtx(ODPC_A));
+    // One award per factory per fiscal year: free the slot for the second Cover of this comparison.
+    await db.delete(awards).where(eq(awards.factoryId, TEST_FACTORY_ACCOUNT_ID));
 
     const corrected = await seedCover(
       ALL_CATEGORIES.map((cat) => ({ cat, status: "recommended", verdictChoice: "0" as const })),

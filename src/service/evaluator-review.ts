@@ -5,6 +5,7 @@ import {
   accounts,
   answerLogs,
   answers,
+  awards,
   coverLogs,
   covers,
   enrolls,
@@ -17,8 +18,8 @@ import {
 import { emailQueue } from "../queue/email";
 import type { StandardFileItem, VerdictSaveBody } from "../schema/evaluator-review";
 import { utilities } from "../utils";
+import { createAwardHistory } from "./awardHistory";
 import { latestCoverLogFor } from "./coverStatus";
-import { type EvaluationPeriod, evaluationPeriod } from "./evaluationPeriod";
 import { categoriesFor, type EvaluatorLevel, evaluatorService } from "./evaluator";
 import { provincialOfficerService } from "./provincialOfficer";
 import { type CategoryKey, calculateBreakdown, computeGrade } from "./scoreHelpers";
@@ -79,7 +80,7 @@ export const adminReviewerContext = (accountId: number): ReviewerContext => ({
   scope: { kind: "national" },
 });
 
-const createEvaluatorReviewHelper = (database: typeof db) => {
+export const createEvaluatorReviewHelper = (database: typeof db) => {
   const assertCoverInRegion = async (coverId: number, region: number) => {
     const row = await database
       .select({ coverId: covers.id })
@@ -133,15 +134,87 @@ const createEvaluatorReviewHelper = (database: typeof db) => {
     }
   };
 
-  return { assertCoverInRegion, assertCoverInProvince, assertCoverExists, assertCoverAccess };
+  /**
+   * The Common Era fiscal year a Cover belongs to, resolved through its Enrollment.
+   * Null when the Cover does not exist.
+   *
+   * Resolution goes through `utilities().getFiscalYearOf()` — the same helper every read path uses —
+   * so a closed year cannot be judged by one rule for reads and another for writes.
+   */
+  const fiscalYearOfCover = async (coverId: number) => {
+    const row = await database
+      .select({ enrollDate: enrolls.enrollDate })
+      .from(covers)
+      .innerJoin(enrolls, eq(enrolls.id, covers.enrollId))
+      .where(eq(covers.id, coverId))
+      .limit(1)
+      .then((r) => r[0]);
+
+    return row ? utilities().getFiscalYearOf(new Date(row.enrollDate)) : null;
+  };
+
+  /**
+   * Refuses a hard reject while the Cover's year is under evaluation (1-31 Oct): the factory can no
+   * longer edit a closed year, so a bounced Cover would be stranded. `pendingRejectIds` is passed by
+   * finalize to name rejects saved before the rollover.
+   */
+  const assertHardRejectAllowed = async (coverId: number, pendingRejectIds?: Iterable<number>) => {
+    const targetYear = await fiscalYearOfCover(coverId);
+    if (targetYear === null || !utilities().evaluationPeriodApplies(targetYear)) return null;
+
+    const resave = pendingRejectIds
+      ? `; re-save answers ${[...pendingRejectIds].join(", ")} as approve or change_score`
+      : "; approve or change the score instead";
+    return status(400, { message: `hard reject is closed during the evaluation period${resave}` });
+  };
+
+  /**
+   * Gate on the fiscal year of the target Cover.
+   *
+   * A closed year is writable only by ODPC — natively, or by a DOED admin, which
+   * `adminReviewerContext` already models as a national ODPC. The one exception is the evaluation
+   * period (1-31 Oct): the year that just ended is writable by every level.
+   *
+   * The target year comes from the Cover, never from the request. If a write could nominate its own
+   * year, a caller could relabel which year it is editing and bypass this gate entirely.
+   *
+   * This cannot live in middleware: middleware runs before the Cover is read, so it cannot know
+   * which year the target belongs to.
+   */
+  const assertYearWritable = async (coverId: number, reviewer: ReviewerContext) => {
+    const targetYear = await fiscalYearOfCover(coverId);
+    if (targetYear === null) return status(404, { message: "cover not found" });
+
+    // Unchanged for every level while the year is open. A blanket ODPC-only rule here would strip
+    // Mental and DOH of their legitimate current-year review work.
+    if (targetYear === utilities().getFiscalYear().fiscalYear) return null;
+
+    // The year just ended stays open to every reviewer level through 31 Oct.
+    if (utilities().evaluationPeriodApplies(targetYear)) return null;
+
+    if (reviewer.level !== "ODPC") {
+      return status(403, {
+        message: `fiscal year ${targetYear} is closed; only ODPC may write to it`,
+      });
+    }
+
+    return null;
+  };
+
+  return {
+    assertCoverInRegion,
+    assertCoverInProvince,
+    assertCoverExists,
+    assertCoverAccess,
+    fiscalYearOfCover,
+    assertYearWritable,
+    assertHardRejectAllowed,
+  };
 };
 
-export const createEvaluatorReviewService = (
-  database: typeof db,
-  // TEMPORARY (FY2026 extension, revert 2026-10-16)
-  period: EvaluationPeriod = evaluationPeriod,
-) => {
+export const createEvaluatorReviewService = (database: typeof db) => {
   const helper = createEvaluatorReviewHelper(database);
+  const awardHistory = createAwardHistory(database);
 
   /**
    * Resolve an evaluator caller into a ReviewerContext (level + region scope).
@@ -318,6 +391,16 @@ export const createEvaluatorReviewService = (
       const coverCheck = await helper.assertCoverAccess(coverId, scope);
       if (coverCheck instanceof ElysiaCustomStatusResponse) return coverCheck;
 
+      // Runs AFTER the region check on purpose: an out-of-region caller must keep receiving the
+      // existing 404 rather than a message revealing that a Cover exists in a particular year.
+      const yearCheck = await helper.assertYearWritable(coverId, reviewer);
+      if (yearCheck instanceof ElysiaCustomStatusResponse) return yearCheck;
+
+      if (entry.decision === "reject") {
+        const rejectCheck = await helper.assertHardRejectAllowed(coverId);
+        if (rejectCheck instanceof ElysiaCustomStatusResponse) return rejectCheck;
+      }
+
       // Answer must exist within this Cover
       const answerRow = await database
         .select({
@@ -364,14 +447,6 @@ export const createEvaluatorReviewService = (
       if (currentStatus === "recommended" && level !== "ODPC" && currentAuthor !== accountId) {
         return status(403, {
           message: `answer ${answerId} is recommended; only its author or ODPC can override`,
-        });
-      }
-
-      // TEMPORARY (FY2026 extension, revert 2026-10-16): after the Oct 1 rollover the factory can
-      // no longer see this Cover, so a hard reject would strand it.
-      if (entry.decision === "reject" && period.isExtensionWindow()) {
-        return status(400, {
-          message: `answer ${answerId}: hard reject is closed during the evaluation extension; approve or change the score instead`,
         });
       }
 
@@ -423,6 +498,9 @@ export const createEvaluatorReviewService = (
       const coverCheck = await helper.assertCoverAccess(coverId, scope);
       if (coverCheck instanceof ElysiaCustomStatusResponse) return coverCheck;
 
+      const yearCheck = await helper.assertYearWritable(coverId, reviewer);
+      if (yearCheck instanceof ElysiaCustomStatusResponse) return yearCheck;
+
       // Factory contact for the verdict email (before txn so it's always available).
       // Primary recipient is the factory's login address (`Accounts.email`, NOT NULL + unique)
       // so delivery is guaranteed; `Enrolls.safety_officer_email` is nullable/optional on the
@@ -432,6 +510,8 @@ export const createEvaluatorReviewService = (
           email: accounts.email,
           ccEmail: enrolls.safetyOfficerEmail,
           factoryNameTh: factories.nameTh,
+          factoryId: enrolls.factoryId,
+          enrollDate: enrolls.enrollDate,
           enrollId: enrolls.id,
           // The eleven (claimed, certificate) pairs. Enumerated rather than spread from
           // STANDARD_ENROLL_COLUMNS because a computed select object loses Drizzle's column
@@ -466,6 +546,10 @@ export const createEvaluatorReviewService = (
         .where(eq(covers.id, coverId))
         .limit(1)
         .then((r) => r[0]);
+
+      // The Cover's enrolment is what the award is written against; without it there is nothing to
+      // finalize. Unreachable once `assertCoverAccess` has passed, but it keeps the type honest.
+      if (!enrollData) return status(404, { message: "cover not found" });
 
       // Every answer in the cover + grading inputs + files
       const allCoverAnswers = await database
@@ -549,12 +633,11 @@ export const createEvaluatorReviewService = (
           .map((r) => r.answerId),
       );
 
-      // TEMPORARY (FY2026 extension, revert 2026-10-16): catches rejects saved before the Oct 1
-      // rollover. Refused before any file deletion, DB write or email.
-      if (hardRejectIds.size > 0 && period.isExtensionWindow()) {
-        return status(400, {
-          message: `hard reject is closed during the evaluation extension; re-save answers ${[...hardRejectIds].join(", ")} as approve or change_score`,
-        });
+      // Rejects saved before the rollover but not yet finalized. Refused before any file deletion,
+      // DB write or email.
+      if (hardRejectIds.size > 0) {
+        const rejectCheck = await helper.assertHardRejectAllowed(coverId, hardRejectIds);
+        if (rejectCheck instanceof ElysiaCustomStatusResponse) return rejectCheck;
       }
 
       // Standard certificates behind a hard-rejected question. A standard-backed Answer holds
@@ -649,7 +732,31 @@ export const createEvaluatorReviewService = (
       const hasHardReject = hardRejectIds.size > 0;
       const newCoverStatus = hasHardReject ? ("in_progress" as const) : ("finished" as const);
 
-      await database.transaction(async (tx) => {
+      // The Grade is computed once, here, and stored by the transaction below (ADR-0001, amended).
+      // `allCoverAnswers` was read before the transaction, so it still holds pre-correction
+      // choices; overlay the settled Verdict Scores. The overlay and the DB write below derive
+      // from the same map, so they cannot disagree.
+      const gradeAnswers = allCoverAnswers.map((a) => ({
+        selectedChoice: settledChoiceById.get(a.answerId) ?? a.selectedChoice,
+        category: a.category as CategoryKey,
+        special: a.special,
+      }));
+      // The Cover's own fiscal year, not the current one: a past-year Cover can be finalized after
+      // rollover (ODPC/DOED past-year authority, the evaluation period). It is also the year the
+      // `consec-gold` lookback counts back from.
+      const awardFiscalYear = utilities().getFiscalYearOf(new Date(enrollData.enrollDate));
+
+      const computedGrade =
+        newCoverStatus === "finished"
+          ? computeGrade(calculateBreakdown(gradeAnswers), gradeAnswers, {
+              heldGoldTierInFyMinus3: await awardHistory.heldGoldTierAtConsecGoldLookback(
+                enrollData.factoryId,
+                awardFiscalYear,
+              ),
+            })
+          : null;
+
+      const grade = await database.transaction(async (tx) => {
         for (const row of promotionRows) {
           await tx.insert(answerLogs).values(row);
         }
@@ -707,19 +814,30 @@ export const createEvaluatorReviewService = (
         await tx
           .insert(coverLogs)
           .values({ coverId, status: newCoverStatus, evaluatorId: accountId });
-      });
 
-      // Grade (on-demand, not persisted — ADR-0001). `allCoverAnswers` was read before the
-      // transaction, so it still holds pre-correction choices; overlay the settled Verdict
-      // Scores here. The overlay and the DB write above derive from the same map, so they
-      // cannot disagree.
-      const gradeAnswers = allCoverAnswers.map((a) => ({
-        selectedChoice: settledChoiceById.get(a.answerId) ?? a.selectedChoice,
-        category: a.category as CategoryKey,
-        special: a.special,
-      }));
-      const scoring = calculateBreakdown(gradeAnswers);
-      const grade = newCoverStatus === "finished" ? computeGrade(scoring, gradeAnswers) : null;
+        if (computedGrade === null) return null;
+
+        // Same transaction as the `finished` log, so a Cover cannot be finished without an award.
+        // A repeat finalize keeps the first stored Grade: the conflict target is the Cover only, so
+        // a clash on (factory, fiscal year) with a different row still aborts loudly.
+        const [inserted] = await tx
+          .insert(awards)
+          .values({
+            factoryId: enrollData.factoryId,
+            fiscalYear: awardFiscalYear,
+            grade: computedGrade,
+            coverId,
+          })
+          .onConflictDoNothing({ target: awards.coverId })
+          .returning({ grade: awards.grade });
+        if (inserted) return inserted.grade;
+
+        const [existing] = await tx
+          .select({ grade: awards.grade })
+          .from(awards)
+          .where(eq(awards.coverId, coverId));
+        return existing?.grade ?? computedGrade;
+      });
 
       // Enqueue exactly one factory email after the committed txn; swallow queue failures.
       if (enrollData?.email) {
@@ -730,13 +848,7 @@ export const createEvaluatorReviewService = (
             ? enrollData.ccEmail
             : undefined;
         try {
-          if (newCoverStatus === "finished" && period.isOpen()) {
-            // TEMPORARY (FY2026 extension, revert 2026-10-16): factories are not told their
-            // Grade until the Evaluation Period ends; a follow-up on `dev` sends these later.
-            console.info(
-              `verdict-result-finished withheld for cover ${coverId} (evaluation period open)`,
-            );
-          } else if (newCoverStatus === "finished") {
+          if (newCoverStatus === "finished") {
             await emailQueue.add("verdict-result-finished", {
               email: enrollData.email,
               cc,

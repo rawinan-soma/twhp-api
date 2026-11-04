@@ -2,7 +2,12 @@ import { t } from "elysia";
 import type { App } from "../../..";
 import { factoryGuard } from "../../../middleware/guards";
 import { BaseEnrollSelect } from "../../../schema";
-import { CreateEnrollWithFilesSchema, UpdateEnrollWithFilesSchema } from "../../../schema/enroll";
+import {
+  CreateEnrollWithFilesSchema,
+  goldEnrolmentLockoutMessage,
+  UpdateEnrollWithFilesSchema,
+} from "../../../schema/enroll";
+import { FiscalYearQuery } from "../../../schema/fiscal-year";
 import { enrollService } from "../../../service/enroll";
 
 export default (app: App) =>
@@ -36,20 +41,31 @@ export default (app: App) =>
                   description: "existing enroll",
                 }),
               }),
+              t.Object({
+                message: t.String({
+                  default: goldEnrolmentLockoutMessage(2028),
+                  description:
+                    "gold-tier award in the previous two fiscal years; names the next fiscal year (Common Era) the factory may enrol",
+                }),
+              }),
             ]),
           },
         },
       )
       .get(
         "",
-        async ({ jwtPayload }) => {
+        async ({ jwtPayload, query }) => {
           const id = Number(jwtPayload.sub);
-          return await enrollService.getEnrollByFactoryId(id);
+          return await enrollService.getEnrollByFactoryId(id, query.fiscalYear);
         },
         {
           detail: { description: "ดึงข้อมูลการสมัครเข้าร่วมโครงการของตนเอง" },
+          query: FiscalYearQuery,
           response: t.Union([
-            t.Partial(BaseEnrollSelect),
+            t.Composite([
+              t.Partial(BaseEnrollSelect),
+              t.Object({ fiscalYear: t.Optional(t.Number()) }),
+            ]),
             t.Object({ message: t.String({ default: "no enrollment found" }) }),
           ]),
         },

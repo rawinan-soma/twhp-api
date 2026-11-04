@@ -20,14 +20,16 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 ```
 
 `package.json`'s `test` script is a placeholder that exits 1. The real runner is `bun test <files>`.
-There are 18 test files: 8 isolated and 10 PostgreSQL integration.
+There are 31 test files: the 11 isolated ones listed below, 16 `*.integration.test.ts` files that need a disposable PostgreSQL, and a few more that tolerate a missing database.
 
 ```bash
-# Isolated only — safe anywhere. 201 pass / 0 fail as of 2026-09-02.
+# Isolated only — safe anywhere. 251 pass / 0 fail as of 2026-11-04.
 bun test src/config.test.ts src/routes/authentication/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
-  src/service/pagination.test.ts src/service/score.test.ts
+  src/service/pagination.test.ts src/service/score.test.ts \
+  src/service/evaluation-period.test.ts src/service/evaluation-period.routes.test.ts \
+  src/service/factory-closed-year.test.ts
 
 bun ./node_modules/.bin/biome check src   # read-only lint; the package scripts all --write
 ```
@@ -136,6 +138,20 @@ Rows written before 2026-08-25 are `rejected` **with** a `verdict_choice`; they 
 migration was run. Finalize writes the settled Verdict Score into `answers.selected_choice` and is the
 only writer of `finished`. See `docs/adr/0012-score-changes-are-terminal.md`.
 
+During the evaluation period (1–31 Oct, the prior year) a hard reject is refused with 400 on verdict
+save and on finalize, because the factory can no longer edit a closed year. Approve or change the
+score instead (ADR-0012, amended).
+
+### Grade ladder
+
+Five grades, first match wins: `consec-gold` → `gold` → `silver` → `certificate` → `joined`. `gold`
+gates on `special == 1` only (full score = the literal `"3"`; `n/a` never satisfies a gate;
+`special == 3` gates no tier). `consec-gold` adds `special == 2` and a gold-tier `Awards` row (`gold` or `consec-gold`) in the
+**Cover's own** fiscal year − 3. `computeGrade` is pure and takes that history as an input; the one
+reader of `Awards` for "did this factory hold gold in year Y" is `src/service/awardHistory.ts` — a
+second ad-hoc query over `Awards` for it is a review failure. The Grade is stored at finalize, so
+the gate change never re-scores a past Cover. See `docs/adr/0014-consec-gold-and-the-gold-gate.md`.
+
 ### Provincial read-only review
 
 A Provincial Officer reads Covers in its province through the **same**
@@ -157,6 +173,15 @@ verdict fields needs a province-scope test alongside the Evaluator one. See
 ### Fiscal year
 
 All enrollment/cover queries are scoped to the current fiscal year (Oct 1 – Sep 30). Always use `utilities().getFiscalYear()` from `src/utils.ts` — don't hand-roll date boundaries.
+
+**Evaluation period.** The fiscal year that just ended stays under evaluation for 31 days after the
+Oct 1 rollover (through 31 Oct, `EVALUATION_DAYS`). During it, every reviewer level may save
+verdicts on that year (`finalize` stays ODPC-only), and the nine staff list endpoints default to it
+when `?fiscalYear` is omitted. Staff-side list reads use `utilities().getReviewerFiscalYear()`;
+factory-side reads and writes keep `getFiscalYear()`. Hard rejects are refused during it (verdict save and
+finalize return 400), since factories cannot edit a closed year. Factories have no grace: they finish
+self-evaluation before the rollover (`resolveWritableYear`). The window is relative to the rollover,
+never literal dates.
 
 ### File storage
 

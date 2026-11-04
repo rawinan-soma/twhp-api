@@ -156,6 +156,67 @@ Existing `404` responses on these routes are **not** wrapped. `{ "message": "inv
 
 There is no cursor pagination, no `hasNext`/`hasPrev`, and no general client-selected sorting.
 
+#### Fiscal year
+
+Thirteen read endpoints accept an optional `fiscalYear` query parameter — the nine staff lists above, plus the four Factory self-reads (`/factories/enrolls`, `/factories/assessments/covers`, `/factories/assessments/answers`, `/factories/assessments/score`).
+
+```
+GET /twhp/api/admins/enrolls?fiscalYear=2026&page=2&limit=50
+```
+
+The value is a **Common Era** year, labelled by the year the fiscal year *ends*: `2026` means 1 October 2025 through 30 September 2026. Buddhist Era is a presentation concern owned by the client, which renders `fiscalYear + 543` (2026 → พ.ศ. 2569). No BE value crosses the API in either direction.
+
+**Omitting the parameter selects the current fiscal year**, with one exception: the nine staff list endpoints default to the fiscal year that just ended during 1–31 Oct (see [Evaluation period](#evaluation-period)). Factory-side endpoints always default to the current year. The bounds are 2000–2100 and are declared once in `src/schema/fiscal-year.ts`; an out-of-range or fractional value is rejected with 400 before any query runs. A valid year holding no data returns an empty page (`meta.total: 0`) or the endpoint's existing not-found shape — never an error implying the year itself is invalid.
+
+Addressing is open-ended in both directions and applies to **reads only**. Every write path remains scoped to the current fiscal year.
+
+Responses carry the resolved `fiscalYear` so a client never has to infer it from a date. The value is the year the query was scoped to, not a per-row derivation — every row a fiscal-scoped query returns belongs to that year by construction. The one exception is described under [Filtering](#filtering): the Factory list with `enrolled=false` disables fiscal-year filtering entirely, so its rows may span years and the field is **omitted** rather than guessed.
+
+#### Fiscal-year write authority
+
+Reads may address any fiscal year (see [Fiscal year](#fiscal-year)). **Writes are current-fiscal-year only, with two exceptions:** the evaluation period and closed-year authority. A Factory has no exception: it finishes self-evaluation before the 1 Oct rollover.
+
+| Actor | May write a closed fiscal year? |
+|-------|-------------------------------|
+| Any evaluator or DOED admin | **Verdict saves only, during the evaluation period** — 1 Oct through 31 Oct, for the year that just ended (see below). Finalize remains ODPC-only |
+| DOED admin | **Yes**, on review and finalize. Does not expire |
+| Evaluator at level `ODPC` | **Yes**, within its existing region. Does not expire |
+| Evaluator at level `Mental` or `DOH` | No — refused with `fiscal year {N} is closed; only ODPC may write to it` |
+| Provincial Officer | No — has no write path |
+| Factory | **No.** Closed years are refused with `fiscal year {N} is closed to factories`; there is no grace window |
+
+The target year of an evaluator write is read from the Cover's Enrollment; it is never named by the request. A request that could nominate its own year could relabel which year it is editing.
+
+Region scope is unchanged by any of this. Authority over a closed year does not widen geographic reach, and an out-of-region caller receives the existing `404 cover not found` rather than a year-related message — so no caller learns that a Cover exists in a particular year.
+
+#### Evaluation period
+
+For **31 days** after the fiscal-year boundary (1 Oct up to 1 Nov 00:00 Bangkok, i.e. through 31 Oct), the fiscal year that just ended is still being audited. A Factory enrolled in FY2570 is audited until 31 Oct of FY2571. During that period:
+
+- every Evaluator level and DOED may save verdicts on Covers of that year, not only ODPC. `finalize` stays ODPC-only (ADR-0003);
+- staff list reads (`/{admins,evaluators,provincialOfficers}/{factories,enrolls,score}`) default to that year when `fiscalYear` is omitted. From 1 Nov they default to the current year again. An explicit `fiscalYear` always wins;
+- hard rejects are refused (`400`) on Covers of that year, on verdict save and on finalize, because the factory can no longer edit a closed year and a bounced Cover would be stranded. Approve or change the score instead. Rejects saved before the rollover must be re-saved before finalize;
+- factory-side reads and `getFiscalYear()` are unchanged.
+
+The period is a rule relative to the boundary, not a date range: `EVALUATION_DAYS` and `evaluationPeriodApplies` in `src/utils.ts`.
+
+#### Factory writes
+
+A Factory writes only the **current** fiscal year. These four endpoints accept `fiscalYear`, but only the current year is admitted:
+
+- `POST /factories/assessments/answers`
+- `PATCH /factories/assessments/answers`
+- `POST /factories/assessments/answers/negotiate`
+- `POST /factories/assessments/submission`
+
+The other factory write endpoints (`POST /factories/assessments/covers`, `POST` and `PATCH /factories/enrolls`) are current-year only as well. A prior-year write is refused with `fiscal year {N} is closed to factories`. A Cover already at `in_review` is not Factory-writable, and a `finished` Cover is never reopened by anyone.
+
+#### Fiscal-year expiry
+
+**Nothing happens at the rollover.** A Cover still `in_progress` stays `in_progress`, permanently. There is no sweep, no scheduled job, no persisted expiry marker, and no terminal status — `coverStatus` has exactly three values and none was added.
+
+Expiry is a change in *who may write*, not in *what the Cover is*. Such a Cover remains readable by every role within its normal scope, remains writable by DOED and ODPC without deadline, and remains non-scorable exactly as any `in_progress` Cover already was.
+
 #### Breaking change
 
 All nine endpoints below changed from a bare JSON array to the `{ items, meta }` envelope, and now return at most `limit` rows per request (20 by default) instead of the complete set:
@@ -170,7 +231,9 @@ All nine endpoints below changed from a bare JSON array to the `{ items, meta }`
 - `GET /twhp/api/provincialOfficers/enrolls`
 - `GET /twhp/api/provincialOfficers/score`
 
-Item field names, casing, filters, role guards, region and province scoping, and fiscal-year scoping are unchanged. A client that read the array directly must now read `items` and page through `meta.totalPages`.
+Item field names, casing, filters, role guards, and region and province scoping are unchanged. A client that read the array directly must now read `items` and page through `meta.totalPages`.
+
+Fiscal-year scoping was subsequently made addressable rather than implicit — see [Fiscal year](#fiscal-year). Omitting `fiscalYear` selects the current fiscal year, except on the staff lists during the evaluation period.
 
 **A consumer that needs the complete data set is not served by these endpoints.** Without paging through every page it now receives the first 20 rows and no error. A dedicated bulk-export path is planned as a separate intent and does not exist yet.
 
@@ -198,6 +261,8 @@ Supported filters include:
 Filters are applied in SQL and are reflected in `meta.total`: the count and the page are built from the same predicate.
 
 Current `enrolled=false` behavior does not mean “only unenrolled factories.” It disables the current-fiscal-year enrollment-date filter. The evaluator and provincial variants still require at least one enrollment row to exist, but this is now expressed as a correlated `EXISTS` predicate rather than an inner join ([ADR-0008](adr/0008-exists-subquery-for-enrolled-filter.md)) — so a factory with several enrollments appears once, not once per enrollment. Treat the `enrolled=false` semantics as current implementation behavior, not a stable semantic contract.
+
+Because `enrolled=false` disables the fiscal-year predicate, `fiscalYear` has **no effect** on that path, and the rows returned may span several fiscal years. The `fiscalYear` field is therefore omitted from those items rather than being set to a value that would not be true of every row.
 
 ### Validation status
 
@@ -272,7 +337,9 @@ The route/service code is authoritative until the schemas and generated referenc
 5. Submit the cover. Submission requires an `in_progress` cover, all questions answered, and no rejected answer awaiting negotiation.
 6. Read scores only after the cover reaches `in_review` or `finished`.
 
-Fiscal-year scope is October 1 inclusive through the following October 1 exclusive and is computed by `utilities().getFiscalYear()`.
+Fiscal-year scope is October 1 inclusive through the following October 1 exclusive, resolved in `Asia/Bangkok` by `utilities().getFiscalYear()`. The boundary is pinned to a fixed UTC+7 offset in code rather than inherited from the host timezone, so it does not depend on container configuration.
+
+`getFiscalYear()` with no argument resolves the current fiscal year; `getFiscalYear(2026)` resolves a nominated one. No service constructs fiscal-year boundaries itself. Read endpoints expose this through the optional `fiscalYear` query parameter — see [Fiscal year](#fiscal-year). Writes remain current-fiscal-year only.
 
 ### Evaluator review
 
@@ -290,7 +357,7 @@ Only ODPC, or a DOED admin acting as national ODPC, may finalize a cover. Finali
 2. promotes `recommended` answers to `finished`;
 3. deletes and nulls evidence for rejected results;
 4. writes a cover-status transition;
-5. calculates grade on demand;
+5. calculates the grade and stores it in `Awards` in the same transaction as the `finished` log;
 6. attempts to enqueue a factory result email.
 
 See [ADR-0003](adr/0003-hierarchical-odpc-gated-cover-review.md), [ADR-0004](adr/0004-verdict-score-consensus-loop.md), [ADR-0005](adr/0005-per-answer-verdict-save.md), and [ADR-0006](adr/0006-delete-files-on-change-score.md).

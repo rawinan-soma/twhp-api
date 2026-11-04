@@ -2,7 +2,7 @@
 
 # 02 — Provincial cover-review read endpoint
 
-Status: ready-for-agent
+Status: closed (resolved 2026-09-03 — merged in PR #9, fc8a186)
 Category: enhancement
 Depends on: 01
 
@@ -69,3 +69,7 @@ the Cover is under review.
 - Any write path. The Officer must not reach verdict save or finalize.
 - Changing the Evaluator's ability to open an `in_progress` Cover. That behavior stays as it is.
 - Presigned-URL access control for the evidence files.
+
+## Comments
+
+- 2026-09-21: Closed. Implemented in PR #9 (merge commit `fc8a186`), merged into `dev` on 2026-09-03 and reached `main` via `608cf91`.

@@ -5,6 +5,7 @@ import { Pool } from "pg";
 import {
   accounts,
   answers,
+  awards,
   coverLogs,
   covers,
   districts,
@@ -129,6 +130,7 @@ async function cleanup(factoryId: number) {
       .then((r) => r.map((x) => x.id));
     if (coverIds.length) {
       await db.delete(answers).where(inArray(answers.coverId, coverIds));
+      await db.delete(awards).where(inArray(awards.coverId, coverIds));
       await db.delete(coverLogs).where(inArray(coverLogs.coverId, coverIds));
       await db.delete(covers).where(inArray(covers.id, coverIds));
     }
@@ -169,6 +171,12 @@ async function seed(
   coverOf.set(factoryId, cover.id);
   for (const status of statuses) {
     await db.insert(coverLogs).values({ coverId: cover.id, status });
+  }
+  // A finished Cover reads its Grade from the Awards row finalize writes; seed it alongside.
+  if (statuses.at(-1) === "finished") {
+    await db
+      .insert(awards)
+      .values({ factoryId, fiscalYear: 2026, grade: "silver", coverId: cover.id });
   }
   for (const questionId of questionIds.slice(0, answerCount)) {
     await db.insert(answers).values({ questionId, coverId: cover.id, selectedChoice: "2" });

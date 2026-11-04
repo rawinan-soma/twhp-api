@@ -2,6 +2,7 @@ import { ElysiaCustomStatusResponse, t } from "elysia";
 import type { App } from "../../..";
 import { evalGuard } from "../../../middleware/guards";
 import { CoverStatusQuery, EnrollWithCoverPageSchema } from "../../../schema/enroll";
+import { FiscalYearQuery } from "../../../schema/fiscal-year";
 import { PaginationQuery } from "../../../schema/pagination";
 import { enrollService } from "../../../service/enroll";
 import { evaluatorService } from "../../../service/evaluator";
@@ -22,6 +23,7 @@ export default (app: App) =>
         return await enrollService.getAllEnrolls(evaluatorRegion, undefined, query.coverStatus, {
           page: query.page,
           limit: query.limit,
+          fiscalYear: query.fiscalYear,
         });
       },
       {
@@ -29,7 +31,11 @@ export default (app: App) =>
           description:
             "ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดตามเขตสุขภาพ (กรองตามสถานะ cover ได้ด้วย ?coverStatus= และแบ่งหน้าด้วย ?page= ?limit=)",
         },
-        query: t.Composite([t.Object({ coverStatus: CoverStatusQuery }), PaginationQuery]),
+        query: t.Composite([
+          t.Object({ coverStatus: CoverStatusQuery }),
+          PaginationQuery,
+          FiscalYearQuery,
+        ]),
         response: {
           200: EnrollWithCoverPageSchema,
           404: t.Object({

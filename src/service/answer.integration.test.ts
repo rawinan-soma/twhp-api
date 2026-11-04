@@ -7,6 +7,7 @@ import {
   accounts,
   answerLogs,
   answers,
+  awards,
   coverLogs,
   covers,
   enrolls,
@@ -123,6 +124,7 @@ async function cleanupFactory(factoryId: number) {
       if (aIds.length > 0) await db.delete(answerLogs).where(inArray(answerLogs.answerId, aIds));
       await db.delete(answers).where(eq(answers.coverId, c.id));
       await db.delete(coverLogs).where(eq(coverLogs.coverId, c.id));
+      await db.delete(awards).where(eq(awards.factoryId, factoryId));
       await db.delete(covers).where(eq(covers.id, c.id));
     }
     await db.delete(enrolls).where(eq(enrolls.id, e.id));

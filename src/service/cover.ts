@@ -46,8 +46,12 @@ export const createCoverService = (database: typeof db) => {
       return { message: "assessment cover created!" };
     },
 
-    getCoverById: async (factoryId: number) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+    getCoverById: async (factoryId: number, fiscalYear?: number) => {
+      const {
+        fiscalYear: resolvedFiscalYear,
+        fiscalYearStart,
+        fiscalYearEnd,
+      } = utilities().getFiscalYear(fiscalYear);
 
       const cover = await database
         .select({
@@ -81,6 +85,7 @@ export const createCoverService = (database: typeof db) => {
         ...cover,
         status: latestLog?.status ?? "in_progress",
         update_date: latestLog?.updatedAt ?? cover.startDate,
+        fiscalYear: resolvedFiscalYear,
       };
     },
   };

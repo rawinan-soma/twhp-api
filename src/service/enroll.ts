@@ -11,20 +11,22 @@ import {
   provinces,
   subdistricts,
 } from "../drizzle/schema";
-import type { CreateEnrollWithFilesDto, UpdateEnrollWithFilesDto } from "../schema/enroll";
+import {
+  type CreateEnrollWithFilesDto,
+  goldEnrolmentLockoutMessage,
+  type UpdateEnrollWithFilesDto,
+} from "../schema/enroll";
 import { buildPage, type PaginationQueryDto, resolvePage } from "../schema/pagination";
 import { utilities } from "../utils";
+import { createAwardHistory } from "./awardHistory";
 import { latestCoverLogLateral } from "./coverStatus";
-import { type EvaluationPeriod, evaluationPeriod } from "./evaluationPeriod";
 
 /** Cover-status filter value. `none` = enroll has no cover yet. */
 export type CoverStatusFilter = "finished" | "in_progress" | "in_review" | "none";
 
-export const createEnrollService = (
-  database: typeof db,
-  // TEMPORARY (FY2026 extension, revert 2026-10-16)
-  period: EvaluationPeriod = evaluationPeriod,
-) => {
+export const createEnrollService = (database: typeof db) => {
+  const awardHistory = createAwardHistory(database);
+
   /**
    * Shared join chain for every enrollment list read.
    *
@@ -86,15 +88,20 @@ export const createEnrollService = (
     region,
     provinceId,
     coverStatus,
+    fiscalYear,
     page,
     limit,
   }: {
     region?: number;
     provinceId?: number;
     coverStatus?: CoverStatusFilter;
+    fiscalYear?: number;
   } & PaginationQueryDto) => {
-    // TEMPORARY (FY2026 extension, revert 2026-10-16): staff keep the ended year in the window.
-    const { fiscalYearStart, fiscalYearEnd } = period.reviewerFiscalYear();
+    const {
+      fiscalYear: resolvedFiscalYear,
+      fiscalYearStart,
+      fiscalYearEnd,
+    } = utilities().getReviewerFiscalYear(fiscalYear);
     const resolved = resolvePage({ page, limit });
     const latest = latestCoverLogLateral(database);
 
@@ -117,21 +124,25 @@ export const createEnrollService = (
         .offset(resolved.offset),
     ]);
 
-    return buildPage(items, total, resolved.page, resolved.limit);
+    // Every row was selected by the resolved window, so its fiscal year is that year by
+    // construction — no need to re-derive it per row from `enroll_date`.
+    const withFiscalYear = items.map((item) => ({ ...item, fiscalYear: resolvedFiscalYear }));
+
+    return buildPage(withFiscalYear, total, resolved.page, resolved.limit);
   };
 
   return {
     getAllEnrollsByProvince: async (
       provinceId: number,
       coverStatus?: CoverStatusFilter,
-      pagination?: PaginationQueryDto,
+      pagination?: PaginationQueryDto & { fiscalYear?: number },
     ) => listEnrolls({ provinceId, coverStatus, ...pagination }),
 
     getAllEnrolls: async (
       region?: number,
       provinceId?: number,
       coverStatus?: CoverStatusFilter,
-      pagination?: PaginationQueryDto,
+      pagination?: PaginationQueryDto & { fiscalYear?: number },
     ) => listEnrolls({ region, provinceId, coverStatus, ...pagination }),
 
     /**
@@ -170,7 +181,7 @@ export const createEnrollService = (
     },
 
     create: async (dto: CreateEnrollWithFilesDto, factoryId: number) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+      const { fiscalYear, fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
 
       // Check if any standard is true but file is missing
       const standards = [
@@ -233,6 +244,15 @@ export const createEnrollService = (
       if (existingEnroll) {
         return status(400, {
           message: "already make an enroll in fiscal year",
+        });
+      }
+
+      // The Gold plaque is valid for three fiscal years, so a gold-tier winner sits out the next
+      // two. Checked before any upload: a rejected enrolment must leave nothing in storage.
+      const eligibleFrom = await awardHistory.firstEligibleEnrolmentYear(factoryId, fiscalYear);
+      if (eligibleFrom !== null) {
+        return status(400, {
+          message: goldEnrolmentLockoutMessage(eligibleFrom),
         });
       }
 
@@ -531,8 +551,12 @@ export const createEnrollService = (
       };
     },
 
-    getEnrollByFactoryId: async (factoryId: number) => {
-      const { fiscalYearStart, fiscalYearEnd } = utilities().getFiscalYear();
+    getEnrollByFactoryId: async (factoryId: number, fiscalYear?: number) => {
+      const {
+        fiscalYear: resolvedFiscalYear,
+        fiscalYearStart,
+        fiscalYearEnd,
+      } = utilities().getFiscalYear(fiscalYear);
 
       const selectedEnroll = await database
         .select()
@@ -553,7 +577,7 @@ export const createEnrollService = (
         return { message: "no enrollment found" };
       }
 
-      return selectedEnroll;
+      return { ...selectedEnroll, fiscalYear: resolvedFiscalYear };
     },
   };
 };
