@@ -85,7 +85,16 @@ const getFiscalYearOf = (instant: Date) => {
  * Lives in this module rather than `src/schema/fiscal-year.ts` because it needs the resolver below,
  * and that module is already imported *by* this one; the reverse direction would be circular.
  */
-export const GRACE_DAYS = 31;
+export const GRACE_DAYS = 61;
+
+/**
+ * Days after the rollover boundary during which reviewers still audit the fiscal year that just
+ * ended: 1 Oct up to 1 Nov 00:00 Bangkok, i.e. through 31 Oct of the next fiscal year.
+ *
+ * Relative to the rollover so it recurs every year. Factories finish their self-audit later
+ * (`GRACE_DAYS`, through 30 Nov), and ODPC may write to a closed year without expiry.
+ */
+export const EVALUATION_DAYS = 31;
 
 /**
  * Whether Factory grace admits a write to `targetYear` at `now`.
@@ -100,6 +109,18 @@ export const factoryGraceApplies = (targetYear: number, now: Date = new Date()) 
 
   const graceEnds = fiscalYearBoundary(currentYear - 1).getTime() + GRACE_DAYS * 86_400_000;
   return now.getTime() < graceEnds;
+};
+
+/**
+ * Whether the evaluation period of `targetYear` is still open at `now`: it is the immediately
+ * preceding fiscal year and fewer than `EVALUATION_DAYS` have passed since the rollover.
+ */
+export const evaluationPeriodApplies = (targetYear: number, now: Date = new Date()) => {
+  const currentYear = getFiscalYearOf(now);
+  if (targetYear !== currentYear - 1) return false;
+
+  const periodEnds = fiscalYearBoundary(currentYear - 1).getTime() + EVALUATION_DAYS * 86_400_000;
+  return now.getTime() < periodEnds;
 };
 
 export const utilities = () => ({
@@ -127,8 +148,21 @@ export const utilities = () => ({
       fiscalYearEnd: fiscalYearBoundary(year),
     };
   },
+  /**
+   * Reviewer-side counterpart of `getFiscalYear`: when no year is nominated, staff reads default to
+   * the fiscal year still under evaluation (the previous one during 1-31 Oct), not the current one.
+   */
+  getReviewerFiscalYear: (fiscalYear?: number) => {
+    if (fiscalYear !== undefined) return utilities().getFiscalYear(fiscalYear);
+    const now = new Date();
+    const current = getFiscalYearOf(now);
+    return utilities().getFiscalYear(
+      evaluationPeriodApplies(current - 1, now) ? current - 1 : current,
+    );
+  },
   getFiscalYearOf,
   factoryGraceApplies,
+  evaluationPeriodApplies,
   createRedisConnector: () => {
     const redisConnector = new Redis({
       host: env.REDIS_HOST,

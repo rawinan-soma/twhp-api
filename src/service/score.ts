@@ -154,7 +154,7 @@ export const createScoreService = (database: typeof db) => {
       fiscalYear: resolvedFiscalYear,
       fiscalYearStart,
       fiscalYearEnd,
-    } = utilities().getFiscalYear(fiscalYear);
+    } = utilities().getReviewerFiscalYear(fiscalYear);
     const resolved = resolvePage({ page, limit });
     const latest = latestCoverLogLateral(database);
 

@@ -4,11 +4,11 @@ import { factoryGraceApplies, GRACE_DAYS, utilities } from "../utils";
 import { createAnswerService } from "./answer";
 
 /**
- * The 31-day window in which a Factory may still complete a prior-year Cover.
+ * The 61-day window (1 Oct through 30 Nov) in which a Factory may still complete a prior-year Cover.
  *
  * The window is expressed relative to the rollover boundary, never as literal 2026 dates. The
  * recurrence tests below are the ones that would catch a hard-coded year — they assert the window
- * still means "31 days after rollover" in a later fiscal year.
+ * still means "61 days after rollover" in a later fiscal year.
  */
 
 /** Bangkok wall-clock as an absolute instant, independent of the host's TZ. */
@@ -26,13 +26,13 @@ describe("factoryGraceApplies — window boundaries", () => {
   });
 
   it("still admits it at the last millisecond of the window", () => {
-    setSystemTime(bkk("2026-10-31T23:59:59.999"));
+    setSystemTime(bkk("2026-11-30T23:59:59.999"));
 
     expect(factoryGraceApplies(2026)).toBe(true);
   });
 
   it("refuses at the first instant after the window", () => {
-    setSystemTime(bkk("2026-11-01T00:00:00.000"));
+    setSystemTime(bkk("2026-12-01T00:00:00.000"));
 
     expect(factoryGraceApplies(2026)).toBe(false);
   });
@@ -87,10 +87,10 @@ describe("factoryGraceApplies — recurrence", () => {
   });
 
   it("closes on the same schedule in that later year", () => {
-    setSystemTime(bkk("2030-10-31T23:59:59.999"));
+    setSystemTime(bkk("2030-11-30T23:59:59.999"));
     expect(factoryGraceApplies(2030)).toBe(true);
 
-    setSystemTime(bkk("2030-11-01T00:00:00.000"));
+    setSystemTime(bkk("2030-12-01T00:00:00.000"));
     expect(factoryGraceApplies(2030)).toBe(false);
   });
 
@@ -103,9 +103,9 @@ describe("factoryGraceApplies — recurrence", () => {
 
 describe("factoryGraceApplies — host timezone independence", () => {
   it("decides on absolute instants, not host-local dates", () => {
-    // Bangkok 2026-11-01 00:00 is 2026-10-31 17:00 UTC. A host-local implementation would still
-    // read "October" under TZ=UTC and wrongly admit the write.
-    setSystemTime(bkk("2026-11-01T00:00:00.000"));
+    // Bangkok 2026-12-01 00:00 is 2026-11-30 17:00 UTC. A host-local implementation would still
+    // read "November" under TZ=UTC and wrongly admit the write.
+    setSystemTime(bkk("2026-12-01T00:00:00.000"));
 
     expect(factoryGraceApplies(2026)).toBe(false);
   });

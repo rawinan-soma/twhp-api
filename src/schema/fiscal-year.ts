@@ -6,7 +6,7 @@ import { FISCAL_YEAR_MAX, FISCAL_YEAR_MIN } from "../drizzle/fiscal-year-bounds"
  *
  * A fiscal year is the half-open interval [Oct 1 of Y-1 00:00, Oct 1 of Y 00:00) in Asia/Bangkok,
  * labelled by its ENDING Common Era year: FY2026 runs 2025-10-01 to 2026-09-30. Resolution is
- * performed by `utilities().getFiscalYear()` in src/utils.ts — no route or service constructs
+ * performed by `utilities().getFiscalYear()` (staff lists: `getReviewerFiscalYear()`, which defaults to the year under evaluation during 1-31 Oct) in src/utils.ts — no route or service constructs
  * fiscal-year boundaries itself.
  *
  * The API is Common Era on both sides of the wire. Buddhist Era is a presentation concern owned by

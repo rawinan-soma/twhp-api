@@ -20,14 +20,15 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 ```
 
 `package.json`'s `test` script is a placeholder that exits 1. The real runner is `bun test <files>`.
-There are 18 test files: 8 isolated and 10 PostgreSQL integration.
+There are 20 test files: 10 isolated and 10 PostgreSQL integration.
 
 ```bash
-# Isolated only — safe anywhere. 222 pass / 0 fail as of 2026-09-21.
+# Isolated only — safe anywhere. 241 pass / 0 fail as of 2026-11-04.
 bun test src/config.test.ts src/routes/authentication/index.test.ts \
   src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
   src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
-  src/service/pagination.test.ts src/service/score.test.ts
+  src/service/pagination.test.ts src/service/score.test.ts \
+  src/service/evaluation-period.test.ts src/service/evaluation-period.routes.test.ts
 
 bun ./node_modules/.bin/biome check src   # read-only lint; the package scripts all --write
 ```
@@ -167,6 +168,13 @@ verdict fields needs a province-scope test alongside the Evaluator one. See
 ### Fiscal year
 
 All enrollment/cover queries are scoped to the current fiscal year (Oct 1 – Sep 30). Always use `utilities().getFiscalYear()` from `src/utils.ts` — don't hand-roll date boundaries.
+
+**Evaluation period.** The fiscal year that just ended stays under evaluation for 31 days after the
+Oct 1 rollover (through 31 Oct, `EVALUATION_DAYS`). During it, every reviewer level may save
+verdicts on that year (`finalize` stays ODPC-only), and the nine staff list endpoints default to it
+when `?fiscalYear` is omitted. Staff-side list reads use `utilities().getReviewerFiscalYear()`;
+factory-side reads and writes keep `getFiscalYear()`. Factories may still complete the prior year
+through 30 Nov (`GRACE_DAYS` = 61). Both windows are relative to the rollover, never literal dates.
 
 ### File storage
 

@@ -80,7 +80,7 @@ export const adminReviewerContext = (accountId: number): ReviewerContext => ({
   scope: { kind: "national" },
 });
 
-const createEvaluatorReviewHelper = (database: typeof db) => {
+export const createEvaluatorReviewHelper = (database: typeof db) => {
   const assertCoverInRegion = async (coverId: number, region: number) => {
     const row = await database
       .select({ coverId: covers.id })
@@ -157,7 +157,8 @@ const createEvaluatorReviewHelper = (database: typeof db) => {
    * Gate on the fiscal year of the target Cover.
    *
    * A closed year is writable only by ODPC — natively, or by a DOED admin, which
-   * `adminReviewerContext` already models as a national ODPC.
+   * `adminReviewerContext` already models as a national ODPC. The one exception is the evaluation
+   * period (1-31 Oct): the year that just ended is writable by every level.
    *
    * The target year comes from the Cover, never from the request. If a write could nominate its own
    * year, a caller could relabel which year it is editing and bypass this gate entirely.
@@ -172,6 +173,9 @@ const createEvaluatorReviewHelper = (database: typeof db) => {
     // Unchanged for every level while the year is open. A blanket ODPC-only rule here would strip
     // Mental and DOH of their legitimate current-year review work.
     if (targetYear === utilities().getFiscalYear().fiscalYear) return null;
+
+    // The year just ended stays open to every reviewer level through 31 Oct.
+    if (utilities().evaluationPeriodApplies(targetYear)) return null;
 
     if (reviewer.level !== "ODPC") {
       return status(403, {
@@ -710,7 +714,7 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         special: a.special,
       }));
       // The Cover's own fiscal year, not the current one: a past-year Cover can be finalized after
-      // rollover (ODPC/DOED past-year authority, the Factory grace window). It is also the year the
+      // rollover (ODPC/DOED past-year authority, the evaluation period, the Factory grace window). It is also the year the
       // `consec-gold` lookback counts back from.
       const awardFiscalYear = utilities().getFiscalYearOf(new Date(enrollData.enrollDate));
 

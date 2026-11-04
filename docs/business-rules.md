@@ -66,7 +66,7 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 ### BR-06 — Fiscal-year membership
 
 - **Rule:** A fiscal year is the half-open range `[Oct 1 00:00, next Oct 1 00:00)` in **Asia/Bangkok**, labelled by its **ending** Common Era year: FY2026 runs 2025-10-01 to 2026-09-30. The boundary is pinned to a fixed UTC+7 offset in application code and does **not** depend on the host timezone.
-- **Implementation:** `src/utils.ts:getFiscalYear(fiscalYear?)`; all `gte/lt(enrolls.enrollDate)` callers. Reads the clock exactly once. A nominated year may be supplied; omitting it selects the current fiscal year.
+- **Implementation:** `src/utils.ts:getFiscalYear(fiscalYear?)`; all `gte/lt(enrolls.enrollDate)` callers. Reads the clock exactly once. A nominated year may be supplied; omitting it selects the current fiscal year, except that staff lists use `getReviewerFiscalYear`, which selects the year that just ended during 1–31 Oct (BR-06a).
 - **Inputs/conditions:** an optional Common Era year (2000–2100, validated at the route) and the timezone-less `Enrolls.enroll_date`.
 - **Result:** Enrollment/Cover/Answer/Score selection for the resolved year.
 - **Edges/failure:** none known at the boundary. The former host-timezone dependency and the two-`new Date()` rollover race were both removed.
@@ -78,9 +78,11 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 ### BR-06a — Fiscal-year write authority
 
 - **Rule:** Writes target the current fiscal year. A closed year is writable by `Role.DOED` and by
-  `Role.Evaluator` at level `ODPC` without expiry, and by a Factory only during a 31-day grace window
-  following the rollover boundary.
-- **Implementation:** `assertYearWritable` in `src/service/evaluator-review.ts` (review and finalize);
+  `Role.Evaluator` at level `ODPC` without expiry, and by a Factory only during a 61-day grace window
+  (through 30 Nov) following the rollover boundary. Every evaluator level may also save verdicts (not finalize) in the year that
+  just ended during the 31-day evaluation period (through 31 Oct), and staff reads default to that year.
+- **Implementation:** `assertYearWritable` in `src/service/evaluator-review.ts` (review and finalize,
+  admitting `evaluationPeriodApplies`); `getReviewerFiscalYear` for staff-read defaults;
   `factoryGraceApplies` and `resolveWritableYear` for the four Factory completion paths.
 - **Inputs/conditions:** the target Cover's Enrollment date, the caller's role and evaluator level,
   and the current instant.
