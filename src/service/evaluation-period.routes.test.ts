@@ -90,3 +90,25 @@ describe("assertYearWritable during the evaluation period", () => {
     expect(await helper.assertYearWritable(1, reviewer("ODPC"))).toBeNull();
   });
 });
+
+describe("isInEvaluationPeriod — gate for the October hard-reject block", () => {
+  const coverIn = (wallClock: string) => recorder([[iso(wallClock)]]);
+
+  it("is true for a prior-year Cover during 1-31 Oct", async () => {
+    setSystemTime(bkk("2026-10-20T12:00:00.000"));
+    const helper = createEvaluatorReviewHelper(coverIn("2026-03-01T12:00:00.000").database);
+    expect(await helper.isInEvaluationPeriod(1)).toBe(true);
+  });
+
+  it("is false from 1 Nov", async () => {
+    setSystemTime(bkk("2026-11-01T00:00:00.000"));
+    const helper = createEvaluatorReviewHelper(coverIn("2026-03-01T12:00:00.000").database);
+    expect(await helper.isInEvaluationPeriod(1)).toBe(false);
+  });
+
+  it("is false for a current-year Cover, so hard rejects work before the rollover", async () => {
+    setSystemTime(bkk("2026-09-20T12:00:00.000"));
+    const helper = createEvaluatorReviewHelper(coverIn("2026-03-01T12:00:00.000").database);
+    expect(await helper.isInEvaluationPeriod(1)).toBe(false);
+  });
+});

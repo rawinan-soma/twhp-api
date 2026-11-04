@@ -153,6 +153,12 @@ export const createEvaluatorReviewHelper = (database: typeof db) => {
     return row ? utilities().getFiscalYearOf(new Date(row.enrollDate)) : null;
   };
 
+  /** Whether the Cover belongs to the fiscal year currently under evaluation (1-31 Oct). */
+  const isInEvaluationPeriod = async (coverId: number) => {
+    const targetYear = await fiscalYearOfCover(coverId);
+    return targetYear !== null && utilities().evaluationPeriodApplies(targetYear);
+  };
+
   /**
    * Gate on the fiscal year of the target Cover.
    *
@@ -193,6 +199,7 @@ export const createEvaluatorReviewHelper = (database: typeof db) => {
     assertCoverAccess,
     fiscalYearOfCover,
     assertYearWritable,
+    isInEvaluationPeriod,
   };
 };
 
@@ -379,6 +386,15 @@ export const createEvaluatorReviewService = (database: typeof db) => {
       // existing 404 rather than a message revealing that a Cover exists in a particular year.
       const yearCheck = await helper.assertYearWritable(coverId, reviewer);
       if (yearCheck instanceof ElysiaCustomStatusResponse) return yearCheck;
+
+      // During the evaluation period the factory can no longer edit the prior year, so a hard reject
+      // would strand the Cover. Approve or change the score instead.
+      if (entry.decision === "reject" && (await helper.isInEvaluationPeriod(coverId))) {
+        return status(400, {
+          message:
+            "hard reject is closed during the evaluation period; approve or change the score instead",
+        });
+      }
 
       // Answer must exist within this Cover
       const answerRow = await database
@@ -612,6 +628,14 @@ export const createEvaluatorReviewService = (database: typeof db) => {
           .map((r) => r.answerId),
       );
 
+      // Rejects saved before the rollover but not yet finalized. Refused before any file deletion,
+      // DB write or email.
+      if (hardRejectIds.size > 0 && (await helper.isInEvaluationPeriod(coverId))) {
+        return status(400, {
+          message: `hard reject is closed during the evaluation period; re-save answers ${[...hardRejectIds].join(", ")} as approve or change_score`,
+        });
+      }
+
       // Standard certificates behind a hard-rejected question. A standard-backed Answer holds
       // no per-answer files — `selectedChoice` was forced to "3" from the certificate — so
       // without this a hard reject deletes nothing and the redo re-derives the same "3".
@@ -714,7 +738,7 @@ export const createEvaluatorReviewService = (database: typeof db) => {
         special: a.special,
       }));
       // The Cover's own fiscal year, not the current one: a past-year Cover can be finalized after
-      // rollover (ODPC/DOED past-year authority, the evaluation period, the Factory grace window). It is also the year the
+      // rollover (ODPC/DOED past-year authority, the evaluation period). It is also the year the
       // `consec-gold` lookback counts back from.
       const awardFiscalYear = utilities().getFiscalYearOf(new Date(enrollData.enrollDate));
 

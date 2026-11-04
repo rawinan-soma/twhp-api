@@ -78,24 +78,24 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 ### BR-06a — Fiscal-year write authority
 
 - **Rule:** Writes target the current fiscal year. A closed year is writable by `Role.DOED` and by
-  `Role.Evaluator` at level `ODPC` without expiry, and by a Factory only during a 31-day grace window
-  following the rollover boundary. Every evaluator level may also save verdicts (not finalize) in the year that
+  `Role.Evaluator` at level `ODPC` without expiry, and never by a Factory, which finishes self-evaluation
+  before the rollover. Every evaluator level may also save verdicts (not finalize) in the year that
   just ended during the 31-day evaluation period (through 31 Oct), and staff reads default to that year.
 - **Implementation:** `assertYearWritable` in `src/service/evaluator-review.ts` (review and finalize,
   admitting `evaluationPeriodApplies`); `getReviewerFiscalYear` for staff-read defaults;
-  `factoryGraceApplies` and `resolveWritableYear` for the four Factory completion paths.
+  `resolveWritableYear` in `src/service/answer.ts` refuses a non-current year on the four Factory paths.
+  Hard rejects are refused during the evaluation period (`isInEvaluationPeriod`, on verdict save and finalize).
 - **Inputs/conditions:** the target Cover's Enrollment date, the caller's role and evaluator level,
   and the current instant.
 - **Result:** the write proceeds, or is refused with a message naming the closed year.
 - **Edges/failure:** an out-of-region caller receives the existing `404 cover not found`, never a
-  year-related message, so the existence of a Cover in a given year is not disclosed. Only the
-  immediately preceding fiscal year is ever admitted by grace.
+  year-related message, so the existence of a Cover in a given year is not disclosed.
 - **Failure behavior:** `403` with a distinct message per authority path.
 - **Risk of change:** High—governs who may alter a closed year.
 - **Confidence:** **Verified.** Evaluator authority: a DOED admin is modelled as a national ODPC
-  (`adminReviewerContext`), so the rule reduces to `level === "ODPC"`. Grace: asserted at the window
-  boundaries, in a later fiscal year, and for a year two back.
-- **Not attributable in the database.** Grace-window Factory writes are **not** recorded with an
+  (`adminReviewerContext`), so the rule reduces to `level === "ODPC"`. Factory refusal and the evaluation-period
+  boundaries are asserted by isolated tests.
+- **Not attributable in the database.** Factory writes are **not** recorded with an
   acting identity. `CoverLogs.evaluator_id` is semantically an evaluator reference and a Factory is
   not an evaluator; writing a factory id there would corrupt every query reading that column. Adding
   a column was out of scope for the intent. Refusals and grants are distinguishable in request logs
@@ -104,9 +104,9 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 
 ### BR-06b — Fiscal-year expiry
 
-- **Rule:** A Cover still `in_progress` when the grace window closes remains `in_progress`,
+- **Rule:** A Cover still `in_progress` when the fiscal year ends remains `in_progress`,
   permanently.
-- **Implementation:** none — expiry is evaluated at write time by `factoryGraceApplies`. No sweep, no
+- **Implementation:** none — expiry is evaluated at write time by `resolveWritableYear`. No sweep, no
   scheduled job, no persisted marker.
 - **Result:** the Cover stays readable by every role in scope, writable by DOED/ODPC without
   deadline, and non-scorable exactly as any `in_progress` Cover already was
@@ -136,9 +136,8 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Confidence:** Application rule **Verified**; durable cardinality absent.
 - **Unchanged by intent `013-fiscal-year-addressing`.** That intent added no unique constraint, so
   `.limit(1)` owner lookups remain arbitrary where duplicates exist. What it *did* add is that a
-  Factory may now legitimately hold two open fiscal years at once during the grace window; every
-  self-read was asserted under that condition and resolves the intended year, but that is
-  year-disambiguation, not cardinality enforcement.
+  Factory may hold enrollments in two fiscal years (the earlier one is read-only to it); self-reads
+  resolve the intended year, but that is year-disambiguation, not cardinality enforcement.
 
 ### BR-08 — Enrollment fields and standard certificates
 
