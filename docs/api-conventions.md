@@ -198,7 +198,9 @@ For **31 days** after the fiscal-year boundary (1 Oct up to 1 Nov 00:00 Bangkok,
 - hard rejects are refused (`400`) on Covers of that year, on verdict save and on finalize, because the factory can no longer edit a closed year and a bounced Cover would be stranded. Approve or change the score instead. Rejects saved before the rollover must be re-saved before finalize;
 - factory-side reads and `getFiscalYear()` are unchanged.
 
-The period is a rule relative to the boundary, not a date range: `EVALUATION_DAYS` and `evaluationPeriodApplies` in `src/utils.ts`.
+The default period is a rule relative to the boundary, not a date range: `EVALUATION_DAYS` and `evaluationPeriodApplies` in `src/utils.ts`.
+
+**One-off extension.** The optional env var `EVALUATION_PERIOD_END` (an ISO 8601 instant with an offset, e.g. `2027-01-01T00:00:00+07:00`) replaces the end of the period when it lies in the current fiscal year and after the default end. It only extends: an earlier value, or one in another fiscal year, is ignored. Every rule above then holds until that instant, including the `400` on hard rejects. Unset it and redeploy to fall back to the 31-day rule. See ADR-0012.
 
 #### Factory writes
 

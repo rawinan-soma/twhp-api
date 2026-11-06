@@ -126,6 +126,19 @@ must be re-saved as approve or change_score; finalize refuses before any file de
 email and names the offending answer ids. Before 1 Oct and from 1 Nov the rule above is unchanged.
 Implemented by `assertHardRejectAllowed` in `src/service/evaluator-review.ts`.
 
+## Amendment — FY2569 evaluation period extended to 31 Dec
+
+The auditors need until 31 Dec 2026 to finish FY2569 (CE 2026), and the 31-day period closed on
+1 Nov. The optional config value `EVALUATION_PERIOD_END` (an ISO 8601 instant with an offset, set to
+`2027-01-01T00:00:00+07:00` for this year) replaces the end of the evaluation period. It applies only
+when it lies in the current fiscal year and after the 31-day end, so it can extend the period but
+never shorten it or open another year. Everything above holds until that instant: Mental and DOH
+verdict saves, staff list defaults, and the `400` on hard rejects. `finalize` stays ODPC-only.
+
+Kill switch: unset `EVALUATION_PERIOD_END` and redeploy, and the 31-day rule applies again. Next
+year the value is outside the current cycle and does nothing, so there is nothing to revert.
+Implemented in `evaluationPeriodApplies` in `src/utils.ts`.
+
 ## Provenance
 
 Delivered as intent `score-change-finality`, runs `run-twhp-elysia-005` through `-010`. Each run's

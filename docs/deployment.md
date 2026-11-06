@@ -129,6 +129,7 @@ This inventory lists keys and safe shapes only. It does not reproduce values fro
 | `OTP_RESEND_THROTTLE` | Optional; code default | OTP resend cooldown | Positive integer seconds | Public configuration |
 | `DEV_SKIP_OTP` | Optional; defaults disabled | Development OTP bypass switch; ignored with secure cookies | Lowercase boolean literal | Security-sensitive configuration |
 | `DEV_BYPASS_SECRET` | Optional; defaults empty/fail-closed | Header secret for approved development bypass | High-entropy random string; unset outside approved dev | Secret |
+| `EVALUATION_PERIOD_END` | Optional; defaults unset | Extends the evaluation period end for the current fiscal year; unset restores the 31-day rule | ISO 8601 instant with offset, e.g. `2027-01-01T00:00:00+07:00` | Public configuration |
 | `MINIO_ENDPOINT` | Required | Internal S3 endpoint; utilities | DNS name or IP without scheme | Public configuration |
 | `MINIO_PORT` | Required | Internal S3 endpoint | Integer TCP port | Public configuration |
 | `MINIO_USE_SSL` | Required | Internal MinIO client TLS setting | Lowercase boolean literal | Public configuration |

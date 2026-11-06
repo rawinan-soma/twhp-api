@@ -81,6 +81,8 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
   `Role.Evaluator` at level `ODPC` without expiry, and never by a Factory, which finishes self-evaluation
   before the rollover. Every evaluator level may also save verdicts (not finalize) in the year that
   just ended during the 31-day evaluation period (through 31 Oct), and staff reads default to that year.
+  The optional `EVALUATION_PERIOD_END` config value extends that period's end (FY2569: to 31 Dec 2026);
+  it is ignored unless it falls in the current fiscal year and after the 31-day end.
 - **Implementation:** `assertYearWritable` in `src/service/evaluator-review.ts` (review and finalize,
   admitting `evaluationPeriodApplies`); `getReviewerFiscalYear` for staff-read defaults;
   `resolveWritableYear` in `src/service/answer.ts` refuses a non-current year on the four Factory paths.
