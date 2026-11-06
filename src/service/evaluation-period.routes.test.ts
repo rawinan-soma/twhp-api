@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, setSystemTime } from "bun:test";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { ElysiaCustomStatusResponse } from "elysia";
+import { env } from "../config";
 import { createEnrollService } from "./enroll";
 import { createEvaluatorReviewHelper } from "./evaluator-review";
 import { createFactoryService } from "./factory";
@@ -116,5 +117,48 @@ describe("assertHardRejectAllowed — the October hard-reject block", () => {
 
   it("allows it before the rollover (current-year Cover)", async () => {
     expect(await helperAt("2026-09-20T12:00:00.000").assertHardRejectAllowed(1)).toBeNull();
+  });
+});
+
+describe("with EVALUATION_PERIOD_END set to 2027-01-01T00:00:00+07:00", () => {
+  const config = env as { EVALUATION_PERIOD_END?: Date };
+  const original = config.EVALUATION_PERIOD_END;
+
+  afterEach(() => {
+    config.EVALUATION_PERIOD_END = original;
+  });
+
+  const helperAt = (now: string) => {
+    config.EVALUATION_PERIOD_END = new Date("2027-01-01T00:00:00+07:00");
+    setSystemTime(bkk(now));
+    return createEvaluatorReviewHelper(recorder([[iso("2026-03-01T12:00:00.000")]]).database);
+  };
+  const reviewer = (level: "Mental" | "DOH" | "ODPC") =>
+    ({ accountId: 1, level, scope: { kind: "region", region: 1 } }) as never;
+  const messageOf = (r: unknown) => (r as { response: { message: string } }).response.message;
+
+  it("admits Mental and DOH on a FY2026 Cover on 2026-12-15", async () => {
+    const helper = helperAt("2026-12-15T12:00:00.000");
+    expect(await helper.assertYearWritable(1, reviewer("Mental"))).toBeNull();
+    expect(await helper.assertYearWritable(1, reviewer("DOH"))).toBeNull();
+  });
+
+  it("refuses a hard reject with the unchanged 400 message on 2026-12-15", async () => {
+    const result = await helperAt("2026-12-15T12:00:00.000").assertHardRejectAllowed(1);
+    expect(result).toBeInstanceOf(ElysiaCustomStatusResponse);
+    expect((result as { code: number }).code).toBe(400);
+    expect(messageOf(result)).toBe(
+      "hard reject is closed during the evaluation period; approve or change the score instead",
+    );
+  });
+
+  it("refuses Mental and DOH and allows a hard reject from the override instant", async () => {
+    const helper = helperAt("2027-01-01T00:00:00.000");
+    for (const level of ["Mental", "DOH"] as const) {
+      const result = await helper.assertYearWritable(1, reviewer(level));
+      expect(result).toBeInstanceOf(ElysiaCustomStatusResponse);
+      expect((result as { code: number }).code).toBe(403);
+    }
+    expect(await helper.assertHardRejectAllowed(1)).toBeNull();
   });
 });

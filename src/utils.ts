@@ -85,16 +85,20 @@ const getFiscalYearOf = (instant: Date) => {
  */
 export const EVALUATION_DAYS = 31;
 
-/**
- * Whether the evaluation period of `targetYear` is still open at `now`: it is the immediately
- * preceding fiscal year and fewer than `EVALUATION_DAYS` have passed since the rollover.
- */
-export const evaluationPeriodApplies = (targetYear: number, now: Date = new Date()) => {
+const evaluationPeriodEnd = (currentYear: number, override: Date | undefined) => {
+  const defaultEnd = fiscalYearBoundary(currentYear - 1).getTime() + EVALUATION_DAYS * 86_400_000;
+  if (override === undefined || getFiscalYearOf(override) !== currentYear) return defaultEnd;
+  return Math.max(defaultEnd, override.getTime());
+};
+
+export const evaluationPeriodApplies = (
+  targetYear: number,
+  now: Date = new Date(),
+  periodEndOverride: Date | undefined = env.EVALUATION_PERIOD_END,
+) => {
   const currentYear = getFiscalYearOf(now);
   if (targetYear !== currentYear - 1) return false;
-
-  const periodEnds = fiscalYearBoundary(currentYear - 1).getTime() + EVALUATION_DAYS * 86_400_000;
-  return now.getTime() < periodEnds;
+  return now.getTime() < evaluationPeriodEnd(currentYear, periodEndOverride);
 };
 
 export const utilities = () => ({
