@@ -30,7 +30,7 @@ const BASE_ENV: Record<string, string> = {
 
 const SNIPPET =
   "import('./src/config.ts')" +
-  ".then(m=>process.stdout.write(JSON.stringify({skip:m.env.DEV_SKIP_OTP,secret:m.env.DEV_BYPASS_SECRET})))" +
+  ".then(m=>process.stdout.write(JSON.stringify({skip:m.env.DEV_SKIP_OTP,secret:m.env.DEV_BYPASS_SECRET,periodEnd:m.env.EVALUATION_PERIOD_END?.toISOString()??null})))" +
   ".catch(e=>{process.stderr.write(String((e&&e.message)||e));process.exit(1)})";
 
 async function loadConfig(overrides: Record<string, string | undefined>) {
@@ -58,13 +58,13 @@ describe("config — 001 dev bypass env vars", () => {
       DEV_BYPASS_SECRET: undefined,
     });
     expect(exitCode).toBe(0);
-    expect(JSON.parse(out)).toEqual({ skip: false, secret: "" });
+    expect(JSON.parse(out)).toEqual({ skip: false, secret: "", periodEnd: null });
   });
 
   it("001-AC-1b DEV_SKIP_OTP=true parsed as boolean true; secret captured verbatim", async () => {
     const { exitCode, out } = await loadConfig({ DEV_SKIP_OTP: "true", DEV_BYPASS_SECRET: "abc" });
     expect(exitCode).toBe(0);
-    expect(JSON.parse(out)).toEqual({ skip: true, secret: "abc" });
+    expect(JSON.parse(out)).toEqual({ skip: true, secret: "abc", periodEnd: null });
   });
 
   it("001-AC-2 malformed DEV_SKIP_OTP=yes → startup throws (non-zero exit, names the var)", async () => {
@@ -79,6 +79,43 @@ describe("config — 001 dev bypass env vars", () => {
       DEV_BYPASS_SECRET: undefined,
     });
     expect(exitCode).toBe(0);
-    expect(JSON.parse(out)).toEqual({ skip: true, secret: "" });
+    expect(JSON.parse(out)).toEqual({ skip: true, secret: "", periodEnd: null });
+  });
+});
+
+describe("config - EVALUATION_PERIOD_END", () => {
+  it("parses an instant with an offset", async () => {
+    const { exitCode, out } = await loadConfig({
+      EVALUATION_PERIOD_END: "2027-01-01T00:00:00+07:00",
+    });
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(out).periodEnd).toBe("2026-12-31T17:00:00.000Z");
+  });
+
+  it("parses a Z instant", async () => {
+    const { exitCode, out } = await loadConfig({ EVALUATION_PERIOD_END: "2026-12-31T17:00:00Z" });
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(out).periodEnd).toBe("2026-12-31T17:00:00.000Z");
+  });
+
+  it("treats unset and empty as no override", async () => {
+    for (const value of [undefined, ""]) {
+      const { exitCode, out } = await loadConfig({ EVALUATION_PERIOD_END: value });
+      expect(exitCode).toBe(0);
+      expect(JSON.parse(out).periodEnd).toBeNull();
+    }
+  });
+
+  it("fails startup on a malformed value, naming the variable", async () => {
+    for (const value of [
+      "not-a-date",
+      "2027-01-01",
+      "2027-01-01T00:00:00",
+      "2027-13-45T00:00:00Z",
+    ]) {
+      const { exitCode, err } = await loadConfig({ EVALUATION_PERIOD_END: value });
+      expect(exitCode).not.toBe(0);
+      expect(err).toContain("EVALUATION_PERIOD_END");
+    }
   });
 });

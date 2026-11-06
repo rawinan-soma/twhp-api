@@ -38,6 +38,20 @@ function optionalEnvBoolean(key: string, defaultValue: boolean): boolean {
   return val === "true";
 }
 
+const ISO_INSTANT_WITH_OFFSET =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
+
+function optionalEnvInstant(key: string): Date | undefined {
+  const val = Bun.env[key];
+  if (val === undefined || val === "") return undefined;
+  const instant = new Date(val);
+  if (!ISO_INSTANT_WITH_OFFSET.test(val) || Number.isNaN(instant.getTime()))
+    throw new Error(
+      `Environment variable ${key} must be an ISO 8601 instant with an offset (e.g. 2027-01-01T00:00:00+07:00), got: "${val}"`,
+    );
+  return instant;
+}
+
 function optionalEnv(key: string, defaultValue: string): string {
   return Bun.env[key] ?? defaultValue;
 }
@@ -81,6 +95,8 @@ export const env = {
   // Dev OTP bypass (development only — hard-blocked when COOKIE_SECURE=true; see ADR-4)
   DEV_SKIP_OTP: optionalEnvBoolean("DEV_SKIP_OTP", false),
   DEV_BYPASS_SECRET: optionalEnv("DEV_BYPASS_SECRET", ""),
+
+  EVALUATION_PERIOD_END: optionalEnvInstant("EVALUATION_PERIOD_END"),
 
   // MinIO
   MINIO_ENDPOINT: requireEnv("MINIO_ENDPOINT"),

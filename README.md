@@ -73,7 +73,8 @@ malformed one. Required: `DATABASE_URL`, `APP_PORT`, `AUTH_JWT_SECRET`, `AUTH_TO
 `REFRESH_JWT_SECRET`, `REFRESH_TOKEN_EXP`, `COOKIE_SECURE`, `REDIS_HOST`, `REDIS_PORT`, `SMTP_HOST`,
 `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_SECURE`, `SMTP_STARTTLS`, `FRONTEND_URL`, and the six
 `MINIO_*` values. Optional with defaults: the five `OTP_*` tuning values, `DEV_SKIP_OTP` (default
-`false`), and `DEV_BYPASS_SECRET` (default empty, which fails closed). `NGINX_API_KEY` and
+`false`), `DEV_BYPASS_SECRET` (default empty, which fails closed), and `EVALUATION_PERIOD_END` (default unset;
+an ISO 8601 instant with offset that extends the evaluation period). `NGINX_API_KEY` and
 `NGINX_API_UPSTREAM` are consumed by the proxy template, not by `src/config.ts`.
 
 ## Quick start (Docker Compose)

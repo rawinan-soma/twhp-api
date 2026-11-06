@@ -180,8 +180,10 @@ verdicts on that year (`finalize` stays ODPC-only), and the nine staff list endp
 when `?fiscalYear` is omitted. Staff-side list reads use `utilities().getReviewerFiscalYear()`;
 factory-side reads and writes keep `getFiscalYear()`. Hard rejects are refused during it (verdict save and
 finalize return 400), since factories cannot edit a closed year. Factories have no grace: they finish
-self-evaluation before the rollover (`resolveWritableYear`). The window is relative to the rollover,
-never literal dates.
+self-evaluation before the rollover (`resolveWritableYear`). The default window is relative to the
+rollover, never literal dates. The one override is the optional config value
+`EVALUATION_PERIOD_END` (ISO 8601 instant with offset): it replaces the end only when it lies in the
+current fiscal year and after the 31-day end, and unset it changes nothing (ADR-0012, amended).
 
 ### File storage
 
