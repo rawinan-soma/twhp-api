@@ -23,6 +23,7 @@ import { latestCoverLogFor } from "./coverStatus";
 import { categoriesFor, type EvaluatorLevel, evaluatorService } from "./evaluator";
 import { provincialOfficerService } from "./provincialOfficer";
 import { type CategoryKey, calculateBreakdown, computeGrade } from "./scoreHelpers";
+import { verdictEmailCc, verdictFinishedJob } from "./verdictEmail";
 
 type QuestionCategory = (typeof questionCategories.enumValues)[number];
 
@@ -841,24 +842,13 @@ export const createEvaluatorReviewService = (database: typeof db) => {
 
       // Enqueue exactly one factory email after the committed txn; swallow queue failures.
       if (enrollData?.email) {
-        // cc the safety officer when they have an address of their own — omitted when blank
-        // or identical to the account address, so nobody is addressed twice.
-        const cc =
-          enrollData.ccEmail && enrollData.ccEmail !== enrollData.email
-            ? enrollData.ccEmail
-            : undefined;
         try {
           if (newCoverStatus === "finished") {
-            await emailQueue.add("verdict-result-finished", {
-              email: enrollData.email,
-              cc,
-              grade,
-              factoryNameTh: enrollData.factoryNameTh,
-            });
+            await emailQueue.add("verdict-result-finished", verdictFinishedJob(enrollData, grade));
           } else {
             await emailQueue.add("verdict-result-in-progress", {
               email: enrollData.email,
-              cc,
+              cc: verdictEmailCc(enrollData),
               factoryNameTh: enrollData.factoryNameTh,
             });
           }
