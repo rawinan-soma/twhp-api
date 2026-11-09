@@ -2,13 +2,14 @@
 
 > Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-11-09
 
-54 operations across 8 groups.
+56 operations across 8 groups.
 
 ## Contents
 
 - [admins](#admins)
   - [`PATCH /twhp/api/admins`](#patch-twhp-api-admins)
   - [`GET /twhp/api/admins/enrolls`](#get-twhp-api-admins-enrolls)
+  - [`POST /twhp/api/admins/invitations`](#post-twhp-api-admins-invitations)
   - [`GET /twhp/api/admins/factories`](#get-twhp-api-admins-factories)
   - [`PATCH /twhp/api/admins/factories/validate/{id}`](#patch-twhp-api-admins-factories-validate-id)
   - [`GET /twhp/api/admins/score`](#get-twhp-api-admins-score)
@@ -25,6 +26,7 @@
   - [`POST /twhp/api/authentication/login/resend-otp`](#post-twhp-api-authentication-login-resend-otp)
   - [`POST /twhp/api/authentication/reset-password-request`](#post-twhp-api-authentication-reset-password-request)
   - [`POST /twhp/api/authentication/reset-password`](#post-twhp-api-authentication-reset-password)
+  - [`POST /twhp/api/authentication/accept-invitation`](#post-twhp-api-authentication-accept-invitation)
   - [`POST /twhp/api/authentication/logout`](#post-twhp-api-authentication-logout)
   - [`GET /twhp/api/authentication`](#get-twhp-api-authentication)
 - [default](#default)
@@ -129,6 +131,36 @@
   | `items` | `object[]` | yes |  |
   | `meta` | `object` | yes |  |
 
+
+---
+
+### `POST /twhp/api/admins/invitations`
+
+
+เชิญบุคคลเป็นผู้ประเมินทางอีเมล บัญชีจะถูกสร้างเมื่อผู้รับตอบรับคำเชิญ
+
+**Request body** (`application/json`)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `role` | `string` | yes |  |
+| `email` | `string<email>` | yes |  |
+| `firstName` | `string` | yes |  |
+| `lastName` | `string` | yes |  |
+| `phoneNumber` | `string` | yes |  |
+| `level` | `"Mental" \| "DOH" \| "ODPC"` | yes |  |
+| `region` | `integer` | yes |  |
+
+**Responses**
+
+- `201` — Response for status 201
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `id` | `number` | yes |  |
+  | `message` | `string` | yes |  |
+
+- `400` — Response for status 400
 
 ---
 
@@ -809,6 +841,35 @@ reset password
   | `message` | `string` | yes |  |
 
 - `400` — Response for status 400
+
+---
+
+### `POST /twhp/api/authentication/accept-invitation`
+
+
+ตอบรับคำเชิญและตั้งรหัสผ่าน ไม่มีการเข้าสู่ระบบให้อัตโนมัติ
+
+**Request body** (`application/json`)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `token` | `string` | yes |  |
+| `password` | `string` | yes |  |
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `400` — Response for status 400
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
 
 ---
 
