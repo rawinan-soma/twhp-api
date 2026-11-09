@@ -1,6 +1,6 @@
 # Elysia Documentation
 
-> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-09-03
+> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-11-09
 
 54 operations across 8 groups.
 
@@ -114,8 +114,11 @@
 | Name | In | Required | Type | Description |
 | --- | --- | --- | --- | --- |
 | `coverStatus` | query | — | `"finished" \| "in_progress" \| "in_review" \| "none"` |  |
+| `region` | query | — | `number` |  |
+| `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
@@ -140,8 +143,11 @@
 | --- | --- | --- | --- | --- |
 | `validated` | query | yes | `boolean` |  |
 | `enrolled` | query | — | `boolean` |  |
+| `region` | query | — | `number` |  |
+| `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
@@ -202,6 +208,7 @@
 | `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
@@ -450,7 +457,7 @@ update ข้อมูลของ สปก. ตาม id ของสปก.
   | --- | --- | --- | --- |
   | `message` | `string` | yes |  |
   | `coverStatus` | `string` | yes |  |
-  | `grade` | `string \| string \| string \| string \| null` | yes |  |
+  | `grade` | `string \| string \| string \| string \| string \| null` | yes |  |
 
 - `400` — Response for status 400
 
@@ -837,6 +844,7 @@ logout
   | `role` | `string` | yes |  |
   | `change_pw` | `boolean` | yes |  |
   | `eval_level` | `string \| null` | yes |  |
+  | `region` | `number \| null` | yes |  |
   | `full_name` | `string` | yes |  |
 
 - `400` — Response for status 400
@@ -894,15 +902,17 @@ logout
 ### `GET /twhp/api/evaluators/enrolls`
 
 
-ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดตามเขตสุขภาพ (กรองตามสถานะ cover ได้ด้วย ?coverStatus= และแบ่งหน้าด้วย ?page= ?limit=)
+ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดตามเขตสุขภาพ (กรองตามจังหวัดในเขตของตนได้ด้วย ?provinceId= กรองตามสถานะ cover ได้ด้วย ?coverStatus= และแบ่งหน้าด้วย ?page= ?limit=)
 
 **Parameters**
 
 | Name | In | Required | Type | Description |
 | --- | --- | --- | --- | --- |
 | `coverStatus` | query | — | `"finished" \| "in_progress" \| "in_review" \| "none"` |  |
+| `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
@@ -933,8 +943,10 @@ logout
 | --- | --- | --- | --- | --- |
 | `validated` | query | yes | `boolean` |  |
 | `enrolled` | query | — | `boolean` |  |
+| `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
@@ -957,14 +969,16 @@ logout
 ### `GET /twhp/api/evaluators/score`
 
 
-ดูคะแนนประเมินโรงงานทั้งหมดในเขตสุขภาพ (แบ่งหน้าด้วย ?page= ?limit=)
+ดูคะแนนประเมินโรงงานทั้งหมดในเขตสุขภาพ (กรองตามจังหวัดในเขตของตนได้ด้วย ?provinceId= และแบ่งหน้าด้วย ?page= ?limit=)
 
 **Parameters**
 
 | Name | In | Required | Type | Description |
 | --- | --- | --- | --- | --- |
+| `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
@@ -1139,7 +1153,7 @@ logout
   | --- | --- | --- | --- |
   | `message` | `string` | yes |  |
   | `coverStatus` | `string` | yes |  |
-  | `grade` | `string \| string \| string \| string \| null` | yes |  |
+  | `grade` | `string \| string \| string \| string \| string \| null` | yes |  |
 
 - `400` — Response for status 400
 
@@ -1416,6 +1430,12 @@ logout
 
 ดึงข้อมูลการสมัครเข้าร่วมโครงการของตนเอง
 
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
+
 ---
 
 ### `POST /twhp/api/factories/enrolls`
@@ -1576,6 +1596,12 @@ logout
 
 เรียกดูข้อมูลหน้าปกแบบประเมินพร้อมสถานะล่าสุด
 
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
+
 **Responses**
 
 - `200` — Response for status 200
@@ -1587,6 +1613,7 @@ logout
   | `startDate` | `string` | yes |  |
   | `status` | `string` | yes |  |
   | `update_date` | `string` | yes |  |
+  | `fiscalYear` | `number` | — |  |
 
 - `404` — Response for status 404
 
@@ -1641,6 +1668,12 @@ logout
 
 ดึงข้อมูลคำตอบ
 
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
+
 **Responses**
 
 - `200` — Response for status 200
@@ -1657,6 +1690,12 @@ logout
 
 
 บันทึกคำตอบ
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Request body** (`multipart/form-data`)
 
@@ -1692,6 +1731,12 @@ logout
 
 แก้ไขคำตอบของแบบประเมิน
 
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
+
 **Request body** (`multipart/form-data`)
 
 | Field | Type | Required | Description |
@@ -1725,6 +1770,12 @@ logout
 
 
 รับหรือปฏิเสธคำตัดสินของผู้ตรวจประเมิน (accept/redo)
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Request body** (`multipart/form-data`)
 
@@ -1761,6 +1812,12 @@ logout
 
 ส่งคำตอบทั้งชุด
 
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
+
 **Responses**
 
 - `200` — Response for status 200
@@ -1784,6 +1841,12 @@ logout
 
 ดูคะแนนประเมินตนเองของโรงงาน
 
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
+
 **Responses**
 
 - `200` — Response for status 200
@@ -1795,7 +1858,8 @@ logout
   | `coverId` | `number` | yes |  |
   | `coverStatus` | `string` | yes |  |
   | `enrollId` | `number` | yes |  |
-  | `grade` | `string \| string \| string \| string \| null` | — |  |
+  | `fiscalYear` | `number` | — |  |
+  | `grade` | `string \| string \| string \| string \| string \| null` | — |  |
   | `scoring` | `object` | yes |  |
 
 - `400` — Response for status 400
@@ -1934,6 +1998,7 @@ Get a 5-minute presigned URL for a stored file
 | `coverStatus` | query | — | `"finished" \| "in_progress" \| "in_review" \| "none"` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
@@ -1966,6 +2031,7 @@ Get a 5-minute presigned URL for a stored file
 | `enrolled` | query | — | `boolean` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 
@@ -1996,6 +2062,7 @@ Get a 5-minute presigned URL for a stored file
 | --- | --- | --- | --- | --- |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
 

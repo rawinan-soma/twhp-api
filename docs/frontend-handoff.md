@@ -57,19 +57,21 @@ bun scripts/gen-api-docs.ts
 
 ### Endpoint ที่ได้รับผลกระทบ
 
-| Endpoint | Query เดิม (ยังอยู่ครบ) | Item |
+| Endpoint | Query (ของเดิมยังอยู่ครบ) | Item |
 |---|---|---|
-| `GET /twhp/api/admins/factories` | `validated`, `enrolled` | 17 fields |
-| `GET /twhp/api/admins/enrolls` | `coverStatus` | 60 fields |
+| `GET /twhp/api/admins/factories` | `validated`, `enrolled`, `region`, `provinceId` | 17 fields |
+| `GET /twhp/api/admins/enrolls` | `coverStatus`, `region`, `provinceId` | 60 fields |
 | `GET /twhp/api/admins/score` | `region`, `provinceId` | 7 fields |
-| `GET /twhp/api/evaluators/factories` | `validated`, `enrolled` | 15 fields |
-| `GET /twhp/api/evaluators/enrolls` | `coverStatus` | 60 fields |
-| `GET /twhp/api/evaluators/score` | — | 7 fields |
+| `GET /twhp/api/evaluators/factories` | `validated`, `enrolled`, `provinceId` | 15 fields |
+| `GET /twhp/api/evaluators/enrolls` | `coverStatus`, `provinceId` | 60 fields |
+| `GET /twhp/api/evaluators/score` | `provinceId` | 7 fields |
 | `GET /twhp/api/provincialOfficers/factories` | `validated`, `enrolled` | 15 fields |
 | `GET /twhp/api/provincialOfficers/enrolls` | `coverStatus` | 60 fields |
 | `GET /twhp/api/provincialOfficers/score` | — | 7 fields |
 
 `page` กับ `limit` ถูก *compose เพิ่ม* ไม่ได้แทนที่ — filter เดิมส่งได้เหมือนเดิมทุกตัว
+
+`region` และ `provinceId` เป็น optional ทั้งหมด กติกาอยู่ใน § 7
 
 ### กติกาของ query
 
@@ -272,6 +274,67 @@ response เป็น `AnswerViewSchema` **ตัวเดียวกับ** `
 `provincialOfficers/**` ไม่มี verdict-save และไม่มี finalize และจะไม่มี
 ถ้า reuse component ของหน้าผู้ประเมิน **ต้องซ่อนปุ่มตัดสิน/ปุ่ม finalize ให้หมด**
 ไม่ใช่แค่ disable — ยิงไปก็ไม่มี endpoint รับ
+
+---
+
+## § 7 ตัวกรองเขตสุขภาพและจังหวัดบนรายการของเจ้าหน้าที่ (ADDITIVE)
+
+เพิ่ม 9 พ.ย. 2026 · Issue #34 · ไม่กระทบ endpoint เดิม
+
+Admin กรองรายการโรงงานและรายการ enrollment ด้วย `region` และ `provinceId` ได้ เหมือนรายการคะแนนของ Admin
+Evaluator ทุกระดับกรองรายการโรงงาน รายการ enrollment และรายการคะแนนด้วย `provinceId` ได้
+ถ้าไม่ส่ง param ใหม่ จะได้แถวเหมือนเดิมทุกประการ
+
+### Query ใหม่
+
+| Endpoint | Query ใหม่ (optional เป็นตัวเลข) |
+|---|---|
+| `GET /twhp/api/admins/factories` | `region`, `provinceId` |
+| `GET /twhp/api/admins/enrolls` | `region`, `provinceId` |
+| `GET /twhp/api/evaluators/factories` | `provinceId` |
+| `GET /twhp/api/evaluators/enrolls` | `provinceId` |
+| `GET /twhp/api/evaluators/score` | `provinceId` |
+
+`GET /twhp/api/admins/score` รับ `region` และ `provinceId` อยู่แล้ว และไม่เปลี่ยน
+รายการของ Provincial Officer ไม่เปลี่ยน
+
+### กติกาของ filter
+
+- ทุก filter ทำงานแบบ AND ร่วมกับ `validated`, `enrolled`, `coverStatus`, `fiscalYear` และ pagination
+- `meta.total` นับเฉพาะแถวที่ผ่าน filter ใช้ทำ pager ได้ตามปกติ
+- `region` กับ `provinceId` ที่ไม่ตรงกัน หรือตัวเลขที่ไม่มีอยู่จริง ได้ `200` พร้อม `items: []` และ `meta.total` เป็น 0
+- `provinceId` นอกเขตของ Evaluator ได้หน้าว่างแบบเดียวกัน ไม่มี `403` หรือ `400`
+- route ของ Evaluator ไม่มี `region` server ใช้เขตสุขภาพจากบัญชีเสมอ และไม่สนใจ `region` ที่ client ส่งมา
+- ค่าที่ไม่ใช่ตัวเลข เช่น `?provinceId=abc` ไม่ผ่าน validation และได้ `400`
+
+ถ้า dropdown ส่งคู่เขตกับจังหวัดที่ไม่ตรงกัน หน้าจอจะเหมือนไม่มีข้อมูล และไม่มี error ให้จับ
+เมื่อผู้ใช้เปลี่ยนเขต ให้ล้างจังหวัดที่เลือกไว้ด้วย
+
+### ข้อมูลสำหรับสร้าง dropdown
+
+`GET /twhp/api/location/provinces` เป็น public และทุกแถวมี `health_region` เพิ่มขึ้น
+ฟิลด์เดิมไม่เปลี่ยน หน้าลงทะเบียนใช้ต่อได้โดยไม่ต้องแก้
+
+```json
+[{ "name_th": "กระบี่", "province_id": 81, "health_region": 11 }]
+```
+
+`GET /twhp/api/authentication` (session ปัจจุบัน) มี `region: number | null` เพิ่มขึ้น ฟิลด์เดิมไม่เปลี่ยน
+
+| Role | `region` |
+|---|---|
+| Evaluator ทุกระดับ | เขตสุขภาพของบัญชี |
+| Admin, Provincial Officer, Factory | `null` |
+
+### วิธีสร้าง dropdown ของแต่ละ role
+
+| Role | ตัวเลือกใน dropdown | Query ที่ส่ง |
+|---|---|---|
+| Admin | สร้างรายการเขตจากค่า `health_region` ที่ไม่ซ้ำกัน แล้วแสดงเฉพาะจังหวัดในเขตที่เลือก | `region` และ `provinceId` พร้อมกันเมื่อเลือกทั้งคู่ |
+| Evaluator | อ่าน `region` จาก session แล้วแสดงเฉพาะจังหวัดที่ `health_region` เท่ากับค่านั้น | `provinceId` อย่างเดียว |
+| Provincial Officer, Factory | ไม่เปลี่ยน | ไม่เปลี่ยน |
+
+การกรองนี้มีไว้แสดงผลเท่านั้น และไม่ใช่การควบคุมความปลอดภัย server บังคับขอบเขตเองทุก request
 
 ---
 

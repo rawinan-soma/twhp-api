@@ -19,14 +19,24 @@ export default (app: App) =>
         return await scoreService.getScoresByRegion(
           // biome-ignore lint/style/noNonNullAssertion: evaluator is guaranteed non-null after getEvaluatorData succeeds
           evaluatorData.evaluator!.region,
-          { page: query.page, limit: query.limit, fiscalYear: query.fiscalYear },
+          {
+            page: query.page,
+            limit: query.limit,
+            fiscalYear: query.fiscalYear,
+            provinceId: query.provinceId,
+          },
         );
       },
       {
         detail: {
-          description: "ดูคะแนนประเมินโรงงานทั้งหมดในเขตสุขภาพ (แบ่งหน้าด้วย ?page= ?limit=)",
+          description:
+            "ดูคะแนนประเมินโรงงานทั้งหมดในเขตสุขภาพ (กรองตามจังหวัดในเขตของตนได้ด้วย ?provinceId= และแบ่งหน้าด้วย ?page= ?limit=)",
         },
-        query: t.Composite([PaginationQuery, FiscalYearQuery]),
+        query: t.Composite([
+          t.Object({ provinceId: t.Optional(t.Number()) }),
+          PaginationQuery,
+          FiscalYearQuery,
+        ]),
         response: {
           200: ScoreReportPageSchema,
           404: t.Object({ message: t.String({ default: "invalid evaluator" }) }),

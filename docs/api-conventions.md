@@ -258,13 +258,48 @@ Supported filters include:
 
 - factory lists: required `validated`, optional `enrolled`;
 - staff enrollment lists: optional `coverStatus=finished|in_progress|in_review|none`;
-- admin score list: optional `region` and `provinceId`.
+- Admin and Evaluator factory, enrollment, and score lists: optional area filters, described in [Region and province filters](#region-and-province-filters).
 
 Filters are applied in SQL and are reflected in `meta.total`: the count and the page are built from the same predicate.
 
 Current `enrolled=false` behavior does not mean “only unenrolled factories.” It disables the current-fiscal-year enrollment-date filter. The evaluator and provincial variants still require at least one enrollment row to exist, but this is now expressed as a correlated `EXISTS` predicate rather than an inner join ([ADR-0008](adr/0008-exists-subquery-for-enrolled-filter.md)) — so a factory with several enrollments appears once, not once per enrollment. Treat the `enrolled=false` semantics as current implementation behavior, not a stable semantic contract.
 
 Because `enrolled=false` disables the fiscal-year predicate, `fiscalYear` has **no effect** on that path, and the rows returned may span several fiscal years. The `fiscalYear` field is therefore omitted from those items rather than being set to a value that would not be true of every row.
+
+#### Region and province filters
+
+| Route | Optional numeric query params |
+|-------|-------------------------------|
+| `GET /twhp/api/admins/factories` | `region`, `provinceId` |
+| `GET /twhp/api/admins/enrolls` | `region`, `provinceId` |
+| `GET /twhp/api/admins/score` | `region`, `provinceId` |
+| `GET /twhp/api/evaluators/factories` | `provinceId` |
+| `GET /twhp/api/evaluators/enrolls` | `provinceId` |
+| `GET /twhp/api/evaluators/score` | `provinceId` |
+
+Provincial Officer lists have neither param. The live OpenAPI document at `/twhp/api/document` and the static files under `docs/api/` list them.
+
+`region` is a health region number. `provinceId` is a `province_id` from `GET /twhp/api/location/provinces`. Without these params, an Admin list covers every region and an Evaluator list covers the Evaluator's whole region.
+
+These filters combine with AND, with each other and with the `validated`, `enrolled`, `coverStatus`, `fiscalYear`, and pagination params. `meta.total` counts only the filtered rows.
+
+The Evaluator routes do not declare `region`. The server reads the health region from the Evaluator's account at every level and always applies it. A `region` sent by the client has no effect.
+
+Each of these requests returns `200` with `items: []` and `meta.total` 0:
+
+- a `region` and a `provinceId` that do not belong together.
+- an unknown numeric `region` or `provinceId`.
+- a `provinceId` outside the Evaluator's region.
+
+The server does not look up these values and returns neither `403` nor `400` for them. A non-numeric value fails query validation and returns `400`, as [Validation status](#validation-status) describes.
+
+#### Data for filter dropdowns
+
+`GET /twhp/api/location/provinces` is public and returns a bare array of `{ name_th, province_id, health_region }` rows.
+
+`GET /twhp/api/authentication` returns the current session. Its `region` field is the health region for an Evaluator at any level, and `null` for Admin, Provincial Officer, and Factory accounts.
+
+Frontend filtering on these fields is for display only and is not a security control. The [frontend handoff](frontend-handoff.md), section 7, describes how each role builds its dropdowns.
 
 ### Validation status
 

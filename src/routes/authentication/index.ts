@@ -302,6 +302,7 @@ export default (app: App) =>
                 role: t.String(),
                 change_pw: t.Boolean(),
                 eval_level: t.Nullable(t.String()),
+                region: t.Nullable(t.Number()),
                 full_name: t.String(),
               }),
               400: t.Object({

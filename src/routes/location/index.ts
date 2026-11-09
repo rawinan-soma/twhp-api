@@ -16,6 +16,7 @@ export default (app: App) =>
             t.Object({
               name_th: t.String(),
               province_id: t.Number(),
+              health_region: t.Number(),
             }),
           ),
         },

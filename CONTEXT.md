@@ -108,6 +108,7 @@ A Staff Account scoped by `region` (which factories' Covers it sees) and `level`
 - **ODPC** — the final reviewer. Primary categories: `Collaborate`, `Outcome`. Holds **full override authority over all categories** — via per-Answer saves it may rewrite any non-`finished` verdict (re-score a change-score, flip a reject to approve, override a tier-1 `recommended`, etc.) and backstops any Answer still `in_review`, then finalizes. ODPC is the **sole finalizer** — **only finalize writes `finished`** and transitions the Cover.
 
 **Override rule:** A tier-1 Evaluator (Mental/DOH) may edit verdicts they themselves authored, but **only while the Cover is `in_review`** (before ODPC finalizes), and never on the other tier-1 level's categories. ODPC may override **any non-`finished`** Answer (`in_review`, `recommended`, or `rejected`) on **any** category (authorship-keyed guard: a `recommended` is editable by its author or ODPC — see [[Evaluator Verdict]]). **A `finished` Answer is immutable to everyone — ODPC included.** Pre-finalize, ODPC rules all; once `finished`, the Answer is locked forever. The Factory can act only on **hard-rejected** Answers (redo) and never on `recommended`, `finished`, or settled score changes.
+_Avoid_: "Auditor" — the same role under another name.
 
 ### Provincial Officer
 A Staff Account scoped by `province`, in a purely **observer** capacity: it reads every [[Cover]] in its province and writes nothing at all — no [[Evaluator Verdict]], no [[Verdict Score]], no finalize. Unlike an [[Evaluator]], it carries no tier and no authority over the review; it exists to let the province see what its factories submitted and how the review of it turned out, never to act on it.
@@ -263,6 +264,6 @@ The three staff list endpoints below are paginated (`?page=`, `?limit=`, default
 | Role | Path | Scope |
 |------|------|-------|
 | Factory | `GET /twhp/api/factories/assessments/score` | Own Cover |
-| Evaluator | `GET /twhp/api/evaluators/score` | All Covers in evaluator's region |
+| Evaluator | `GET /twhp/api/evaluators/score` | All Covers in evaluator's region (optional `?provinceId=` filter inside that region) |
 | Provincial Officer | `GET /twhp/api/provincialOfficers/score` | All Covers in officer's province — the Score Report itself is one facet of a broader read; see [[Provincial Officer]] for the per-Cover read and its `in_review` confidentiality rule |
 | Admin (DOED) | `GET /twhp/api/admins/score` | All Covers (optional `?region=` / `?provinceId=` filters) |

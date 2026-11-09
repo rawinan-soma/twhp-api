@@ -139,6 +139,7 @@ const createAuthentocationService = (database: typeof db) => ({
             "change_pw",
           ),
         eval_level: evaluators.level,
+        region: evaluators.region,
         firstName: sql<string>`COALESCE(${provincialOfficers.firstName}, ${evaluators.firstName}, ${adminsDoed.firstName}, ${factories.nameTh})`,
         lastName: sql<string>`COALESCE(${provincialOfficers.lastName}, ${evaluators.lastName}, ${adminsDoed.lastName})`,
       })

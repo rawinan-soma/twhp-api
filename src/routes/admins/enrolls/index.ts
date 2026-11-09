@@ -11,11 +11,16 @@ export default (app: App) =>
     group.use(adminGuard).get(
       "",
       async ({ query }) => {
-        return await enrollService.getAllEnrolls(undefined, undefined, query.coverStatus, {
-          page: query.page,
-          limit: query.limit,
-          fiscalYear: query.fiscalYear,
-        });
+        return await enrollService.getAllEnrolls(
+          query.region,
+          query.provinceId,
+          query.coverStatus,
+          {
+            page: query.page,
+            limit: query.limit,
+            fiscalYear: query.fiscalYear,
+          },
+        );
       },
       {
         detail: {
@@ -23,7 +28,11 @@ export default (app: App) =>
             "ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมด (กรองตามสถานะ cover ได้ด้วย ?coverStatus= และแบ่งหน้าด้วย ?page= ?limit=)",
         },
         query: t.Composite([
-          t.Object({ coverStatus: CoverStatusQuery }),
+          t.Object({
+            coverStatus: CoverStatusQuery,
+            region: t.Optional(t.Number()),
+            provinceId: t.Optional(t.Number()),
+          }),
           PaginationQuery,
           FiscalYearQuery,
         ]),

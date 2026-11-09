@@ -57,7 +57,7 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Inputs/conditions:** JWT role/sub, subtype scope, current Factory location, evaluator level.
 - **Result:** scoped data and reviewer actions.
 - **Edges/failure:** as of 2026-09-03, Evaluator enrollment/factory detail reads enforce the caller's health region and Provincial Officer enrollment/factory/cover-review reads enforce the caller's province; an out-of-scope id returns the same not-found response as a non-existent id in every case (`.scratch/evaluator-detail-scope/`, `.scratch/provincial-read-only-review/`). Review does not require matching Enrollment evaluator IDs. `/file/presigned-url` permits any authenticated caller with a known filename — deliberately unchanged by both of the above; see [technical debt](technical-debt.md) (TD-02). Moving a Factory can change the evaluator region for an existing Cover.
-- **Failure behavior:** guarded wrong-region/wrong-province review and detail reads return 404; the presign path has no ownership rejection.
+- **Failure behavior:** guarded wrong-region/wrong-province review and detail reads return 404; the presign path has no ownership rejection. An Evaluator list filtered by an out-of-region `provinceId` is not a failure and returns `200` with an empty page.
 - **Risk of change:** High—authorization contracts.
 - **Confidence:** Intended list/review/detail scopes and the remaining presign gap are **Verified**.
 

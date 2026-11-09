@@ -104,6 +104,14 @@ Fixture cleanup is only partially hermetic. Tests reserve high account IDs and d
 
 See [Database](./database.md) before provisioning an integration-test database. The recommended future design is an ephemeral PostgreSQL service plus a unique database or schema per run, with an explicit `TEST_DATABASE_URL` and a fail-closed test-database guard.
 
+### Authenticated route tests
+
+`src/test/authenticated-request.ts` tests a protected route with a real access token. Its `authenticatedGet` sends one GET through the real route module, `jwtPlugin`, guards, and database. `signAccessToken` issues the token, and `seedEvaluatorAccount` creates an Evaluator caller. For an example, see `src/routes/evaluators/factories/index.authenticated.integration.test.ts`.
+
+`authenticatedGet` runs the request in a child process (`src/test/handle-request.ts`). Other test files call `mock.module` on the configuration, utilities, and database client, and Bun does not restore those mocks between files. An in-process app would see the stubs.
+
+These tests write to `DATABASE_URL`, so the database rules above apply. The child process mounts the route without the root app's error handler, so a validation failure returns Elysia's default `422` instead of the deployed `400`.
+
 ## Static checks
 
 The package `format`, `lint`, and `check` scripts all pass `--write`, so they are not read-only verification commands. A safe diagnostic command is:
