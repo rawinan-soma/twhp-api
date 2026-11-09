@@ -1,8 +1,9 @@
 import { randomBytes } from "node:crypto";
 import * as bcrypt from "bcrypt";
-import { and, eq, gt, ne, or, sql, TransactionRollbackError } from "drizzle-orm";
+import { and, DrizzleQueryError, eq, gt, ne, or, sql, TransactionRollbackError } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { status } from "elysia";
+import { DatabaseError } from "pg";
 import { db } from "../drizzle";
 import {
   accounts,
@@ -119,11 +120,16 @@ export const findEmailConflict = async (
   return invitation ? "email already invited" : null;
 };
 
-export const issueLink = async (database: DbHandle, invitationId: number): Promise<boolean> => {
+export const issueLink = async (
+  database: DbHandle,
+  invitationId: number,
+  correctedEmail?: string,
+): Promise<boolean> => {
   const token = generateToken();
   const [invitation] = await database
     .update(invitations)
     .set({
+      email: correctedEmail,
       tokenHash: hashToken(token),
       expiresAt: sql`now() + make_interval(secs => ${INVITATION_TTL_SECONDS})`,
     })
@@ -143,6 +149,14 @@ export const issueLink = async (database: DbHandle, invitationId: number): Promi
   );
   return true;
 };
+
+const invitationNotFound = () => status(404, { message: "invitation not found" });
+
+const isInvitedEmailTaken = (error: unknown) =>
+  error instanceof DrizzleQueryError &&
+  error.cause instanceof DatabaseError &&
+  error.cause.code === "23505" &&
+  error.cause.constraint === "Invitations_email_key";
 
 export const createInvitationService = (database: typeof db) => ({
   create: async (input: CreateInvitationDto) => {
@@ -206,6 +220,42 @@ export const createInvitationService = (database: typeof db) => ({
     }
 
     return { message: "invitation accepted" };
+  },
+
+  resend: async (id: number) => {
+    if (!(await issueLink(database, id))) return invitationNotFound();
+    return { message: "invitation resent" };
+  },
+
+  correctEmail: async (id: number, rawEmail: string) => {
+    const [invitation] = await database
+      .select({ id: invitations.id })
+      .from(invitations)
+      .where(eq(invitations.id, id))
+      .limit(1);
+    if (!invitation) return invitationNotFound();
+
+    const email = normalizeEmail(rawEmail);
+    const conflict = await findEmailConflict(database, email, id);
+    if (conflict) return status(400, { message: conflict });
+
+    try {
+      if (!(await issueLink(database, id, email))) return invitationNotFound();
+    } catch (error) {
+      if (isInvitedEmailTaken(error)) return status(400, { message: "email already invited" });
+      throw error;
+    }
+
+    return { message: "invitation email corrected" };
+  },
+
+  cancel: async (id: number) => {
+    const [cancelled] = await database
+      .delete(invitations)
+      .where(eq(invitations.id, id))
+      .returning({ id: invitations.id });
+    if (!cancelled) return invitationNotFound();
+    return { message: "invitation cancelled" };
   },
 });
 
