@@ -105,6 +105,7 @@ export const seedFactoryInProvince = async (
   accountId: number,
   provinceId: number,
   geo: { districtId: number; subdistrictId: number },
+  overrides: { nameTh?: string; nameEn?: string; isValidate?: boolean } = {},
 ) => {
   await db.insert(accounts).values({
     id: accountId,
@@ -126,6 +127,7 @@ export const seedFactoryInProvince = async (
     districtId: geo.districtId,
     subdistrictId: geo.subdistrictId,
     isValidate: true,
+    ...overrides,
   });
 };
 

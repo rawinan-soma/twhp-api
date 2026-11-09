@@ -2,6 +2,7 @@ import { ElysiaCustomStatusResponse, t } from "elysia";
 import type { App } from "../../..";
 import { evalGuard } from "../../../middleware/guards";
 import { FactoryListItemSchema } from "../../../schema/factory";
+import { FactoryNameSearchQuery } from "../../../schema/factory-name-search";
 import { FiscalYearQuery } from "../../../schema/fiscal-year";
 import { Paginated, PaginationQuery } from "../../../schema/pagination";
 import { evaluatorService } from "../../../service/evaluator";
@@ -23,6 +24,7 @@ export default (app: App) =>
           page: query.page,
           limit: query.limit,
           fiscalYear: query.fiscalYear,
+          search: query.search,
           provinceId: query.provinceId,
           // biome-ignore lint/style/noNonNullAssertion: evaluator is guaranteed non-null after getEvaluatorData succeeds
           region: region.evaluator!.region,
@@ -39,6 +41,7 @@ export default (app: App) =>
             provinceId: t.Optional(t.Number()),
           }),
           PaginationQuery,
+          FactoryNameSearchQuery,
           FiscalYearQuery,
         ]),
         response: {

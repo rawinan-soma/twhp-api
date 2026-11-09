@@ -2,6 +2,7 @@ import { ElysiaCustomStatusResponse, t } from "elysia";
 import type { App } from "../../..";
 import { officerGuard } from "../../../middleware/guards";
 import { ProvincialFactoryListItemSchema } from "../../../schema/factory";
+import { FactoryNameSearchQuery } from "../../../schema/factory-name-search";
 import { FiscalYearQuery } from "../../../schema/fiscal-year";
 import { Paginated, PaginationQuery } from "../../../schema/pagination";
 import { factoryService } from "../../../service/factory";
@@ -13,7 +14,7 @@ export default (app: App) =>
       "",
       async ({ jwtPayload, query }) => {
         const id = Number(jwtPayload.sub);
-        const { validated, enrolled, page, limit, fiscalYear } = query;
+        const { validated, enrolled, page, limit, fiscalYear, search } = query;
         const officer = await provincialOfficerService.getOfficerDataById(id);
         if (officer instanceof ElysiaCustomStatusResponse) {
           return officer;
@@ -24,6 +25,7 @@ export default (app: App) =>
           page,
           limit,
           fiscalYear,
+          search,
           provinceId: officer.provinceId,
         });
         return factories;
@@ -35,6 +37,7 @@ export default (app: App) =>
         query: t.Composite([
           t.Object({ validated: t.Boolean(), enrolled: t.Optional(t.Boolean()) }),
           PaginationQuery,
+          FactoryNameSearchQuery,
           FiscalYearQuery,
         ]),
         response: {
