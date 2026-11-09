@@ -23,6 +23,7 @@ const exact: Record<string, Access> = {
   "POST /authentication/login/resend-otp": "public",
   "POST /authentication/reset-password-request": "public",
   "POST /authentication/reset-password": "public",
+  "POST /authentication/accept-invitation": "public",
   "GET /authentication": "authenticated",
   "POST /authentication/logout": "authenticated",
   "GET /file/presigned-url": "authenticated",

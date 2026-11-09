@@ -7,7 +7,9 @@ import {
   ResendOtpBody,
   VerifyOtpBody,
 } from "../../schema/authentication";
+import { AcceptInvitationBody } from "../../schema/invitation";
 import { authenticationService, type Role } from "../../service/authentication";
+import { invitationService } from "../../service/invitation";
 
 const publicAuthenticationController = new Elysia()
   .post(
@@ -249,6 +251,20 @@ const publicAuthenticationController = new Elysia()
             }),
           }),
         ]),
+      },
+    },
+  )
+  .post(
+    "/accept-invitation",
+    async ({ body: { token, password } }) => {
+      return await invitationService.acceptInvitation(token, password);
+    },
+    {
+      detail: { description: "ตอบรับคำเชิญและตั้งรหัสผ่าน ไม่มีการเข้าสู่ระบบให้อัตโนมัติ" },
+      body: AcceptInvitationBody,
+      response: {
+        200: t.Object({ message: t.String({ default: "invitation accepted" }) }),
+        400: t.Object({ message: t.String({ default: "invalid token" }) }),
       },
     },
   );
