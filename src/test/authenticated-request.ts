@@ -20,9 +20,9 @@ type Query = Record<string, string | number | boolean | undefined>;
 const RUNNER = resolve(import.meta.dir, "handle-request.ts");
 
 /**
- * Sends one GET through the real route module, `jwtPlugin` and database, in a child process.
- * Other test files call `mock.module` on config, utils and the database client, and Bun never
- * restores those between files, so an in-process app would see their stubs.
+ * Runs in a child process because other test files call `mock.module` on config, utils and the
+ * database client, and Bun never restores those between files, so an in-process app would see
+ * their stubs.
  */
 export const authenticatedGet = async (
   routeModule: string,

@@ -1,11 +1,11 @@
 import { resolve } from "node:path";
 import { Elysia } from "elysia";
+import type { RouteDefinition } from "./route-query";
 
 type Job = { routeModule: string; url: string; token?: string };
 
 const job = JSON.parse(process.argv[2] ?? "") as Job;
-// biome-ignore lint/suspicious/noExplicitAny: route modules are typed against the concrete App instance
-const define = (await import(resolve(job.routeModule))).default as (app: any) => any;
+const define = (await import(resolve(job.routeModule))).default as RouteDefinition;
 const app = new Elysia().use(define);
 
 const headers = new Headers();
