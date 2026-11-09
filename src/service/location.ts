@@ -9,6 +9,7 @@ export const createLocationService = (database: typeof db) => {
         .select({
           name_th: provinces.nameTh,
           province_id: provinces.provinceId,
+          health_region: provinces.healthRegion,
         })
         .from(provinces)
         .orderBy(provinces.nameTh);
