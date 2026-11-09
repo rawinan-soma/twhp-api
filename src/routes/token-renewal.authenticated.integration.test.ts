@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { accounts } from "../drizzle/schema";
 import {
-  authenticatedGet,
+  authenticatedRequest,
   removeAccount,
   seedEvaluatorAccount,
   signRefreshToken,
@@ -71,7 +71,7 @@ describeDb("session token renewal", () => {
     const refreshToken = await signRefreshToken(identity, FULL_LIFETIME);
     await storeRefreshToken(refreshToken);
 
-    const renewed = await authenticatedGet(SESSION_ROUTE, { refreshToken });
+    const renewed = await authenticatedRequest(SESSION_ROUTE, { refreshToken });
     expect(renewed.status).toBe(200);
     expect(renewed.json<{ id: number; region: number | null }>()).toMatchObject({
       id: EVALUATOR_ID,
@@ -82,7 +82,7 @@ describeDb("session token renewal", () => {
 
     const token = cookieValue(renewed.setCookies, "Authentication");
     expect(token).toBeTruthy();
-    const followUp = await authenticatedGet(SESSION_ROUTE, { token });
+    const followUp = await authenticatedRequest(SESSION_ROUTE, { token });
     expect(followUp.status).toBe(200);
     expect(followUp.json<{ id: number }>().id).toBe(EVALUATOR_ID);
   });
@@ -91,7 +91,7 @@ describeDb("session token renewal", () => {
     const refreshToken = await signRefreshToken(identity, FULL_LIFETIME);
     await storeRefreshToken(refreshToken);
 
-    const renewed = await authenticatedGet(SESSION_ROUTE, { refreshToken });
+    const renewed = await authenticatedRequest(SESSION_ROUTE, { refreshToken });
     expect(renewed.status).toBe(200);
     expect(cookieValue(renewed.setCookies, "Refresh")).toBeUndefined();
     expect(await storedHash()).toBe(hashOf(refreshToken));
@@ -101,14 +101,14 @@ describeDb("session token renewal", () => {
     const refreshToken = await signRefreshToken(identity, NEAR_EXPIRY);
     await storeRefreshToken(refreshToken);
 
-    const renewed = await authenticatedGet(SESSION_ROUTE, { refreshToken });
+    const renewed = await authenticatedRequest(SESSION_ROUTE, { refreshToken });
     expect(renewed.status).toBe(200);
     const replacement = cookieValue(renewed.setCookies, "Refresh");
     if (!replacement) throw new Error("no replacement Refresh cookie was set");
     expect(replacement).not.toBe(refreshToken);
     expect(await storedHash()).toBe(hashOf(replacement));
 
-    const reused = await authenticatedGet(SESSION_ROUTE, { refreshToken });
+    const reused = await authenticatedRequest(SESSION_ROUTE, { refreshToken });
     expect(reused.status).toBe(401);
   });
 
@@ -117,7 +117,7 @@ describeDb("session token renewal", () => {
     await storeRefreshToken(stored);
 
     const stranger = await signRefreshToken(identity, FULL_LIFETIME + 1);
-    const res = await authenticatedGet(SESSION_ROUTE, { refreshToken: stranger });
+    const res = await authenticatedRequest(SESSION_ROUTE, { refreshToken: stranger });
     expect(res.status).toBe(401);
     expect(res.json<{ message: string }>().message).toBe("session expired");
   });
