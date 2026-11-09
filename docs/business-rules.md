@@ -154,11 +154,11 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 
 ### BR-09 — Evaluator references on Enrollment
 
-- **Rule:** Enrollment creation derives Factory region, queries evaluators there, and stores the first Mental, DOH, and ODPC row.
+- **Rule:** Enrollment creation derives Factory region, queries evaluators there, and stores, per level (Mental, DOH, ODPC), the Evaluator with the greatest account id. Accounts of later-added Evaluators get greater ids, so a replacement is the one named on new enrollments. Existing Enrollments keep the Evaluators they recorded.
 - **Implementation:** `enrollService.create` at `src/service/enroll.ts:248-332`; `Evaluators`; seed data.
 - **Inputs/conditions:** valid Factory/region and expected evaluator levels.
 - **Result:** three evaluator foreign keys stored.
-- **Edges/failure:** only a nonempty overall list is checked; a missing level can throw, and duplicates choose an arbitrary first row. The DB does not ensure referenced level/region. Review authorization does not use these IDs.
+- **Edges/failure:** only a nonempty overall list is checked; a missing level can throw. The DB does not ensure referenced level/region. Review authorization does not use these IDs.
 - **Failure behavior:** empty list 400; partial-level set likely unexpected 500.
 - **Risk of change:** High—assignment and review ownership.
 - **Confidence:** Code/seed **Verified**; live uniqueness **Unknown**.
