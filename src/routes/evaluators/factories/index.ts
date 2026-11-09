@@ -23,6 +23,7 @@ export default (app: App) =>
           page: query.page,
           limit: query.limit,
           fiscalYear: query.fiscalYear,
+          provinceId: query.provinceId,
           // biome-ignore lint/style/noNonNullAssertion: evaluator is guaranteed non-null after getEvaluatorData succeeds
           region: region.evaluator!.region,
         });
@@ -35,6 +36,7 @@ export default (app: App) =>
           t.Object({
             validated: t.Boolean(),
             enrolled: t.Optional(t.Boolean()),
+            provinceId: t.Optional(t.Number()),
           }),
           PaginationQuery,
           FiscalYearQuery,

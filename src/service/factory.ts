@@ -262,15 +262,17 @@ export const createFactoryService = (database: typeof db) => {
       validated,
       enrolled = true,
       region,
+      provinceId,
       fiscalYear,
       page,
       limit,
-    }: FactoryListParams & { region: number }) => {
+    }: FactoryListParams & { region: number; provinceId?: number }) => {
       const resolved = resolvePage({ page, limit });
       // Region variant previously used innerJoin(enrolls) — same reasoning as the province variant.
       const predicate = and(
         eq(factories.isValidate, validated),
         eq(provinces.healthRegion, region),
+        provinceId === undefined ? undefined : eq(provinces.provinceId, provinceId),
         enrollExists(database, enrolled, fiscalYear),
       );
 
