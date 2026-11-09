@@ -146,6 +146,8 @@ Factory service handlers derive the factory account ID from `jwtPayload.sub`, ra
 
 Evaluator list, score, and cover-review operations resolve the caller's evaluator region. Cover review also applies evaluator-level category rules. The two detail routes (`GET /evaluators/enrolls/:id`, `GET /evaluators/factories/:id`) now also resolve and enforce the caller's region: an out-of-region id returns the endpoint's normal not-found response, byte-identical to a non-existent id (fixed 2026-09-03; see `.scratch/evaluator-detail-scope/`). This closed the gap previously tracked in Security findings.
 
+The Evaluator factory, enrollment, and score lists accept an optional `provinceId` that narrows the rows inside the Evaluator's region. They do not declare `region`, so a client cannot change the region. An out-of-region `provinceId` returns `200` with an empty page, not `403`.
+
 ### Provincial only
 
 - `PATCH /provincialOfficers/password`

@@ -264,6 +264,6 @@ The three staff list endpoints below are paginated (`?page=`, `?limit=`, default
 | Role | Path | Scope |
 |------|------|-------|
 | Factory | `GET /twhp/api/factories/assessments/score` | Own Cover |
-| Evaluator | `GET /twhp/api/evaluators/score` | All Covers in evaluator's region |
+| Evaluator | `GET /twhp/api/evaluators/score` | All Covers in evaluator's region (optional `?provinceId=` filter inside that region) |
 | Provincial Officer | `GET /twhp/api/provincialOfficers/score` | All Covers in officer's province — the Score Report itself is one facet of a broader read; see [[Provincial Officer]] for the per-Cover read and its `in_review` confidentiality rule |
 | Admin (DOED) | `GET /twhp/api/admins/score` | All Covers (optional `?region=` / `?provinceId=` filters) |
