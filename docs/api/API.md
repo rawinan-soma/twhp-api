@@ -2,7 +2,7 @@
 
 > Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-11-09
 
-59 operations across 8 groups.
+60 operations across 8 groups.
 
 ## Contents
 
@@ -23,6 +23,7 @@
   - [`POST /twhp/api/admins/covers/{coverId}/finalize`](#post-twhp-api-admins-covers-coverid-finalize)
   - [`GET /twhp/api/admins/covers/{coverId}/answers`](#get-twhp-api-admins-covers-coverid-answers)
   - [`POST /twhp/api/admins/covers/{coverId}/answers/{answerId}/verdict`](#post-twhp-api-admins-covers-coverid-answers-answerid-verdict)
+  - [`GET /twhp/api/admins/staff`](#get-twhp-api-admins-staff)
 - [authentication](#authentication)
   - [`POST /twhp/api/authentication/login`](#post-twhp-api-authentication-login)
   - [`POST /twhp/api/authentication/login/verify-otp`](#post-twhp-api-authentication-login-verify-otp)
@@ -852,6 +853,17 @@ update ข้อมูลของ สปก. ตาม id ของสปก.
   | --- | --- | --- | --- |
   | `message` | `string` | yes |  |
 
+
+---
+
+### `GET /twhp/api/admins/staff`
+
+
+รายชื่อผู้ประเมิน เจ้าหน้าที่จังหวัด และคำเชิญที่ยังไม่ถูกตอบรับ พร้อมสถานะ accepted, pending หรือ expired เรียงลำดับคำเชิญก่อนตาม invitationId จากน้อยไปมาก แล้วจึงเป็นบัญชีตาม accountId จากน้อยไปมาก
+
+**Responses**
+
+- `200` — Response for status 200
 
 ---
 
