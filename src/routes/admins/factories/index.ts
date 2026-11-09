@@ -24,6 +24,8 @@ export default (app: App) =>
             t.Object({
               validated: t.Boolean(),
               enrolled: t.Optional(t.Boolean()),
+              region: t.Optional(t.Number()),
+              provinceId: t.Optional(t.Number()),
             }),
             PaginationQuery,
             FiscalYearQuery,
