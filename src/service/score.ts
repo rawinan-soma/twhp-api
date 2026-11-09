@@ -282,8 +282,8 @@ export const createScoreService = (database: typeof db) => {
 
     getScoresByRegion: async (
       region: number,
-      pagination?: PaginationQueryDto & { fiscalYear?: number },
-    ) => listScoreReports({ region, ...pagination }),
+      pagination?: PaginationQueryDto & { fiscalYear?: number; provinceId?: number },
+    ) => listScoreReports({ ...pagination, region }),
 
     getScoresByProvince: async (
       provinceId: number,

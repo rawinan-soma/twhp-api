@@ -20,19 +20,24 @@ export default (app: App) =>
 
         // biome-ignore lint/style/noNonNullAssertion: evaluator is guaranteed non-null after getEvaluatorData succeeds
         const evaluatorRegion = region.evaluator!.region;
-        return await enrollService.getAllEnrolls(evaluatorRegion, undefined, query.coverStatus, {
-          page: query.page,
-          limit: query.limit,
-          fiscalYear: query.fiscalYear,
-        });
+        return await enrollService.getAllEnrolls(
+          evaluatorRegion,
+          query.provinceId,
+          query.coverStatus,
+          {
+            page: query.page,
+            limit: query.limit,
+            fiscalYear: query.fiscalYear,
+          },
+        );
       },
       {
         detail: {
           description:
-            "ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดตามเขตสุขภาพ (กรองตามสถานะ cover ได้ด้วย ?coverStatus= และแบ่งหน้าด้วย ?page= ?limit=)",
+            "ดึงข้อมูลการสมัครเข้าร่วมโครงการทั้งหมดตามเขตสุขภาพ (กรองตามจังหวัดในเขตของตนได้ด้วย ?provinceId= กรองตามสถานะ cover ได้ด้วย ?coverStatus= และแบ่งหน้าด้วย ?page= ?limit=)",
         },
         query: t.Composite([
-          t.Object({ coverStatus: CoverStatusQuery }),
+          t.Object({ coverStatus: CoverStatusQuery, provinceId: t.Optional(t.Number()) }),
           PaginationQuery,
           FiscalYearQuery,
         ]),
