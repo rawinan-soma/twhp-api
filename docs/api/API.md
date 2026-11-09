@@ -137,19 +137,114 @@
 ### `POST /twhp/api/admins/invitations`
 
 
-เชิญบุคคลเป็นผู้ประเมินทางอีเมล บัญชีจะถูกสร้างเมื่อผู้รับตอบรับคำเชิญ
+เชิญบุคคลทางอีเมล บัญชีจะถูกสร้างเมื่อผู้รับตอบรับคำเชิญ
 
 **Request body** (`application/json`)
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `role` | `string` | yes |  |
-| `email` | `string<email>` | yes |  |
-| `firstName` | `string` | yes |  |
-| `lastName` | `string` | yes |  |
-| `phoneNumber` | `string` | yes |  |
-| `level` | `"Mental" \| "DOH" \| "ODPC"` | yes |  |
-| `region` | `integer` | yes |  |
+```json
+{
+  "anyOf": [
+    {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "role",
+        "email",
+        "firstName",
+        "lastName",
+        "phoneNumber",
+        "level",
+        "region"
+      ],
+      "properties": {
+        "role": {
+          "const": "Evaluator",
+          "type": "string"
+        },
+        "email": {
+          "format": "email",
+          "type": "string"
+        },
+        "firstName": {
+          "type": "string"
+        },
+        "lastName": {
+          "type": "string"
+        },
+        "phoneNumber": {
+          "type": "string"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "const": "Mental",
+              "type": "string"
+            },
+            {
+              "const": "DOH",
+              "type": "string"
+            },
+            {
+              "const": "ODPC",
+              "type": "string"
+            }
+          ]
+        },
+        "region": {
+          "minimum": -2147483648,
+          "maximum": 2147483647,
+          "type": "integer"
+        },
+        "provinceId": {
+          "not": {}
+        }
+      }
+    },
+    {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "role",
+        "email",
+        "firstName",
+        "lastName",
+        "phoneNumber",
+        "provinceId"
+      ],
+      "properties": {
+        "role": {
+          "const": "Provincial",
+          "type": "string"
+        },
+        "email": {
+          "format": "email",
+          "type": "string"
+        },
+        "firstName": {
+          "type": "string"
+        },
+        "lastName": {
+          "type": "string"
+        },
+        "phoneNumber": {
+          "type": "string"
+        },
+        "provinceId": {
+          "minimum": -2147483648,
+          "maximum": 2147483647,
+          "type": "integer"
+        },
+        "level": {
+          "not": {}
+        },
+        "region": {
+          "not": {}
+        }
+      }
+    }
+  ]
+}
+```
 
 **Responses**
 
