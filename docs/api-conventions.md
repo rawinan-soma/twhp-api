@@ -277,7 +277,7 @@ Because `enrolled=false` disables the fiscal-year predicate, `fiscalYear` has **
 | `GET /twhp/api/evaluators/enrolls` | `provinceId` |
 | `GET /twhp/api/evaluators/score` | `provinceId` |
 
-Provincial Officer lists have neither param. The static files under `docs/api/` do not list these params yet. The live OpenAPI document at `/twhp/api/document` lists them.
+Provincial Officer lists have neither param. The live OpenAPI document at `/twhp/api/document` and the static files under `docs/api/` list them.
 
 `region` is a health region number. `provinceId` is a `province_id` from `GET /twhp/api/location/provinces`. Without these params, an Admin list covers every region and an Evaluator list covers the Evaluator's whole region.
 
