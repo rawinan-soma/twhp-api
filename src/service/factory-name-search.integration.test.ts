@@ -60,6 +60,8 @@ const F = {
   neverEnrolled: BASE + 24,
   unvalidated: BASE + 25,
   pastYear: BASE + 26,
+  statusReview: BASE + 27,
+  statusProgress: BASE + 28,
 } as const;
 
 const LONG_TERM = `Zqlong${"a".repeat(94)}`;
@@ -93,6 +95,8 @@ const FIXTURES: Fixture[] = [
   { id: F.neverEnrolled, nameEn: "Zqnever enrolled", enrollment: "never" },
   { id: F.unvalidated, nameEn: "Zqunvalidated", isValidate: false },
   { id: F.pastYear, nameEn: "Zqpastyear", enrollment: "past" },
+  { id: F.statusReview, nameEn: "Zqstatus review" },
+  { id: F.statusProgress, nameEn: "Zqstatus progress", cover: "in_progress" },
 ];
 
 type Caller = "admin" | "evaluator" | "officer";
@@ -128,6 +132,20 @@ const factoryList: ListKind = {
   ],
 };
 
+const enrollList: ListKind = {
+  requiredQuery: {},
+  factoryIdField: "factoryId",
+  byListOrder: (ids) => [...ids].reverse(),
+  findsNeverEnrolled: () => false,
+  filterCases: () => [
+    { query: { search: "Zqstatus" }, expected: [F.statusReview, F.statusProgress] },
+    { query: { search: "Zqstatus", coverStatus: "in_review" }, expected: [F.statusReview] },
+    { query: { search: "Zqstatus", coverStatus: "in_progress" }, expected: [F.statusProgress] },
+    { query: { search: "Zqpastyear" }, expected: [] },
+    { query: { search: "Zqpastyear", fiscalYear: lastFiscalYear }, expected: [F.pastYear] },
+  ],
+};
+
 type SearchRoute = { name: string; module: string; caller: Caller; list: ListKind };
 
 const ROUTES: SearchRoute[] = [
@@ -148,6 +166,24 @@ const ROUTES: SearchRoute[] = [
     module: "src/routes/provincialOfficers/factories/index.ts",
     caller: "officer",
     list: factoryList,
+  },
+  {
+    name: "admins/enrolls",
+    module: "src/routes/admins/enrolls/index.ts",
+    caller: "admin",
+    list: enrollList,
+  },
+  {
+    name: "evaluators/enrolls",
+    module: "src/routes/evaluators/enrolls/index.ts",
+    caller: "evaluator",
+    list: enrollList,
+  },
+  {
+    name: "provincialOfficers/enrolls",
+    module: "src/routes/provincialOfficers/enrolls/index.ts",
+    caller: "officer",
+    list: enrollList,
   },
 ];
 

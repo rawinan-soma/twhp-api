@@ -2,6 +2,7 @@ import { ElysiaCustomStatusResponse, status, t } from "elysia";
 import type { App } from "../../..";
 import { officerGuard } from "../../../middleware/guards";
 import { CoverStatusQuery, EnrollWithCoverPageSchema } from "../../../schema/enroll";
+import { FactoryNameSearchQuery } from "../../../schema/factory-name-search";
 import { FiscalYearQuery } from "../../../schema/fiscal-year";
 import { PaginationQuery } from "../../../schema/pagination";
 import { enrollService } from "../../../service/enroll";
@@ -19,7 +20,12 @@ export default (app: App) =>
         const result = await enrollService.getAllEnrollsByProvince(
           po.provinceId,
           query.coverStatus,
-          { page: query.page, limit: query.limit, fiscalYear: query.fiscalYear },
+          {
+            page: query.page,
+            limit: query.limit,
+            fiscalYear: query.fiscalYear,
+            search: query.search,
+          },
         );
         return result;
       },
@@ -31,6 +37,7 @@ export default (app: App) =>
         query: t.Composite([
           t.Object({ coverStatus: CoverStatusQuery }),
           PaginationQuery,
+          FactoryNameSearchQuery,
           FiscalYearQuery,
         ]),
         response: {
