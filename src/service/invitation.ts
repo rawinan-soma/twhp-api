@@ -10,6 +10,7 @@ import {
   evaluators,
   invitations,
   provinces,
+  provincialOfficers,
 } from "../drizzle/schema";
 import { emailQueue } from "../queue/email";
 import type { CreateInvitationDto } from "../schema/invitation";
@@ -21,6 +22,7 @@ type EvaluatorLevel = (typeof evaluatorLevels.enumValues)[number];
 
 type TargetByRole = {
   Evaluator: { role: "Evaluator"; level: EvaluatorLevel; region: number };
+  Provincial: { role: "Provincial"; provinceId: number };
 };
 export type InvitedRole = keyof TargetByRole;
 export type InvitationTarget = TargetByRole[InvitedRole];
@@ -51,6 +53,26 @@ const roleRules: { [R in InvitedRole]: RoleRule<R> } = {
         lastName: invitation.lastName,
         region: invitation.region,
         phoneNumber: invitation.phoneNumber,
+        isChangePassword: true,
+      });
+    },
+  },
+  Provincial: {
+    checkTarget: async (database, { provinceId }) => {
+      const [province] = await database
+        .select({ id: provinces.provinceId })
+        .from(provinces)
+        .where(eq(provinces.provinceId, provinceId))
+        .limit(1);
+      return province ? null : "province not found";
+    },
+    createProfile: async (tx, accountId, invitation) => {
+      await tx.insert(provincialOfficers).values({
+        accountId,
+        firstName: invitation.firstName,
+        lastName: invitation.lastName,
+        phoneNumber: invitation.phoneNumber,
+        provinceId: invitation.provinceId,
         isChangePassword: true,
       });
     },

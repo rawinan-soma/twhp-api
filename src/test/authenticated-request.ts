@@ -38,6 +38,7 @@ export type RunnerJob = {
   body?: unknown;
   token?: string;
   refreshToken?: string;
+  mountAt?: string;
 };
 
 const RUNNER = resolve(import.meta.dir, "handle-request.ts");
@@ -56,6 +57,8 @@ export const authenticatedRequest = async (
     refreshToken?: string;
     query?: Query;
     path?: string;
+    /** The folder path autoload would mount the route at, so its `:param` segments resolve. */
+    mountAt?: string;
   } = {},
 ) => {
   const url = new URL(options.path ?? "/", "http://localhost");
@@ -69,6 +72,7 @@ export const authenticatedRequest = async (
     body: options.body,
     token: options.token,
     refreshToken: options.refreshToken,
+    mountAt: options.mountAt,
   };
   const child = Bun.spawn(["bun", RUNNER, JSON.stringify(job)], {
     stdout: "pipe",

@@ -16,7 +16,7 @@ mock.module("../queue/email", () => ({
 }));
 
 const define = (await import(resolve(job.routeModule))).default as RouteDefinition;
-const app = new Elysia().use(define);
+const app = new Elysia({ prefix: job.mountAt ?? "" }).use(define);
 
 const headers = new Headers();
 const cookies = [

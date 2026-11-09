@@ -7,7 +7,7 @@ import { invitationService } from "../../../service/invitation";
 export default (app: App) =>
   app.group("", { detail: { tags: ["admins"] } }, (group) =>
     group.use(adminGuard).post("", async ({ body }) => await invitationService.create(body), {
-      detail: { description: "เชิญบุคคลเป็นผู้ประเมินทางอีเมล บัญชีจะถูกสร้างเมื่อผู้รับตอบรับคำเชิญ" },
+      detail: { description: "เชิญบุคคลทางอีเมล บัญชีจะถูกสร้างเมื่อผู้รับตอบรับคำเชิญ" },
       body: CreateInvitationBody,
       response: {
         201: t.Object({ id: t.Number(), message: t.String({ default: "invitation sent" }) }),
@@ -15,6 +15,7 @@ export default (app: App) =>
           t.Object({ message: t.String({ default: "email already exists" }) }),
           t.Object({ message: t.String({ default: "email already invited" }) }),
           t.Object({ message: t.String({ default: "health region not found" }) }),
+          t.Object({ message: t.String({ default: "province not found" }) }),
         ]),
       },
     }),
