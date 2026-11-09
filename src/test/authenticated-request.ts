@@ -15,6 +15,14 @@ export const signAccessToken = ({ id, username, role }: TestIdentity) =>
     .setExpirationTime(`${Bun.env.AUTH_TOKEN_EXP}s`)
     .sign(new TextEncoder().encode(Bun.env.AUTH_JWT_SECRET ?? ""));
 
+export const signRefreshToken = ({ id }: TestIdentity, expiresInSeconds: number) =>
+  new SignJWT({})
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(id.toString())
+    .setIssuedAt()
+    .setExpirationTime(`${expiresInSeconds}s`)
+    .sign(new TextEncoder().encode(Bun.env.REFRESH_JWT_SECRET ?? ""));
+
 type Query = Record<string, string | number | boolean | undefined>;
 
 const RUNNER = resolve(import.meta.dir, "handle-request.ts");
@@ -26,14 +34,23 @@ const RUNNER = resolve(import.meta.dir, "handle-request.ts");
  */
 export const authenticatedGet = async (
   routeModule: string,
-  options: { token?: string; query?: Query; path?: string } = {},
+  options: { token?: string; refreshToken?: string; query?: Query; path?: string } = {},
 ) => {
   const url = new URL(options.path ?? "/", "http://localhost");
   for (const [key, value] of Object.entries(options.query ?? {})) {
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
   const child = Bun.spawn(
-    ["bun", RUNNER, JSON.stringify({ routeModule, url: url.href, token: options.token })],
+    [
+      "bun",
+      RUNNER,
+      JSON.stringify({
+        routeModule,
+        url: url.href,
+        token: options.token,
+        refreshToken: options.refreshToken,
+      }),
+    ],
     { stdout: "pipe", stderr: "pipe", env: process.env },
   );
   const [out, err, code] = await Promise.all([
@@ -42,8 +59,12 @@ export const authenticatedGet = async (
     child.exited,
   ]);
   if (code !== 0) throw new Error(`request runner exited ${code}: ${err}`);
-  const { status, body } = JSON.parse(out) as { status: number; body: string };
-  return { status, body, json: <T>() => JSON.parse(body) as T };
+  const { status, body, setCookies } = JSON.parse(out) as {
+    status: number;
+    body: string;
+    setCookies: string[];
+  };
+  return { status, body, setCookies, json: <T>() => JSON.parse(body) as T };
 };
 
 export const seedEvaluatorAccount = async (
