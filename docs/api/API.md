@@ -2,7 +2,7 @@
 
 > Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-11-09
 
-56 operations across 8 groups.
+59 operations across 8 groups.
 
 ## Contents
 
@@ -10,6 +10,9 @@
   - [`PATCH /twhp/api/admins`](#patch-twhp-api-admins)
   - [`GET /twhp/api/admins/enrolls`](#get-twhp-api-admins-enrolls)
   - [`POST /twhp/api/admins/invitations`](#post-twhp-api-admins-invitations)
+  - [`DELETE /twhp/api/admins/invitations/{id}`](#delete-twhp-api-admins-invitations-id)
+  - [`PATCH /twhp/api/admins/invitations/{id}/email`](#patch-twhp-api-admins-invitations-id-email)
+  - [`POST /twhp/api/admins/invitations/{id}/resend`](#post-twhp-api-admins-invitations-id-resend)
   - [`GET /twhp/api/admins/factories`](#get-twhp-api-admins-factories)
   - [`PATCH /twhp/api/admins/factories/validate/{id}`](#patch-twhp-api-admins-factories-validate-id)
   - [`GET /twhp/api/admins/score`](#get-twhp-api-admins-score)
@@ -256,6 +259,97 @@
   | `message` | `string` | yes |  |
 
 - `400` — Response for status 400
+
+---
+
+### `DELETE /twhp/api/admins/invitations/{id}`
+
+
+ยกเลิกคำเชิญที่ยังไม่ตอบรับ และลบคำเชิญออกจากระบบ
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `id` | path | yes | `string<integer> \| integer` |  |
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+
+---
+
+### `PATCH /twhp/api/admins/invitations/{id}/email`
+
+
+แก้ไขอีเมลของคำเชิญที่ยังไม่ตอบรับ และส่งลิงก์ใหม่ไปยังอีเมลที่แก้ไข
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `id` | path | yes | `string<integer> \| integer` |  |
+
+**Request body** (`application/json`)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `email` | `string<email>` | yes |  |
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `400` — Response for status 400
+- `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+
+---
+
+### `POST /twhp/api/admins/invitations/{id}/resend`
+
+
+ส่งลิงก์คำเชิญใหม่ ลิงก์เดิมจะใช้ไม่ได้และมีอายุใหม่ 10 นาที
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `id` | path | yes | `string<integer> \| integer` |  |
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
 
 ---
 
