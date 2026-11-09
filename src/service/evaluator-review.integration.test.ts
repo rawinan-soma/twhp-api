@@ -575,13 +575,3 @@ describe("Story 002 — admin answers endpoint (service path)", () => {
     expect((result as { code: number }).code).toBe(404);
   });
 });
-
-// ─── Story 002 / FR-8 — guard isolation ──────────────────────────────────────
-// FLAGGED (not asserted here): the 403-for-non-DOED / 401-for-anonymous behaviour of
-// `/admins/covers/*` is enforced by the SHARED `adminGuard` (= requireRoles(Role.DOED)),
-// the same middleware already protecting other admin routes (e.g. the admin score
-// endpoint). Its HTTP short-circuit depends on the elysia-autoload scope-composition
-// pipeline and could not be reproduced in an isolated unit mount (the route 404s without
-// the full autoload config; requireRoles' `as:"local"` early-return does not propagate in
-// a bare `.use().get()` mount). The admin route file wires `adminGuard` identically to the
-// evaluator routes' `evalGuard`; verify the 403/401 paths via e2e or manual check.

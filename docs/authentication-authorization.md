@@ -85,7 +85,7 @@ Invalid/missing sessions return 401 JSON. An exception during refresh clears bot
 
 Roles are the PostgreSQL enum and TypeScript `Role` enum values `Factory`, `Provincial`, `Evaluator`, and `DOED` (`src/drizzle/schema.ts`; `src/service/authentication.ts`).
 
-`requireRoles` in `src/middleware/rbac.ts` consumes the verified JWT role and returns HTTP 403 with the bare string `forbidden` on denial. `src/middleware/guards.ts` composes:
+`requireRoles` in `src/middleware/rbac.ts` consumes the verified JWT role and returns HTTP 403 with the bare string `forbidden` to every authenticated role it does not allow. The check is a `derive`, so it runs before body and query validation: a wrong-role request with an invalid body gets 403, not 422. The derive is `as: "scoped"` and each guard is lifted with `.as("scoped")`, which applies the check to the mounting route without leaking onto sibling routes; `as: "global"` would leak. `src/middleware/guards.test.ts` enumerates every autoloaded route and asserts, for each, that anonymous gets 401, the owning role passes the guard, and the three other roles get exactly 403 (**Verified**). `src/middleware/guards.ts` composes:
 
 | Guard | Allowed role |
 | --- | --- |
