@@ -26,9 +26,9 @@ const RUNNER = resolve(import.meta.dir, "handle-request.ts");
  */
 export const authenticatedGet = async (
   routeModule: string,
-  options: { token?: string; query?: Query } = {},
+  options: { token?: string; query?: Query; path?: string } = {},
 ) => {
-  const url = new URL("http://localhost/");
+  const url = new URL(options.path ?? "/", "http://localhost");
   for (const [key, value] of Object.entries(options.query ?? {})) {
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
