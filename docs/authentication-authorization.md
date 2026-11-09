@@ -171,7 +171,8 @@ The Officer resolves to evaluator level `ODPC` for category-filtering purposes o
 ### DOED only
 
 - `PATCH /admins`
-- `POST /admins/invitations`
+- `POST /admins/invitations`, `POST /admins/invitations/:id/resend`, `PATCH /admins/invitations/:id/email`, and `DELETE /admins/invitations/:id`
+- `GET /admins/staff`
 - `GET /admins/enrolls` and `GET /admins/enrolls/:id`
 - `GET /admins/factories`, `PATCH /admins/factories/validate/:id`, and `GET|PATCH|DELETE /admins/factories/:id`
 - `GET /admins/score`
@@ -191,15 +192,23 @@ Evaluator and Provincial first-login routes are protected by their normal role g
 
 ## Invitations
 
-An Admin adds an Evaluator with `POST /admins/invitations`. The body is `role`, `email`, `firstName`, `lastName`, `phoneNumber`, `level`, and `region`. No account exists until the person accepts, so a pending person cannot log in and no enrollment can record them. The reasoning is in [ADR-0015](adr/0015-invitations-are-separate-from-accounts.md).
+An Admin adds an Evaluator or a Provincial Officer with `POST /admins/invitations`. Both bodies carry `role`, `email`, `firstName`, `lastName`, and `phoneNumber`. An Evaluator also needs `level` and `region`, and a Provincial Officer also needs `provinceId`. No account exists until the person accepts, so a pending person cannot log in and no enrollment can record them. The reasoning is in [ADR-0015](adr/0015-invitations-are-separate-from-accounts.md).
 
-The route returns 400 when the lowercased email belongs to an account's `email` or `username` (`email already exists`), belongs to another pending Invitation (`email already invited`), or names a health region with no province (`health region not found`). A missing or invalid `level` fails schema validation.
+The route returns 400 when the lowercased email belongs to an account's `email` or `username` (`email already exists`), belongs to another pending Invitation (`email already invited`), names a health region with no province (`health region not found`), or names a province that does not exist (`province not found`). A missing or invalid `level`, or a field that belongs to the other role, fails schema validation.
 
 The service stores `SHA-256(token)` and an expiry 10 minutes ahead, then queues an `invitation` email with three attempts and five-second backoff. The email shows the username and links to `${FRONTEND_URL}/accept-invitation?token=...`. A failed queue add leaves the Invitation row in place.
 
-`POST /authentication/accept-invitation` is public and takes `{ token, password }`. One transaction deletes the Invitation row, re-checks that the email is free, creates the account with username and email set to the invited address, and creates the Evaluator row with `isChangePassword=true`. Acceptance sets no cookies. The person then logs in through the normal OTP flow.
+`POST /authentication/accept-invitation` is public and takes `{ token, password }`. One transaction deletes the Invitation row, re-checks that the email is free, creates the account with username and email set to the invited address, and creates the Evaluator or Provincial Officer row with `isChangePassword=true`. Acceptance sets no cookies. The person then logs in through the normal OTP flow.
 
-Every refusal is the same `400 { "message": "invalid token" }`, whether the token is unknown, expired, or used, or another account took the email after the invite. Concurrent accepts serialize on the Invitation row, so one succeeds and the rest get that 400. A refusal after the claim rolls back, so the Invitation stays pending.
+Every refusal is the same `400 { "message": "invalid token" }`, whether the token is unknown, expired, used, voided, or cancelled, or another account took the email after the invite. Concurrent accepts serialize on the Invitation row, so one succeeds and the rest get that 400. A refusal after the claim rolls back, so the Invitation stays pending.
+
+Until acceptance, an Admin manages the Invitation with three routes. A missing Invitation returns `404 { "message": "invitation not found" }`, and an accepted one has no row, so it gets the same 404.
+
+- `POST /admins/invitations/:id/resend` issues a new token and a new 10-minute expiry and queues a new email. The earlier link stops working.
+- `PATCH /admins/invitations/:id/email` takes `{ email }`, runs the same `email already exists` and `email already invited` checks as an invite, and then issues a new link to the corrected address. The link sent to the old address stops working. Only the email can be corrected.
+- `DELETE /admins/invitations/:id` deletes the row. The link stops working and the email can be invited again.
+
+`GET /admins/staff` returns a bare array of Evaluators and Provincial Officers with status `accepted`, and of Invitations with status `pending` or `expired`. Invitations come first, ordered by `invitationId`, and accounts follow, ordered by `accountId`.
 
 ## Input validation, serialization, and upload controls
 

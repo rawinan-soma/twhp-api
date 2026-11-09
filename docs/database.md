@@ -190,7 +190,7 @@ No unique constraint ensures one Evaluator per `(region, level)`.
 
 ### Invitations
 
-`Invitations` is defined in `src/drizzle/schema.ts`. It holds pending Invitations only. Acceptance and cancel delete the row (ADR-0015).
+`Invitations` is defined in `src/drizzle/schema.ts`. It holds pending Invitations for Evaluators and Provincial Officers only. Acceptance and cancel delete the row. Resend replaces `token_hash` and `expires_at`, and email correction also replaces `email`. The staff list derives `pending` or `expired` from `expires_at`; no status column exists (ADR-0015).
 
 - `id serial` — PK.
 - `email text` — unique, stored lowercase.

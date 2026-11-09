@@ -41,6 +41,15 @@ make -C deploy/production rollback HOST=<ssh host> TAG=previous
 
 No target runs `db:push`, `db:seed`, Compose `down`, or a free-form Compose command. `deploy` stops before the release if `preflight.sh` does not recognize the stack, if `fit-check.ts` finds a table, column, or enum value the release needs missing from the live database or a `docker.env` the release's config rejects, or if `backup.sh` cannot write a verified `pg_dump` to `~/twhp-backups`. `fit-check` does not compare column types, constraints, or indexes. A schema gap must be closed by a separately reviewed migration. Backups hold personal data and are never pruned automatically.
 
+### Releasing Invitations
+
+The first release that contains Invitations (issue #47) has two steps that a code deploy alone does not cover.
+
+1. Create the `Invitations` table before the release. Production does not run schema pushes, so review [`deploy/production/invitations.sql`](../deploy/production/invitations.sql) and run it once with `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f deploy/production/invitations.sql`. It runs in one transaction and fails if the table already exists. `fit-check` stops `deploy` while the table is missing. If `src/drizzle/schema.ts` changes the table before this release, regenerate the file with `drizzle-kit export`.
+2. Rebuild and push the worker image with the release. A worker built before this release ignores the `invitation` job, so Invitation emails are not delivered. `make -C deploy/production deploy` builds and recreates both `api` and `worker`. A release by any other route must do the same.
+
+On staging, run `make -C deploy/staging migrate HOST=<ssh host>` before `deploy`, as for any change to `schema.ts`.
+
 ## Runtime and image construction
 
 Bun is the application runtime and package manager. Its exact version is **unresolved and unpinned**:
@@ -144,7 +153,7 @@ This inventory lists keys and safe shapes only. It does not reproduce values fro
 | `SMTP_SECURE` | Required but unused | Intended implicit-TLS control; validated only | Lowercase boolean literal | Public configuration |
 | `SMTP_USER` | Required | SMTP authentication and From address | Provider account identifier | Sensitive |
 | `SMTP_PASS` | Required | SMTP authentication | Provider password/token | Secret |
-| `FRONTEND_URL` | Required | Base for password-reset links | Absolute HTTPS URL | Public configuration |
+| `FRONTEND_URL` | Required | Base for password-reset and Invitation links | Absolute HTTPS URL | Public configuration |
 | `OTP_CHALLENGE_TTL` | Optional; code default | OTP challenge lifetime | Positive integer seconds | Public configuration |
 | `OTP_MAX_ATTEMPTS` | Optional; code default | Per-challenge attempt limit | Positive integer | Public configuration |
 | `OTP_FAIL_WINDOW` | Optional; code default | Failure-count window | Positive integer seconds | Public configuration |
