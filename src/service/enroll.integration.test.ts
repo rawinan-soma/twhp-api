@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { Value } from "@sinclair/typebox/value";
-import { eq, ne } from "drizzle-orm";
+import { eq, inArray, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { ElysiaCustomStatusResponse, t } from "elysia";
 import { Pool } from "pg";
@@ -11,11 +11,16 @@ import {
   covers,
   districts,
   enrolls,
+  evaluators,
   factories,
   provinces,
   subdistricts,
 } from "../drizzle/schema";
-import { CoverStatusQuery, EnrollWithCoverListSchema } from "../schema/enroll";
+import {
+  CoverStatusQuery,
+  type CreateEnrollWithFilesDto,
+  EnrollWithCoverListSchema,
+} from "../schema/enroll";
 import { createEnrollService } from "./enroll";
 
 // ─── Test DB ─────────────────────────────────────────────────────────────────
@@ -35,6 +40,7 @@ type CoverStatus = "finished" | "in_progress" | "in_review";
 
 let regionA: number;
 let provinceB: number;
+let locationRef: { districtId: number; subdistrictId: number };
 
 // seeded enroll ids
 let enrollFinished: number; // cover with logs [in_progress → finished] (proves latest-log-wins)
@@ -195,15 +201,15 @@ beforeAll(async () => {
   // This previously borrowed the pair from an existing `Factories` row, which silently assumed some
   // factory already existed. On a freshly seeded database `Factories` is empty, so `ref` was
   // undefined and every test in this file died in beforeAll. Reference tables are always seeded.
-  const ref = await db
+  locationRef = await db
     .select({ districtId: districts.districtId, subdistrictId: subdistricts.subdistrictId })
     .from(districts)
     .innerJoin(subdistricts, eq(subdistricts.districtId, districts.districtId))
     .limit(1)
     .then((r) => r[0]);
 
-  await seedFactory(FACTORY_A, PROVINCE_A, ref);
-  await seedFactory(FACTORY_B, provinceB, ref);
+  await seedFactory(FACTORY_A, PROVINCE_A, locationRef);
+  await seedFactory(FACTORY_B, provinceB, locationRef);
 
   enrollFinished = (await seedEnrollWithCover(FACTORY_A, ["in_progress", "finished"])).enrollId;
   enrollInProgress = (await seedEnrollWithCover(FACTORY_A, ["in_progress"])).enrollId;
@@ -543,6 +549,92 @@ describe("Issue 03 — getEnrollById province scope", () => {
     const result = await enrollService.getEnrollById(enrollBFinished);
     expect(result).not.toBeInstanceOf(ElysiaCustomStatusResponse);
     expect((result as { id: number }).id).toBe(enrollBFinished);
+  });
+});
+
+describe("#50 — new enrollment records the newest Evaluator per level", () => {
+  type Level = "DOH" | "Mental" | "ODPC";
+  const LEVELS: Level[] = ["DOH", "Mental", "ODPC"];
+  const OLDER_ID: Record<Level, number> = { DOH: 99941, Mental: 99942, ODPC: 99943 };
+  const NEWER_ID: Record<Level, number> = { DOH: 99951, Mental: 99952, ODPC: 99953 };
+  const ONLY_ID: Record<Level, number> = { DOH: 99961, Mental: 99962, ODPC: 99963 };
+  const SHARED = { factory: 99973, province: 99901, region: 9901 };
+  const SOLO = { factory: 99974, province: 99902, region: 9902 };
+  const EVALUATOR_IDS = [OLDER_ID, NEWER_ID, ONLY_ID].flatMap((ids) => Object.values(ids));
+
+  const {
+    factoryId: _factoryId,
+    evalDohId: _evalDohId,
+    evalOdpcId: _evalOdpcId,
+    evalMentalId: _evalMentalId,
+    ...enrollBody
+  } = enrollValues(0);
+
+  const cleanup = async () => {
+    await cleanupFactory(SHARED.factory);
+    await cleanupFactory(SOLO.factory);
+    await db.delete(accounts).where(inArray(accounts.id, EVALUATOR_IDS));
+    await db
+      .delete(provinces)
+      .where(inArray(provinces.provinceId, [SHARED.province, SOLO.province]));
+  };
+
+  const seedEvaluator = async (id: number, level: Level, region: number) => {
+    await db.insert(accounts).values({
+      id,
+      username: `test_enroll_eval_${id}`,
+      password: "hashed",
+      email: `test_enroll_eval_${id}@test.com`,
+      role: "Evaluator",
+    });
+    await db.insert(evaluators).values({
+      accountId: id,
+      level,
+      region,
+      firstName: "ทดสอบ",
+      lastName: "ทดสอบ",
+      phoneNumber: "0000000000",
+    });
+  };
+
+  const seedRegion = async (scope: typeof SHARED) => {
+    await db
+      .insert(provinces)
+      .values({ provinceId: scope.province, nameTh: "ทดสอบ", healthRegion: scope.region });
+    await seedFactory(scope.factory, scope.province, locationRef);
+  };
+
+  const enrollAndReadEvaluators = async (factoryId: number) => {
+    const result = await enrollService.create(
+      enrollBody as unknown as CreateEnrollWithFilesDto,
+      factoryId,
+    );
+    expect(result).toEqual({ message: "create enrollment successfully" });
+    const [row] = await db.select().from(enrolls).where(eq(enrolls.factoryId, factoryId));
+    return { DOH: row.evalDohId, Mental: row.evalMentalId, ODPC: row.evalOdpcId };
+  };
+
+  beforeAll(async () => {
+    await cleanup();
+    await seedRegion(SHARED);
+    await seedRegion(SOLO);
+    for (const level of LEVELS) {
+      await seedEvaluator(OLDER_ID[level], level, SHARED.region);
+    }
+    for (const level of LEVELS) {
+      await seedEvaluator(NEWER_ID[level], level, SHARED.region);
+      await seedEvaluator(ONLY_ID[level], level, SOLO.region);
+    }
+  });
+
+  afterAll(cleanup);
+
+  it("AC: two Evaluators at a level records the greatest account id, for all three levels", async () => {
+    expect(await enrollAndReadEvaluators(SHARED.factory)).toEqual(NEWER_ID);
+  });
+
+  it("AC: one Evaluator per level records that Evaluator", async () => {
+    expect(await enrollAndReadEvaluators(SOLO.factory)).toEqual(ONLY_ID);
   });
 });
 

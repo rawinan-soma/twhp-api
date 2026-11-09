@@ -270,7 +270,8 @@ export const createEnrollService = (database: typeof db) => {
       const evaluatorsList = await database
         .select({ level: evaluators.level, id: evaluators.accountId })
         .from(evaluators)
-        .where(eq(evaluators.region, region));
+        .where(eq(evaluators.region, region))
+        .orderBy(desc(evaluators.accountId));
       if (evaluatorsList.length === 0) {
         return status(400, { message: "evaluators not found" });
       }
