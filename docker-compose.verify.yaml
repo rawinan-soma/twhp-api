@@ -1,0 +1,106 @@
+# Disposable stack for the `verify` skill (.claude/skills/verify/SKILL.md).
+# Run it only as: docker compose -p twhp-verify -f docker-compose.verify.yaml ...
+# It shares nothing with docker-compose.yaml: its own project, image tag, volumes and network,
+# no container_name, and only 127.0.0.1 host ports. Postgres, Redis and RustFS answer to the
+# hostnames docker.env already names (twhp-postgres, twhp-redis, minio) through network aliases,
+# so no secret is copied. SMTP is forced to Mailpit, so no email can leave the machine.
+
+x-app: &app
+  build:
+    context: .
+    target: build
+  image: twhp-api:verify
+  env_file:
+    - docker.env
+  environment:
+    TZ: Asia/Bangkok
+    NODE_ENV: development
+    SMTP_HOST: mailpit
+    SMTP_PORT: "1025"
+    SMTP_STARTTLS: "false"
+    SMTP_SECURE: "false"
+  networks: [verify]
+
+services:
+  migrate:
+    <<: *app
+    depends_on:
+      postgres: { condition: service_healthy }
+    command: sh -c "bun run db:push && bun run db:seed"
+
+  api:
+    <<: *app
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      mailpit: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:3901:3000"
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/twhp/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+    command: bun src/index.ts
+
+  worker:
+    <<: *app
+    depends_on:
+      api: { condition: service_healthy }
+    command: bun run worker
+
+  postgres:
+    image: postgres:17-alpine
+    env_file:
+      - docker.env
+    volumes:
+      - pg:/var/lib/postgresql/data
+    networks:
+      verify:
+        aliases: [twhp-postgres]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d twhp"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      verify:
+        aliases: [twhp-redis]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  minio:
+    image: rustfs/rustfs@sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2
+    environment:
+      RUSTFS_ACCESS_KEY: minioadmin
+      RUSTFS_SECRET_KEY: minioadmin
+    volumes:
+      - rustfs:/data
+    networks: [verify]
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    ports:
+      - "127.0.0.1:8925:8025"
+    networks: [verify]
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  pg:
+  rustfs:
+
+networks:
+  verify:

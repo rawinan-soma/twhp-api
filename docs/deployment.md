@@ -12,11 +12,34 @@ Docker Compose defines three profiles:
 
 | Profile | Services | Current purpose |
 | --- | --- | --- |
-| `dev` | PostgreSQL, Redis, `migrate-dev`, `api-dev`, `worker-dev`, MinIO, development Nginx | Local development with build, hot reload, schema push, and seed |
-| `staging` | PostgreSQL, Redis, `migrate-dev`, `api-dev`, `worker-dev`, MinIO, templated Nginx | Development-style runtime behind API-key Nginx and an external network |
-| `production` | PostgreSQL, Redis, `migrate-prod`, API, worker, MinIO, production Nginx | Pulls a prebuilt application image and starts production services |
+| `dev` | PostgreSQL, Redis, `migrate-dev`, `api-dev`, `worker-dev`, RustFS, development Nginx | Local development with build, hot reload, schema push, and seed |
+| `staging` | PostgreSQL, Redis, `migrate-dev`, `api-dev`, `worker-dev`, RustFS, templated Nginx | Development-style runtime behind API-key Nginx and an external network |
+| `production` | PostgreSQL, Redis, `migrate-prod`, API, worker, RustFS, production Nginx | Pulls a prebuilt application image and starts production services |
 
-MinIO has no profile, so it is the only service selected by a plain `docker compose up` without a profile.
+Object storage is RustFS, an S3-compatible server. Its Compose service has no profile, so it is the only service selected by a plain `docker compose up` without a profile. The service keeps the name `minio`, and the application keeps its `minio` S3 client and `MINIO_*` variables, so `docker.env` and Nginx are unchanged. A server still running MinIO moves with [the migration runbook](minio-to-rustfs-migration.md).
+
+## Staging release
+
+Staging is released from a laptop with `deploy/staging/Makefile`, which mirrors only the runtime files of a commit (default: the tip of the local `staging` branch) to the server and rebuilds there. It never sends the working tree, and `sync` removes anything else in the server's folder that `rsync-exclude` does not protect.
+
+```bash
+make -C deploy/staging diff HOST=<ssh host>      # what would change or be deleted
+make -C deploy/staging migrate HOST=<ssh host>   # first, only if schema.ts changed
+make -C deploy/staging deploy HOST=<ssh host>
+```
+
+`deploy/staging/compose.staging.yml` records what the server runs differently from `docker-compose.yaml`: `migrate-dev` is a no-op, so nothing pushes schema or seeds on `up`, and Nginx uses the development config, with no API-key gate, on the server's LAN address. `deploy/staging/rsync-exclude` protects server-only files, including `docker.env` and `seed_data/`, from the mirror's deletes.
+
+## Production release
+
+Production is released from a laptop with `deploy/production/Makefile`, which builds a commit on `origin/main`, pushes it as an immutable image tag, and recreates only the `api` and `worker` containers.
+
+```bash
+make -C deploy/production deploy HOST=<ssh host>
+make -C deploy/production rollback HOST=<ssh host> TAG=previous
+```
+
+No target runs `db:push`, `db:seed`, Compose `down`, or a free-form Compose command. `deploy` stops before the release if `preflight.sh` does not recognize the stack, if `fit-check.ts` finds a table, column, or enum value the release needs missing from the live database or a `docker.env` the release's config rejects, or if `backup.sh` cannot write a verified `pg_dump` to `~/twhp-backups`. `fit-check` does not compare column types, constraints, or indexes. A schema gap must be closed by a separately reviewed migration. Backups hold personal data and are never pruned automatically.
 
 ## Runtime and image construction
 
@@ -50,7 +73,7 @@ The current production services use:
 rawinan/twhp-elysia-api:latest
 ```
 
-`latest` is mutable, so Compose alone cannot prove which source revision is deployed or provide deterministic rollback. PostgreSQL is pinned only to major version 17; Redis is pinned only to major version 7; MinIO uses `latest`; and Nginx uses the moving `alpine` tag.
+`latest` is mutable, so Compose alone cannot prove which source revision is deployed or provide deterministic rollback. PostgreSQL is pinned only to major version 17; Redis is pinned only to major version 7; RustFS is pinned by digest; and Nginx uses the moving `alpine` tag.
 
 Before a controlled production release, the organization must define immutable image tags or digests, artifact provenance, promotion, vulnerability scanning, and rollback. No CI/CD build, publish, deploy, or rollback manifest is present in this repository.
 
@@ -70,12 +93,12 @@ nginx-backend-prod <--> shared-web-network <--> external edge (not defined here)
 | Nginx | 80 | `127.0.0.1:81` | Loopback only; public edge/TLS is external to this repository |
 | PostgreSQL | 5432 | `5433` on all host interfaces | Restrict with host firewall/network policy |
 | Redis | 6379 | `6380` on all host interfaces | No authentication or TLS is configured |
-| MinIO API | 9000 | None | Proxied at `/twhp/files/` |
-| MinIO console | 9001 | None | Proxied at `/twhp/minio-console/` |
+| RustFS S3 API (service `minio`) | 9000 | None | Proxied at `/twhp/files/` |
+| RustFS console (service `minio`) | 9001 | None | Proxied at `/twhp/minio-console/`; expected not to work through this path |
 
 `APP_PORT` must be **3000** in the current Compose deployment. Although it is configurable in application code, Docker health checks, Nginx upstreams, and the Dockerfile all assume 3000.
 
-The API health endpoint is a static **liveness-only** response. It does not verify PostgreSQL, Redis, MinIO, SMTP, queue processing, or worker health. The worker has no Compose health check.
+The API health endpoint is a static **liveness-only** response. It does not verify PostgreSQL, Redis, RustFS, SMTP, queue processing, or worker health. The worker has no Compose health check.
 
 ## Production database release is not implemented
 
@@ -89,10 +112,10 @@ Production migration, import, verification, backup, and rollback ownership are *
 
 The staging/production Nginx template:
 
-- requires `X-API-Key` for `/twhp/api/` and the MinIO console;
+- requires `X-API-Key` for `/twhp/api/` and the RustFS console;
 - denies the OpenAPI document path;
 - proxies the API to `${NGINX_API_UPSTREAM}:3000`;
-- permits `/twhp/files/` without the shared API key because MinIO presigned signatures authorize object access;
+- permits `/twhp/files/` without the shared API key because S3 presigned signatures authorize object access;
 - forwards host, client IP, forwarded-for, and forwarded-proto headers;
 - allows request bodies up to `130m`.
 
@@ -145,9 +168,9 @@ This inventory lists keys and safe shapes only. It does not reproduce values fro
 | `NGINX_API_UPSTREAM` | Required by staging/production template | Docker DNS name for API upstream | Compose service name | Public configuration |
 | `NODE_ENV` | Set by Dockerfile/API Compose; no application read found | Runtime convention | Recognized environment name | Public configuration |
 | `TZ` | Set by Compose; not validated by app | Container timezone, including worker schedule | IANA timezone name | Public configuration |
-| `MINIO_ROOT_USER` | Hard-coded in Compose, not sourced from env file | MinIO root identity | Managed admin identifier | Sensitive |
-| `MINIO_ROOT_PASSWORD` | Hard-coded in Compose, not sourced from env file | MinIO root credential | High-entropy managed secret | Secret |
-| `MINIO_BROWSER_REDIRECT_URL` | Hard-coded in Compose | MinIO console redirect base | Absolute HTTPS URL | Public configuration |
+| `RUSTFS_ACCESS_KEY` | Hard-coded in Compose, not sourced from env file; must equal `MINIO_ACCESS_KEY` | RustFS root identity | Managed admin identifier | Sensitive |
+| `RUSTFS_SECRET_KEY` | Hard-coded in Compose, not sourced from env file; must equal `MINIO_SECRET_KEY` | RustFS root credential | High-entropy managed secret | Secret |
+| `RUSTFS_CONSOLE_ENABLE` | Hard-coded in Compose | Enables the RustFS console | `true` or `false` | Public configuration |
 
 ### Validation caveats
 
@@ -176,11 +199,10 @@ Before executing it, operators must ensure:
 4. `shared-web-network` already exists and is attached to the intended external edge proxy.
 5. The separately approved production database preparation/import has completed and been verified; `migrate-prod` will not do it.
 6. Host firewall rules prevent unintended access to the published PostgreSQL and Redis ports.
-7. MinIO root credentials have been externalized and rotated; Compose currently hard-codes them.
+7. RustFS root credentials have been externalized and rotated; Compose currently hard-codes them.
 8. SMTP transport security has been verified independently of the unused TLS flags.
 9. `NGINX_API_KEY` is non-empty and the rendered Nginx configuration has been inspected; reject startup when the substitution is empty.
-10. `MINIO_BROWSER_REDIRECT_URL` is set for the real external URL; the checked-in Compose value redirects remote users to `localhost`.
-11. An approved copy of `seed_data/` is present when building or seeding. The directory is ignored and absent from Git, so a clean clone is not reproducible without an out-of-band source.
+10. An approved copy of `seed_data/` is present when building or seeding. The directory is ignored and absent from Git, so a clean clone is not reproducible without an out-of-band source.
 
 ## Release verification
 
@@ -198,7 +220,7 @@ Verification must cover more than the liveness endpoint:
 - PostgreSQL schema/data version checks from the approved database procedure;
 - Redis queue submission and worker consumption;
 - SMTP delivery through the intended secure transport;
-- MinIO upload and presigned download through `/twhp/files/`;
+- RustFS upload and presigned download through `/twhp/files/`;
 - external DNS/TLS behavior and certificate validity;
 - restart and rollback behavior using an immutable prior image.
 
@@ -210,7 +232,7 @@ The repository does not identify owners or procedures for:
 - image build, scanning, signing, publication, promotion, and rollback;
 - external proxy, `shared-web-network`, DNS, TLS, and certificates;
 - secrets rotation;
-- PostgreSQL, Redis, and MinIO backup/restore and retention;
+- PostgreSQL, Redis, and RustFS backup/restore and retention;
 - metrics, alerts, SLOs, queue failure monitoring, and worker health;
 - production incident response and disaster recovery.
 
@@ -222,7 +244,7 @@ These items remain **Unknown** until the organization assigns ownership and reco
 | --- | --- | --- |
 | Critical | `migrate-prod` is an echo-only no-op | Establish owned production database release and rollback procedure |
 | Critical | Application production image uses mutable `latest` | Adopt immutable tags/digests and promotion/rollback policy |
-| High / Potential risk | MinIO root credentials are hard-coded; Redis has no auth/TLS; database and Redis ports bind broadly. Actual external reachability is Unknown. | Externalize/rotate secrets and restrict network exposure |
+| High / Potential risk | RustFS root credentials are hard-coded; Redis has no auth/TLS; database and Redis ports bind broadly. Actual external reachability is Unknown. | Externalize/rotate secrets and restrict network exposure |
 | High / Potential risk | An empty rendered `NGINX_API_KEY` can make the Nginx shared-key gate accept a missing header. Whether any deployed key is empty is Unknown. | Validate non-empty substitution and fail startup before traffic |
 | High | No CI/CD or artifact provenance manifests | Define build, verification, publication, and deploy pipeline |
 | High | Compose requires `APP_PORT=3000` despite configurable app code | Enforce the invariant or template every consumer |
@@ -232,4 +254,3 @@ These items remain **Unknown** until the organization assigns ownership and reco
 | Medium | Bun and several images/dependency requests are not exactly pinned | Adopt toolchain and base-image pinning policy |
 | Medium | Worker binary is platform-specific | Declare build platforms and verify multi-architecture releases |
 | High | `seed_data/` is ignored/untracked although image build and seeding require it | Establish an authoritative protected source or change packaging |
-| Medium | MinIO console redirect is hard-coded to localhost | Configure the external console URL per environment |
