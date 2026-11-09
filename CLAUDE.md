@@ -227,7 +227,8 @@ Uses `@bogeychan/elysia-logger` with custom Bangkok timestamp. `onError` classif
 
 ### Issue tracker
 
-Issues live as local markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
+Issues live in GitHub Issues (`rawinan-soma/twhp-api`, via `gh`) as of 2026-11-06. Earlier tickets under
+`.scratch/` are legacy history. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

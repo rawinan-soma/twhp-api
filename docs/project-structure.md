@@ -177,7 +177,7 @@ The suite includes both unit tests and PostgreSQL integration tests. Integration
 | `docs/adr/` | Architecture decisions |
 | `memory-bank/` | Intent, story, bolt, and implementation history — **legacy as of 2026-09-03**; kept as history, not extended for new work |
 | `.specs-fire/` | FIRE intent briefs, work items, and per-run plan/test/review/walkthrough artifacts — **legacy as of 2026-09-03**; kept as history, not extended for new work |
-| `.scratch/` | Current local issue tracker: `.scratch/<feature-slug>/PRD.md` plus `issues/NN-*.md`, each carrying a `Status:` triage line — see [issue tracker](agents/issue-tracker.md) |
+| `.scratch/` | Legacy local issue tracker (before 2026-11-06): `.scratch/<feature-slug>/PRD.md` plus `issues/NN-*.md`, each carrying a `Status:` triage line. New issues are GitHub Issues — see [issue tracker](agents/issue-tracker.md) |
 
 `drizzle.config.ts` points generated migration output at `src/core/drizzle/generated`, but that directory is absent and the current development workflow uses `db:push`. Production migration in Compose is an intentional no-op; see [Deployment](deployment.md).
 
@@ -188,7 +188,7 @@ The suite includes both unit tests and PostgreSQL integration tests. Integration
 - `docs/api/openapi.json` is a captured API contract artifact, not an API startup input.
 - `docs/api/API.md` and `docs/api/index.html` are written by `scripts/gen-api-docs.ts`.
 - `docs/adr/` records accepted design decisions.
-- `memory-bank/intents/` and `memory-bank/bolts/` preserve detailed implementation history for work done under the FIRE/specsmd process. That process, and `memory-bank/`, are **legacy as of 2026-09-03**: existing content stays as history, but no new intent or bolt artifacts are created. Current work is planned and tracked in `.scratch/<feature-slug>/PRD.md` plus `issues/NN-*.md` (the mattpocock skills workflow) — see [issue tracker](agents/issue-tracker.md) and [triage labels](agents/triage-labels.md).
+- `memory-bank/intents/` and `memory-bank/bolts/` preserve detailed implementation history for work done under the FIRE/specsmd process. That process, and `memory-bank/`, are **legacy as of 2026-09-03**: existing content stays as history, but no new intent or bolt artifacts are created. Current work is planned and tracked with the mattpocock skills workflow — in GitHub Issues since 2026-11-06, and in `.scratch/<feature-slug>/` before that — see [issue tracker](agents/issue-tracker.md) and [triage labels](agents/triage-labels.md).
 - `.specsmd/`, `.agents/`, `.codex/`, and `docs/superpowers/` are artifacts of that legacy FIRE/specsmd process and are not runtime modules. `.claude/` supports the current agent tooling (skills, commands) and is likewise not a runtime module.
 
 The root `README.md` was rewritten on 2026-09-02 as the project entry point: stack summary, repository map, quick start, commands, load-bearing conventions, and links into this documentation set. It is orientation only. Current source is authoritative; use `docs/handover.md`, this set, and `CONTEXT.md` for detail.

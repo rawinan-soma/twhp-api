@@ -1,0 +1,4 @@
+finalize-skips-eval-guard|        /\ (hr # {}) => (phase # "eval")|        /\ TRUE
+finalize-writes-no-award|        /\ award' = (award \/ hr = {})|        /\ award' = award
+finalize-deletes-all-open-evidence|IF a \in hr THEN [ans[a] EXCEPT !.files = FALSE]|IF a \in open THEN [ans[a] EXCEPT !.files = FALSE]
+verdict-reopens-finished|Reviewable == {"in_review", "recommended", "rejected"}|Reviewable == {"in_review", "recommended", "rejected", "finished"}

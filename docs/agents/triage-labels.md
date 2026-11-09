@@ -11,3 +11,5 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 | `wontfix`                  | `wontfix`            | Will not be actioned                     |
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
+
+These are GitHub labels on `rawinan-soma/twhp-api` (the four non-default ones were created 2026-11-06). Category labels are GitHub's default `bug` and `enhancement`.

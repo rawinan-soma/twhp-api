@@ -86,7 +86,7 @@ operations from the presence of a command in these documents.
 | [Troubleshooting](troubleshooting.md) | Evidence-safe diagnosis and recovery guidance across API, database, Redis/BullMQ, worker/SMTP, MinIO, and Nginx. |
 | [Technical debt](technical-debt.md) | Severity-ranked observed defects, confirmed debt, potential risks, impacts, and prioritized remediation. |
 | [ADRs](adr/) | Accepted design decisions 0001–0012: score calculation, OTP, review hierarchy, verdict saves, evidence deletion, pagination, Cover-status resolution, and score-change finality. Read the supersession column above before citing 0004 or 0006. |
-| [Agent workflow guides](agents/) | Local issue-tracker, triage-label, and domain-document conventions used by engineering agents. |
+| [Agent workflow guides](agents/) | Issue-tracker (GitHub Issues), triage-label, and domain-document conventions used by engineering agents. |
 | [API snapshot](api/) | Generated OpenAPI JSON/UI and derived API reference; useful for discovery but not authoritative for runtime authorization or status behavior. |
 
 ## Task-to-document map
@@ -107,7 +107,7 @@ operations from the presence of a command in these documents.
 | Change Docker, Nginx, environment, or release behavior | [Deployment](deployment.md) | [Architecture](architecture.md), [development](development.md), [troubleshooting](troubleshooting.md) |
 | Diagnose an incident | [Troubleshooting](troubleshooting.md) | The affected integration/domain guide; [deployment](deployment.md) for topology |
 | Plan a major refactor or remediation | [Technical debt](technical-debt.md) | [Architecture](architecture.md), [maintainer handover](handover.md), and affected domain guide |
-| Create or triage local work | [Issue tracker](agents/issue-tracker.md) | [Triage labels](agents/triage-labels.md), [domain guide](agents/domain.md) |
+| Create or triage work | [Issue tracker](agents/issue-tracker.md) | [Triage labels](agents/triage-labels.md), [domain guide](agents/domain.md) |
 
 ## Where to Look Before Making Changes
 

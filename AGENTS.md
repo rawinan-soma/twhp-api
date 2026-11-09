@@ -32,7 +32,7 @@ maintainer rather than silently choosing.
 - `src/service/coverStatus.ts`: the single latest-cover-log rule, in both query shapes.
   `src/service/answerFileRules.ts` and `src/service/scoreHelpers.ts`: pure rule modules.
   `src/schema/pagination.ts`: the shared offset-pagination contract.
-- `.scratch/`: local issue tracker and temporary investigation output, not runtime code.
+- `.scratch/`: legacy issue tracker (tickets before 2026-11-06) and temporary investigation output, not runtime code. New issues go to GitHub Issues.
 - `.specs-fire/` and `memory-bank/`: intent, work-item, bolt, and per-run history. Read them for the
   reasoning behind a decision an ADR condenses; they are not runtime code.
 
@@ -189,7 +189,7 @@ retains superseded passages as provenance — read the supersession notes, not t
 — and other verified source conflicts still exist. Do not use it to override current code or newer
 ADRs without surfacing the discrepancy.
 
-Local issues and PRDs use `.scratch/<feature>/`; follow `docs/agents/issue-tracker.md` and
+Issues and PRDs are GitHub Issues (legacy ones stay in `.scratch/<feature>/`); follow `docs/agents/issue-tracker.md` and
 `docs/agents/triage-labels.md`. For domain vocabulary/ADR discovery, follow
 `docs/agents/domain.md`.
 

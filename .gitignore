@@ -55,3 +55,17 @@ seed_data/
 
 # Deploy-host-local rsync excludes
 .rsyncignore
+
+# Verification scaffolding (.claude/skills/verify, .claude/skills/review-flow)
+.verify-evidence/
+tools/
+
+# Local data exports and award import working files
+/awards-import-account-id.sql
+/awards-import-account-id.xlsx
+/awards-import.xlsx
+/factory-award-match.xlsx
+/factory-award-not-in-system.xlsx
+/twhp.Accounts_261104205612.csv
+/twhp.Factories_261104093607.csv
+/ข้อมูลสถานประกอบการที่ได้รับโล่รางวัล ปี .xlsx
