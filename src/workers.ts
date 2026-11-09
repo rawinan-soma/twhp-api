@@ -1,6 +1,10 @@
 import "./worker/email";
 import { emailQueue } from "./queue/email";
-import { VALIDATION_REMINDER, VALIDATION_REMINDER_PATTERN } from "./queue/schedule";
+import {
+  VALIDATION_REMINDER,
+  VALIDATION_REMINDER_PATTERN,
+  VALIDATION_REMINDER_TZ,
+} from "./queue/schedule";
 
 // Earlier releases registered this job through `add({ repeat })`, which keeps its own
 // repeatable key in Redis. A new pattern does not replace it, so the old daily entry would
@@ -13,7 +17,7 @@ for (const legacy of await emailQueue.getRepeatableJobs()) {
 
 await emailQueue.upsertJobScheduler(
   VALIDATION_REMINDER,
-  { pattern: VALIDATION_REMINDER_PATTERN },
+  { pattern: VALIDATION_REMINDER_PATTERN, tz: VALIDATION_REMINDER_TZ },
   {
     name: VALIDATION_REMINDER,
     data: {},
