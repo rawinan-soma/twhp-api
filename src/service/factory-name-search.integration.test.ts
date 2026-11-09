@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { asc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { answers, awards, questions } from "../drizzle/schema";
 import {
   authenticatedGet,
   removeAccount,
@@ -62,8 +64,10 @@ const F = {
   pastYear: BASE + 26,
   statusReview: BASE + 27,
   statusProgress: BASE + 28,
+  graded: BASE + 29,
 } as const;
 
+const GRADED_ANSWER_COUNT = 3;
 const LONG_TERM = `Zqlong${"a".repeat(94)}`;
 
 type Place = "home" | "sibling" | "outside";
@@ -97,6 +101,7 @@ const FIXTURES: Fixture[] = [
   { id: F.pastYear, nameEn: "Zqpastyear", enrollment: "past" },
   { id: F.statusReview, nameEn: "Zqstatus review" },
   { id: F.statusProgress, nameEn: "Zqstatus progress", cover: "in_progress" },
+  { id: F.graded, nameEn: "Zqgraded", cover: "finished" },
 ];
 
 type Caller = "admin" | "evaluator" | "officer";
@@ -146,6 +151,18 @@ const enrollList: ListKind = {
   ],
 };
 
+const scoreList: ListKind = {
+  requiredQuery: {},
+  factoryIdField: "factoryId",
+  byListOrder: (ids) => ids,
+  findsNeverEnrolled: () => false,
+  filterCases: () => [
+    { query: { search: "Zqstatus" }, expected: [F.statusReview] },
+    { query: { search: "Zqpastyear" }, expected: [] },
+    { query: { search: "Zqpastyear", fiscalYear: lastFiscalYear }, expected: [F.pastYear] },
+  ],
+};
+
 type SearchRoute = { name: string; module: string; caller: Caller; list: ListKind };
 
 const ROUTES: SearchRoute[] = [
@@ -184,6 +201,24 @@ const ROUTES: SearchRoute[] = [
     module: "src/routes/provincialOfficers/enrolls/index.ts",
     caller: "officer",
     list: enrollList,
+  },
+  {
+    name: "admins/score",
+    module: "src/routes/admins/score/index.ts",
+    caller: "admin",
+    list: scoreList,
+  },
+  {
+    name: "evaluators/score",
+    module: "src/routes/evaluators/score/index.ts",
+    caller: "evaluator",
+    list: scoreList,
+  },
+  {
+    name: "provincialOfficers/score",
+    module: "src/routes/provincialOfficers/score/index.ts",
+    caller: "officer",
+    list: scoreList,
   },
 ];
 
@@ -292,7 +327,27 @@ beforeAll(async () => {
     const enrollment = fixture.enrollment ?? "current";
     if (enrollment === "never") continue;
     const start = enrollment === "past" ? lastYearStart : fiscalYearStart;
-    await seedEnrollWithCover(db, fixture.id, start.toISOString(), fixture.cover ?? "in_review");
+    const coverId = await seedEnrollWithCover(
+      db,
+      fixture.id,
+      start.toISOString(),
+      fixture.cover ?? "in_review",
+    );
+    if (fixture.id === F.graded && coverId !== undefined) {
+      const scoredQuestions = await db
+        .select({ id: questions.id })
+        .from(questions)
+        .orderBy(asc(questions.id))
+        .limit(GRADED_ANSWER_COUNT);
+      await db.insert(answers).values(
+        scoredQuestions.map(({ id }) => ({
+          questionId: id,
+          coverId,
+          selectedChoice: "2" as const,
+        })),
+      );
+      await db.insert(awards).values({ factoryId: fixture.id, fiscalYear, grade: "gold", coverId });
+    }
   }
 });
 
@@ -388,6 +443,22 @@ for (const route of ROUTES) {
         route,
         { search: "Zqnever" },
         route.list.findsNeverEnrolled(route.caller) ? [F.neverEnrolled] : [],
+      );
+    });
+  });
+}
+
+for (const route of ROUTES.filter(({ list }) => list === scoreList)) {
+  describeDb(`Factory Name Search on ${route.name} Score Reports`, () => {
+    it("keeps a matched report's answers and grade", async () => {
+      const { items } = await found(route, { search: "Zqgraded" });
+      const unfiltered = await found(route, { limit: 100 });
+      const unfilteredReport = unfiltered.items.find((row) => row.factoryId === F.graded);
+      expect(items).toHaveLength(1);
+      expect(items[0]).toEqual(unfilteredReport as Record<string, unknown>);
+      expect(items[0].grade).toBe("gold");
+      expect((items[0].scoring as { total: { scoredCount: number } }).total.scoredCount).toBe(
+        GRADED_ANSWER_COUNT,
       );
     });
   });

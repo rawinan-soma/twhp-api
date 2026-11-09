@@ -2,6 +2,8 @@ import { asc, eq, inArray } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import {
   accounts,
+  answers,
+  awards,
   coverLogs,
   covers,
   districts,
@@ -13,7 +15,13 @@ import {
 
 export const SEEDED_EVALUATOR_ID = 78;
 
-export type CoverState = "none" | "in_progress" | "in_review";
+export type CoverState = "none" | "in_progress" | "in_review" | "finished";
+
+const COVER_LOG_HISTORY: Record<Exclude<CoverState, "none">, Exclude<CoverState, "none">[]> = {
+  in_progress: ["in_progress"],
+  in_review: ["in_progress", "in_review"],
+  finished: ["in_progress", "in_review", "finished"],
+};
 
 export type RegionLayout = {
   region: number;
@@ -141,14 +149,15 @@ export const seedEnrollWithCover = async (
     .insert(enrolls)
     .values(enrollValues(factoryId, enrollDate))
     .returning({ id: enrolls.id });
-  if (state === "none") return;
+  if (state === "none") return undefined;
   const [cover] = await db
     .insert(covers)
     .values({ enrollId: enroll.id })
     .returning({ id: covers.id });
-  if (state === "in_review")
-    await db.insert(coverLogs).values({ coverId: cover.id, status: "in_progress" });
-  await db.insert(coverLogs).values({ coverId: cover.id, status: state });
+  for (const status of COVER_LOG_HISTORY[state]) {
+    await db.insert(coverLogs).values({ coverId: cover.id, status });
+  }
+  return cover.id;
 };
 
 export const removeFactoryWithCovers = async (db: NodePgDatabase, factoryId: number) => {
@@ -164,6 +173,8 @@ export const removeFactoryWithCovers = async (db: NodePgDatabase, factoryId: num
       .where(inArray(covers.enrollId, enrollIds))
       .then((r) => r.map((x) => x.id));
     if (coverIds.length) {
+      await db.delete(answers).where(inArray(answers.coverId, coverIds));
+      await db.delete(awards).where(inArray(awards.coverId, coverIds));
       await db.delete(coverLogs).where(inArray(coverLogs.coverId, coverIds));
       await db.delete(covers).where(inArray(covers.id, coverIds));
     }
