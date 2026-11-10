@@ -37,6 +37,8 @@ if (!dbReachable) {
 
 const describeDb = dbReachable ? describe : describe.skip;
 
+const VALIDATION_STATUS_WITHOUT_ROOT_ERROR_HANDLER = 422;
+
 const BASE = 99700;
 const ADMIN_ID = BASE;
 const EVALUATOR_ID = BASE + 1;
@@ -408,7 +410,7 @@ for (const route of ROUTES) {
     it("rejects a term over 100 characters, measured before trimming", async () => {
       for (const search of ["z".repeat(101), `${LONG_TERM} `]) {
         const { status } = await list(route, { search });
-        expect(status).toBe(400);
+        expect(status).toBe(VALIDATION_STATUS_WITHOUT_ROOT_ERROR_HANDLER);
       }
     });
 

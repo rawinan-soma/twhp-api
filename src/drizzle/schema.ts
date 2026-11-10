@@ -284,6 +284,33 @@ export const provincialOfficers = pgTable(
   ],
 );
 
+export const invitations = pgTable(
+  "Invitations",
+  {
+    id: serial().primaryKey().notNull(),
+    email: text().notNull().unique("Invitations_email_key"),
+    role: roles().notNull(),
+    firstName: text("first_name").notNull(),
+    lastName: text("last_name").notNull(),
+    phoneNumber: text("phone_number").notNull(),
+    level: evaluatorLevels(),
+    region: integer(),
+    provinceId: integer("province_id").references(() => provinces.provinceId, {
+      onDelete: "restrict",
+      onUpdate: "cascade",
+    }),
+    tokenHash: text("token_hash").notNull().unique("Invitations_token_hash_key"),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+  },
+  (table) => [
+    check(
+      "Invitations_role_target",
+      sql`(${table.role} = 'Evaluator' AND ${table.level} IS NOT NULL AND ${table.region} IS NOT NULL AND ${table.provinceId} IS NULL)
+        OR (${table.role} = 'Provincial' AND ${table.provinceId} IS NOT NULL AND ${table.level} IS NULL AND ${table.region} IS NULL)`,
+    ),
+  ],
+);
+
 export const covers = pgTable("Covers", {
   id: serial().primaryKey().notNull(),
   enrollId: integer("enroll_id")

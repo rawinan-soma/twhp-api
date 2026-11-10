@@ -21,7 +21,7 @@ This is not a live-database inventory. `DATABASE_URL` was absent from the audit 
 
 **Verified.** PostgreSQL is the relational source of truth. Redis holds transient OTP/password-reset data and BullMQ state; MinIO holds evidence objects. PostgreSQL stores only MinIO UUID filenames. The application uses `drizzle-orm/node-postgres` through `db` in `src/drizzle/index.ts:1-4` and a single schema file, `src/drizzle/schema.ts`. TypeBox select/insert/update schemas are derived from the Drizzle tables in `src/schema/index.ts:1-87`.
 
-The schema contains 13 tables and 8 PostgreSQL enums. Scores are calculated on demand; the Grade is stored in `Awards` at finalize (`docs/adr/0001-score-calculated-on-demand.md:9-22`, `src/service/score.ts:createScoreService`). Current Cover and Answer state is derived by “latest log wins,” ordered by descending serial `id`, not timestamp (`src/service/cover.ts:72-78`, `src/service/evaluator-review.ts:193-204`, `src/service/answer.ts:323-331`).
+The schema contains 14 tables and 8 PostgreSQL enums. Scores are calculated on demand; the Grade is stored in `Awards` at finalize (`docs/adr/0001-score-calculated-on-demand.md:9-22`, `src/service/score.ts:createScoreService`). Current Cover and Answer state is derived by “latest log wins,” ordered by descending serial `id`, not timestamp (`src/service/cover.ts:72-78`, `src/service/evaluator-review.ts:193-204`, `src/service/answer.ts:323-331`).
 
 ```mermaid
 erDiagram
@@ -31,6 +31,7 @@ erDiagram
     Accounts ||--o| ProvincialOfficers : "account_id; RESTRICT"
 
     Provinces ||--o{ Districts : "province_id; RESTRICT"
+    Provinces ||--o{ Invitations : "province_id; RESTRICT"
     Districts ||--o{ Subdistricts : "district_id; RESTRICT"
     Provinces ||--o{ Factories : "province_id; RESTRICT"
     Districts ||--o{ Factories : "district_id; RESTRICT"
@@ -186,6 +187,18 @@ No unique constraint ensures one Evaluator per `(region, level)`.
 - `province_id` — FK to `Provinces.province_id`; update cascade, delete restrict.
 - `isChangePassword boolean DEFAULT false`.
 - `ProvincialOfficers_account_id_key` duplicates the PK uniqueness.
+
+### Invitations
+
+`Invitations` is defined in `src/drizzle/schema.ts`. It holds pending Invitations for Evaluators and Provincial Officers only. Acceptance and cancel delete the row. Resend replaces `token_hash` and `expires_at`, and email correction also replaces `email`. The staff list derives `pending` or `expired` from `expires_at`; no status column exists (ADR-0015).
+
+- `id serial` — PK.
+- `email text` — unique, stored lowercase.
+- `role "Roles"`, `first_name`, `last_name`, `phone_number`.
+- `level "EvaluatorLevels"`, `region int`, `province_id` — nullable. `province_id` is an FK to `Provinces.province_id`; update cascade, delete restrict.
+- `token_hash text` — unique SHA-256 of the link token.
+- `expires_at timestamptz`.
+- `Invitations_role_target` CHECK — an Evaluator row has `level` and `region` and no `province_id`. A Provincial row has `province_id` and no `level` or `region`. Other roles are rejected.
 
 ### Provinces
 

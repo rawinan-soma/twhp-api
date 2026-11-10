@@ -156,11 +156,11 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 
 ### BR-09 — Evaluator references on Enrollment
 
-- **Rule:** Enrollment creation derives Factory region, queries evaluators there, and stores the first Mental, DOH, and ODPC row.
+- **Rule:** Enrollment creation derives Factory region, queries evaluators there, and stores, per level (Mental, DOH, ODPC), the Evaluator with the greatest account id. Accounts of later-added Evaluators get greater ids, so a replacement is the one named on new enrollments. Existing Enrollments keep the Evaluators they recorded.
 - **Implementation:** `enrollService.create` at `src/service/enroll.ts:248-332`; `Evaluators`; seed data.
 - **Inputs/conditions:** valid Factory/region and expected evaluator levels.
 - **Result:** three evaluator foreign keys stored.
-- **Edges/failure:** only a nonempty overall list is checked; a missing level can throw, and duplicates choose an arbitrary first row. The DB does not ensure referenced level/region. Review authorization does not use these IDs.
+- **Edges/failure:** only a nonempty overall list is checked; a missing level can throw. The DB does not ensure referenced level/region. Review authorization does not use these IDs.
 - **Failure behavior:** empty list 400; partial-level set likely unexpected 500.
 - **Risk of change:** High—assignment and review ownership.
 - **Confidence:** Code/seed **Verified**; live uniqueness **Unknown**.
@@ -379,6 +379,63 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Failure behavior:** `in_progress` or out-of-province Cover → `404 { message: "cover not found" }`.
 - **Risk of change:** High—confidentiality of an open review and authorization scope.
 - **Confidence:** **Verified.**
+
+## Invitations
+
+### BR-29 — Who may invite, and what an Invitation must name
+
+- **Rule:** Only DOED (the Admin) may create or manage an Invitation or read the staff list. An Evaluator Invitation needs `level` and `region`. A Provincial Officer Invitation needs `provinceId`. Both need `email`, `firstName`, `lastName`, and `phoneNumber`. The email is trimmed and lowercased before every check and write.
+- **Implementation:** `adminGuard` on `src/routes/admins/invitations/index.ts` and `src/routes/admins/staff/index.ts`; `CreateInvitationBody`; `invitation.ts:normalizeEmail`, `findEmailConflict`, `roleRules`; `Invitations_role_target` CHECK.
+- **Inputs/conditions:** Admin session, role-shaped body, an email free of accounts and of other pending Invitations, an existing health region or province.
+- **Result:** one `Invitations` row and one queued `invitation` email. `POST /admins/invitations` returns 201 `{ id, message }`.
+- **Edges/failure:** an email counts as taken when it equals another account's `email` or `username` in any letter case. A field belonging to the other role fails schema validation. A failed queue add leaves the row listed for resend.
+- **Failure behavior:** anonymous 401; any other role 403; `email already exists`, `email already invited`, `health region not found`, and `province not found` are 400; schema failure 400 through the root handler.
+- **Risk of change:** High—this is the only way to grant a reviewer account.
+- **Confidence:** **Verified.** See [ADR-0015](adr/0015-invitations-are-separate-from-accounts.md).
+
+### BR-30 — Ten-minute single-use link
+
+- **Rule:** An Invitation link holds a random 256-bit token, valid for 10 minutes and usable once. Only its SHA-256 hash is stored.
+- **Implementation:** `invitation.ts:issueLink`, `INVITATION_TTL_SECONDS`; `Invitations.token_hash`, `expires_at`; `src/worker/email.ts:sendInvitationEmail`.
+- **Inputs/conditions:** a pending `Invitations` row.
+- **Result:** the email names the project and the invited role, shows the username, which is the invited email, states the 10-minute expiry beside the link, and links to `${FRONTEND_URL}/accept-invitation?token=...`.
+- **Edges/failure:** the expiry is computed by the database clock. An expired Invitation stays listed with status `expired` and can be resent. Use deletes the row, so a used token matches nothing.
+- **Failure behavior:** see BR-32.
+- **Risk of change:** High—the token is the only credential for creating the account.
+- **Confidence:** **Verified.**
+
+### BR-31 — Resend, correct, and cancel
+
+- **Rule:** Until acceptance, an Admin may resend an Invitation, correct its email, or cancel it. Resend and correction replace the token hash and expiry, so every earlier link stops working. Correction also sends the new link to the corrected address. Cancel deletes the row and leaves nothing behind, so that email can be invited again. Only the email can be corrected; a wrong name, phone, level, region, or province is fixed by cancelling and inviting again.
+- **Implementation:** `invitationService.resend`, `correctEmail`, `cancel`; `issueLink(database, id, correctedEmail?)`; `POST /admins/invitations/:id/resend`, `PATCH /admins/invitations/:id/email`, `DELETE /admins/invitations/:id`; `staffService.list` reports each row as `pending` or `expired`.
+- **Inputs/conditions:** an existing pending Invitation; for correction, an email free of accounts and of other pending Invitations. The Invitation's own email does not conflict with itself.
+- **Result:** a fresh 10-minute link, or no row after cancel.
+- **Edges/failure:** an accepted Invitation has no row, so it is treated as missing. A concurrent correction to the same address loses on the unique email index and gets `email already invited`.
+- **Failure behavior:** missing Invitation 404 `invitation not found`; correction conflicts 400 `email already exists` or `email already invited`.
+- **Risk of change:** High—a stale link that keeps working would let a stranger claim the account.
+- **Confidence:** **Verified.**
+
+### BR-32 — Identical refusal for every unusable token
+
+- **Rule:** `POST /authentication/accept-invitation` answers every refused attempt with the same `400 { "message": "invalid token" }`, whether the token is unknown, expired, used, voided by a resend or correction, or cancelled, or whether the email was claimed by another account after the invite.
+- **Implementation:** `invitationService.acceptInvitation`; any `tx.rollback()` maps to the one 400 response.
+- **Inputs/conditions:** a `{ token, password }` body with no session.
+- **Result:** the response does not reveal which case applied.
+- **Edges/failure:** a refusal after the claim rolls back, so the Invitation stays listed and the Admin can cancel it. Of two concurrent accepts, exactly one succeeds and the other gets this 400.
+- **Failure behavior:** the 400 above; a missing field fails schema validation.
+- **Risk of change:** High—a distinguishable response would let a caller probe which tokens or emails exist.
+- **Confidence:** **Verified.**
+
+### BR-33 — Acceptance is the moment the account exists
+
+- **Rule:** No `Accounts`, `Evaluators`, or `ProvincialOfficers` row exists for a pending person. One transaction claims the Invitation, re-checks that the email is free, creates the account with username and email set to the invited email, and creates the role's profile with `isChangePassword=true`.
+- **Implementation:** `invitationService.acceptInvitation`; `roleRules[role].createProfile`.
+- **Inputs/conditions:** a live token; a password of at least 8 characters, hashed with bcrypt cost 12 outside the transaction and only after the token is found live.
+- **Result:** a pending person cannot log in and no Enrollment can record them. After acceptance the person logs in with OTP from the first login (BR-02), skips the seeded first-login step, and can use password reset. Acceptance sets no cookies.
+- **Edges/failure:** the re-check and the account unique indexes cover a seeded account claiming the email between invite and accept. Seeded accounts and their first-login flow are unchanged.
+- **Failure behavior:** see BR-32.
+- **Risk of change:** High—account creation and the OTP guarantee.
+- **Confidence:** **Verified.** See [ADR-0015](adr/0015-invitations-are-separate-from-accounts.md).
 
 ## Coverage and known gaps
 

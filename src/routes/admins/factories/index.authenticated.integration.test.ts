@@ -18,6 +18,7 @@ const FACTORY_ID = 99911;
 const UNKNOWN_FACTORY_ID = 99912;
 const TEST_PROVINCE_ID = 10;
 const JSON_CONTENT = { "content-type": "application/json" };
+const VALIDATION_STATUS_WITHOUT_ROOT_ERROR_HANDLER = 422;
 
 let doedToken: string;
 
@@ -30,8 +31,7 @@ const approve = (body?: unknown, factoryId = FACTORY_ID, token: string | undefin
     method: "PATCH",
     path: `/validate/${factoryId}`,
     token,
-    body: body === undefined ? undefined : JSON.stringify(body),
-    headers: body === undefined ? undefined : JSON_CONTENT,
+    body,
   });
 
 const isValidated = async (factoryId = FACTORY_ID) => {
@@ -60,8 +60,8 @@ const yearsAndGrades = async () =>
 const seedAward = (fiscalYear: number, grade: Grade) =>
   db.insert(awards).values({ factoryId: FACTORY_ID, fiscalYear, grade });
 
-const expectRefusedAndUntouched = async (response: RawResponse) => {
-  expect(response.status).toBe(400);
+const expectRefusedAndUntouched = async (response: RawResponse, expectedStatus = 400) => {
+  expect(response.status).toBe(expectedStatus);
   expect(await isValidated()).toBe(false);
   expect(await awardRows()).toEqual([]);
 };
@@ -178,8 +178,8 @@ describe("PATCH /validate/:id, a plain approval", () => {
   const plainApprovals: [string, Parameters<typeof authenticatedRequest>[1]][] = [
     ["no body and no content-type", {}],
     ["no body with a JSON content-type", { headers: JSON_CONTENT }],
-    ["an empty object", { body: "{}", headers: JSON_CONTENT }],
-    ["an empty awards array", { body: '{"awards":[]}', headers: JSON_CONTENT }],
+    ["an empty object", { rawBody: "{}", headers: JSON_CONTENT }],
+    ["an empty awards array", { rawBody: '{"awards":[]}', headers: JSON_CONTENT }],
     [
       "no body with a charset on the content-type",
       { headers: { "content-type": "application/json; charset=utf-8" } },
@@ -228,7 +228,7 @@ describe("PATCH /validate/:id, with Prior Awards", () => {
       method: "PATCH",
       path: `/validate/${FACTORY_ID}`,
       token: doedToken,
-      body: JSON.stringify({ awards: [{ fiscalYear: 2025, grade: "gold" }] }),
+      rawBody: JSON.stringify({ awards: [{ fiscalYear: 2025, grade: "gold" }] }),
       headers: { "content-type": "text/plain" },
     });
 
@@ -249,7 +249,10 @@ describe("PATCH /validate/:id, refused bodies leave the Factory pending", () => 
 
   for (const [name, body] of invalid) {
     it(`refuses ${name}`, async () => {
-      await expectRefusedAndUntouched(await approve(body));
+      await expectRefusedAndUntouched(
+        await approve(body),
+        VALIDATION_STATUS_WITHOUT_ROOT_ERROR_HANDLER,
+      );
     });
   }
 
@@ -258,7 +261,7 @@ describe("PATCH /validate/:id, refused bodies leave the Factory pending", () => 
       method: "PATCH",
       path: `/validate/${FACTORY_ID}`,
       token: doedToken,
-      body: "{not json",
+      rawBody: "{not json",
       headers: JSON_CONTENT,
     });
 
@@ -270,7 +273,7 @@ describe("PATCH /validate/:id, refused bodies leave the Factory pending", () => 
       method: "PATCH",
       path: `/validate/${FACTORY_ID}`,
       token: doedToken,
-      body: "awards=2025",
+      rawBody: "awards=2025",
       headers: { "content-type": "application/x-www-form-urlencoded" },
     });
 
@@ -414,7 +417,7 @@ describe("PATCH /validate/:id, access", () => {
     const response = await authenticatedRequest(ROUTE, {
       method: "PATCH",
       path: `/validate/${FACTORY_ID}`,
-      body: JSON.stringify({ awards: [{ fiscalYear: 2025, grade: "gold" }] }),
+      rawBody: JSON.stringify({ awards: [{ fiscalYear: 2025, grade: "gold" }] }),
       headers: JSON_CONTENT,
     });
 

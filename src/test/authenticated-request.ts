@@ -25,6 +25,24 @@ export const signRefreshToken = ({ id }: TestIdentity, expiresInSeconds: number)
 
 type Query = Record<string, string | number | boolean | undefined>;
 
+export type QueuedEmail = {
+  name: string;
+  data: Record<string, unknown>;
+  opts?: Record<string, unknown>;
+};
+
+export type RunnerJob = {
+  routeModule: string;
+  url: string;
+  method: string;
+  body?: unknown;
+  rawBody?: string;
+  headers?: Record<string, string>;
+  token?: string;
+  refreshToken?: string;
+  mountAt?: string;
+};
+
 const RUNNER = resolve(import.meta.dir, "handle-request.ts");
 
 /**
@@ -35,47 +53,52 @@ const RUNNER = resolve(import.meta.dir, "handle-request.ts");
 export const authenticatedRequest = async (
   routeModule: string,
   options: {
+    method?: "GET" | "POST" | "PATCH" | "DELETE";
+    body?: unknown;
+    /** Sent as is, with only the `headers` given, for a body that is not valid JSON. */
+    rawBody?: string;
+    headers?: Record<string, string>;
     token?: string;
     refreshToken?: string;
     query?: Query;
     path?: string;
-    method?: string;
-    body?: string;
-    headers?: Record<string, string>;
+    /** The folder path autoload would mount the route at, so its `:param` segments resolve. */
+    mountAt?: string;
   } = {},
 ) => {
   const url = new URL(options.path ?? "/", "http://localhost");
   for (const [key, value] of Object.entries(options.query ?? {})) {
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
-  const child = Bun.spawn(
-    [
-      "bun",
-      RUNNER,
-      JSON.stringify({
-        routeModule,
-        url: url.href,
-        token: options.token,
-        refreshToken: options.refreshToken,
-        method: options.method,
-        body: options.body,
-        headers: options.headers,
-      }),
-    ],
-    { stdout: "pipe", stderr: "pipe", env: process.env },
-  );
+  const job: RunnerJob = {
+    routeModule,
+    url: url.href,
+    method: options.method ?? "GET",
+    body: options.body,
+    rawBody: options.rawBody,
+    headers: options.headers,
+    token: options.token,
+    refreshToken: options.refreshToken,
+    mountAt: options.mountAt,
+  };
+  const child = Bun.spawn(["bun", RUNNER, JSON.stringify(job)], {
+    stdout: "pipe",
+    stderr: "pipe",
+    env: process.env,
+  });
   const [out, err, code] = await Promise.all([
     new Response(child.stdout).text(),
     new Response(child.stderr).text(),
     child.exited,
   ]);
   if (code !== 0) throw new Error(`request runner exited ${code}: ${err}`);
-  const { status, body, setCookies } = JSON.parse(out) as {
+  const { status, body, setCookies, queuedEmails } = JSON.parse(out) as {
     status: number;
     body: string;
     setCookies: string[];
+    queuedEmails: QueuedEmail[];
   };
-  return { status, body, setCookies, json: <T>() => JSON.parse(body) as T };
+  return { status, body, setCookies, queuedEmails, json: <T>() => JSON.parse(body) as T };
 };
 
 export const seedEvaluatorAccount = async (
