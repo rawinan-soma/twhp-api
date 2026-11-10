@@ -191,10 +191,6 @@ describe("PATCH /validate/:id, a plain approval", () => {
       "no body with a charset on the content-type",
       { headers: { "content-type": "application/json; charset=utf-8" } },
     ],
-    [
-      "a multipart body without an awards field",
-      { rawBody: multipart(["note", "x"]), headers: MULTIPART_CONTENT },
-    ],
   ];
 
   for (const [name, request] of plainApprovals) {
@@ -329,6 +325,7 @@ describe("PATCH /validate/:id, refused bodies leave the Factory pending", () => 
       ],
     ],
     ["an invalid awards field", [["awards", '[{"fiscalYear":2030,"grade":"silver"}]']]],
+    ["no awards field", [["note", "x"]]],
   ];
 
   for (const [name, fields] of invalidMultipart) {
@@ -344,6 +341,21 @@ describe("PATCH /validate/:id, refused bodies leave the Factory pending", () => 
       await expectRefusedAndUntouched(response);
     });
   }
+
+  it("refuses a multipart body with bare LF line endings", async () => {
+    const response = await authenticatedRequest(ROUTE, {
+      method: "PATCH",
+      path: `/validate/${FACTORY_ID}`,
+      token: doedToken,
+      rawBody: multipart(["awards", '[{"fiscalYear":2030,"grade":"silver"}]']).replaceAll(
+        "\r\n",
+        "\n",
+      ),
+      headers: MULTIPART_CONTENT,
+    });
+
+    await expectRefusedAndUntouched(response);
+  });
 
   it("refuses a form-encoded body", async () => {
     const response = await authenticatedRequest(ROUTE, {

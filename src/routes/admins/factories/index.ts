@@ -51,23 +51,19 @@ export default (app: App) =>
           },
           params: t.Object({ id: t.Number() }),
           // On an optional body Elysia swallows a JSON parse error, does not validate a value that is
-          // not an object, and copies anything with a length, such as a blank form field, into an
-          // array before validating it. Each would approve the Factory and drop or hide Prior
-          // Awards, so the body is checked here as sent. The named parser never runs; it is what makes the OpenAPI
+          // not an object, and copies anything with a length into an array before validating it.
+          // Each would approve the Factory and drop or hide Prior Awards, so this route reads only
+          // JSON and checks the body as sent. The named parser never runs; it is what makes the OpenAPI
           // document list the JSON body.
           parse: [
-            async ({ request, contentType }) => {
+            async ({ request }) => {
+              const raw = await request.text();
+              if (raw.trim() === "") return {};
               let parsed: unknown;
-              if (contentType === "multipart/form-data") {
-                parsed = Object.fromEntries(await request.formData());
-              } else {
-                const raw = await request.text();
-                if (raw.trim() === "") return {};
-                try {
-                  parsed = JSON.parse(raw);
-                } catch {
-                  throw new ParseError();
-                }
+              try {
+                parsed = JSON.parse(raw);
+              } catch {
+                throw new ParseError();
               }
               if (!approveBodyValidator.Check(parsed)) {
                 throw new ParseError();
