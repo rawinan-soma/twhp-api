@@ -379,7 +379,8 @@ Seed risks:
 Verified atomic database units include:
 
 - Account + Factory registration (`src/service/factory.ts:register`, lines 59-82).
-- Admin profile + Account update (`src/service/admin.ts:editAdminData`, lines 26-47).
+- Admin profile + Account update (`src/service/admin.ts:editAdminData`, lines 34-42).
+- Factory fields, location + Account update (`src/service/factory.ts:update`, lines 395-403).
 - Cover + initial CoverLog (`src/service/cover.ts:create`, lines 40-44).
 - Answer insert/update + AnswerLog append (`src/service/answer.ts:saveAnswer`, `update`, `negotiate`).
 - First-password Account/profile updates (`src/service/authentication.ts:editFirstPassword`).

@@ -5,6 +5,7 @@ import { db } from "../drizzle";
 import { accounts, adminsDoed, awards, factories, provinces } from "../drizzle/schema";
 import type { UpdateAdminDto } from "../schema/admin";
 import type { PriorAwardDto } from "../schema/factory";
+import { hasValues } from "./hasValues";
 
 export const createAdminService = (database: typeof db) => {
   return {
@@ -20,31 +21,24 @@ export const createAdminService = (database: typeof db) => {
         return status(400, { message: "admin not found" });
       }
 
-      if (dto.password) {
-        dto.password = await bcrypt.hash(dto.password, 12);
-      }
+      const adminPatch = {
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        phoneNumber: dto.phoneNumber,
+      };
+      const accountPatch = {
+        email: dto.email,
+        password: dto.password ? await bcrypt.hash(dto.password, 12) : undefined,
+      };
 
       await database.transaction(async (tx) => {
-        await tx
-          .update(adminsDoed)
-          .set({
-            firstName: dto.firstName,
-            lastName: dto.lastName,
-            phoneNumber: dto.phoneNumber,
-          })
-          .where(eq(adminsDoed.accountId, accountId))
-          .returning()
-          .then((res) => res[0]);
+        if (hasValues(adminPatch)) {
+          await tx.update(adminsDoed).set(adminPatch).where(eq(adminsDoed.accountId, accountId));
+        }
 
-        await tx
-          .update(accounts)
-          .set({
-            email: dto.email,
-            password: dto.password,
-          })
-          .where(eq(accounts.id, accountId))
-          .returning()
-          .then((res) => res[0]);
+        if (hasValues(accountPatch)) {
+          await tx.update(accounts).set(accountPatch).where(eq(accounts.id, accountId));
+        }
       });
 
       return {
