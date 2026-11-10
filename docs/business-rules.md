@@ -14,6 +14,7 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Implementation:** `src/service/factory.ts:register`; `createFactoryHelper.getFactoryLocation`; `src/service/admin.ts:approveFactoryRegister`; `authenticationService.getAutheticatedAccount`; `CreateFactorySchema`.
 - **Inputs/conditions:** unique username/email, valid `subdistrictId`, correct password, validated Factory.
 - **Result:** new unvalidated Factory; DOED can validate; validated login issues cookies without OTP.
+- **Approval with Prior Awards:** `PATCH /admins/factories/validate/:id` takes an optional body `{ awards?: { fiscalYear, grade }[] }`. A missing body, a missing `awards` and an empty array are a plain approval. `fiscalYear` is a Common Era integer from 2023 to 2025 (FY2566–FY2568), and `grade` is `gold` or `consec-gold`. The approval and every `Awards` row (`cover_id` null) commit in one transaction with the Factory row locked. Each refusal returns 400, leaves the Factory pending and writes no row: invalid body, a repeated `fiscalYear`, or a year that already has an `Awards` row of any Grade (the message names the year). An already-validated Factory keeps the existing 400, so Prior Awards cannot be added after approval, and a lost approval race gets that same 400.
 - **Edges/failure:** duplicate pre-check is race-prone, though DB uniqueness remains; invalid location 404, duplicate 400, unvalidated login 401. Validation is checked only at login. Factory deletion removes the subtype row but leaves the Account; an already-issued session is not immediately revoked.
 - **Risk of change:** High—onboarding and access compatibility.
 - **Confidence:** **Verified.**
@@ -131,7 +132,8 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
   Common Era). The Gold plaque is valid for three fiscal years, so an award in A closes A + 1 and
   A + 2 and A + 3 is open. The message names the next eligible fiscal year (Common Era). The check
   runs after the duplicate guard and before any upload, through `awardHistory.firstEligibleEnrolmentYear`
-  (ADR-0014). `silver`/`certificate`/`joined` and no row carry no lockout; update and delete are
+  (ADR-0014). A Prior Award recorded at approval (BR-01) counts exactly like an award earned through a
+  Cover. `silver`/`certificate`/`joined` and no row carry no lockout; update and delete are
   unguarded, and there is no override.
 - **Edges/failure:** no database uniqueness or fiscal-year key. Concurrent/direct writes can duplicate; owner lookups use nondeterministic `.limit(1)`.
 - **Risk of change:** Very high—constraint introduction requires timezone policy and duplicate cleanup.
@@ -313,7 +315,7 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 
 ### BR-23 — Grade tiers
 
-- **Rule:** Evaluate top-down, first match wins: **consec-gold** when the gold gate holds, every `special=2` Answer is `3`, and the factory held a gold-tier award (`gold` or `consec-gold`) in the Cover's fiscal year minus 3; **gold** when every category is >80, total ≥90, and every `special=1` Answer is `3`; silver when every category is >60 and total ≥80; certificate when total ≥60; otherwise joined. A special gate needs the literal choice `3` — `n/a` does not satisfy it. Grade exists only for finished Covers. See [ADR-0014](adr/0014-consec-gold-and-the-gold-gate.md).
+- **Rule:** Evaluate top-down, first match wins: **consec-gold** when the gold gate holds, every `special=2` Answer is `3`, and the factory held a gold-tier award (`gold` or `consec-gold`) in the Cover's fiscal year minus 3, whether that row came from a finalize or from a Prior Award recorded at approval (BR-01); **gold** when every category is >80, total ≥90, and every `special=1` Answer is `3`; silver when every category is >60 and total ≥80; certificate when total ≥60; otherwise joined. A special gate needs the literal choice `3` — `n/a` does not satisfy it. Grade exists only for finished Covers. See [ADR-0014](adr/0014-consec-gold-and-the-gold-gate.md).
 - **Implementation:** `scoreHelpers.computeGrade`; `awardHistory.ts` (the one reader of the FY − 3 question); `scoreService`; `evaluatorReviewService.finalize`.
 - **Inputs/conditions:** rounded score groups, current choices, and whether the factory held a gold-tier `Awards` row three fiscal years before the Cover's own (a missing row, or a `silver`/`certificate`/`joined` row, means it did not).
 - **Result:** one award tier, computed once at finalize and stored in `Awards` (ADR-0001, amended); read paths return the stored value.

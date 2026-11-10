@@ -1,6 +1,6 @@
 # ADR 0014: The five-grade ladder, the FY − 3 rule, and the settled gold gate
 
-**Status:** Accepted (2026-09-21); the `gold` special gate is corrected by the [Amendment](#amendment-2026-09-21-the-gold-gate-is-special--1-only) below — read that before the tables here.
+**Status:** Accepted (2026-09-21); the `gold` special gate is corrected by the [Amendment](#amendment-2026-09-21-the-gold-gate-is-special--1-only) below — read that before the tables here. Prior Awards recorded at approval are added by the [Amendment 2026-11-10](#amendment-2026-11-10-prior-awards-recorded-at-approval).
 
 **Builds on:** [ADR-0001](0001-score-calculated-on-demand.md) (amended: the Grade is stored at finalize).
 The `Awards` table that this ADR reads is what that amendment introduced.
@@ -126,3 +126,24 @@ the drift spread into BR-23, `CONTEXT.md`, the PRD, `CLAUDE.md`, `AGENTS.md` and
   `{1, 3}` code on `dev` keeps that Grade; nothing rewrites it. `main` and production never ran `{1, 3}`,
   so no production row exists. A staging database finalized against `dev` may hold such rows — list
   them for the maintainer rather than rewriting them.
+
+## Amendment 2026-11-10: Prior Awards recorded at approval
+
+**A gold-tier award won in FY2566–FY2568 by a Factory with no account can now be recorded when DOED
+approves that Factory's registration.** The backfill skipped these Factories because every `Awards`
+row needs an existing Factory. Such a Factory could then enrol in a year the plaque bars it from, and
+it lost its claim to `consec-gold`.
+
+- `PATCH /admins/factories/validate/:id` takes optional `awards: { fiscalYear, grade }[]`. The year
+  bounds (2023–2025) sit beside the Grade constants in `src/drizzle/grades.ts`, and `grade` derives
+  from `GOLD_TIER_GRADES`.
+- A Prior Award is an ordinary `Awards` row with `cover_id` null. `awardHistory` stays the only reader
+  of "held gold in year Y" and is unchanged, so the lockout and the FY − 3 lookback count a Prior Award
+  exactly like an award earned through a Cover. A `consec-gold` Prior Award counts the same as `gold`.
+- The approval and every row commit in one transaction under a row lock on the Factory. A repeated
+  year or a year with an existing row of any Grade refuses the whole approval with 400; an existing
+  row is neither overwritten nor skipped.
+- Only a pending Factory can receive one. A pending Factory cannot log in, so it has no Enrollment or
+  Cover, and an award cannot contradict an enrolment that already happened. The year bounds also keep
+  it clear of the row finalize would later write.
+- No endpoint lists, edits or deletes a Prior Award. A correction after approval is a maintainer's SQL.

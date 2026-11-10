@@ -241,17 +241,17 @@ There is no unique constraint on `enroll_id`.
 
 ### Awards
 
-`Awards` is the permanent record of what each factory has won, written by finalize (ADR-0001, amended).
+`Awards` is the permanent record of what each factory has won. It is written by finalize (ADR-0001, amended), by the manual backfill SQL, and by DOED approval of a Factory that has Prior Awards (ADR-0014, amended 2026-11-10).
 
 - `id serial` — PK.
 - `factory_id` — FK to `Factories.account_id`; delete `RESTRICT`, update cascade.
 - `fiscal_year int` — **Common Era** year the fiscal year ends in (FY2569 is `2026`). `CHECK` between 2000 and 2100 (`Awards_fiscal_year_range`), so a Buddhist Era year is rejected on the first bad write.
 - `grade Grades`.
-- `cover_id int NULL` — FK to `Covers.id`; delete `RESTRICT`, so an awarded Cover cannot be deleted. Null for imported history that has no Cover here.
+- `cover_id int NULL` — FK to `Covers.id`; delete `RESTRICT`, so an awarded Cover cannot be deleted. Null for a backfilled row or a Prior Award, which have no Cover here.
 - `awarded_at timestamp(3) DEFAULT CURRENT_TIMESTAMP`.
-- Unique `Awards_factory_id_fiscal_year_key` on (`factory_id`, `fiscal_year`), and unique `Awards_cover_id_key` on `cover_id`. Postgres treats nulls as distinct, so many imported rows coexist while each real Cover is awarded at most once.
+- Unique `Awards_factory_id_fiscal_year_key` on (`factory_id`, `fiscal_year`), and unique `Awards_cover_id_key` on `cover_id`. Postgres treats nulls as distinct, so many Cover-less rows coexist while each real Cover is awarded at most once.
 
-Finalize inserts the row in the same transaction as the `finished` `CoverLogs` row, with the Cover's own fiscal year, and `ON CONFLICT (cover_id) DO NOTHING` so a repeat finalize keeps the first Grade. The table, column and constraint names are a contract with the manual backfill SQL in `.scratch/consecutive-gold-award/`.
+Finalize inserts the row in the same transaction as the `finished` `CoverLogs` row, with the Cover's own fiscal year, and `ON CONFLICT (cover_id) DO NOTHING` so a repeat finalize keeps the first Grade. Approval inserts Prior Awards in the same transaction as `Factories.is_validate = true`, with `ON CONFLICT (factory_id, fiscal_year) DO NOTHING`; a year that writes no row refuses and rolls back the whole approval. `awarded_at` then records when the row was written, not when the award was won. The table, column and constraint names are a contract with the manual backfill SQL in `.scratch/consecutive-gold-award/`.
 
 ### CoverLogs
 
