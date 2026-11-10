@@ -32,9 +32,17 @@ const RUNNER = resolve(import.meta.dir, "handle-request.ts");
  * database client, and Bun never restores those between files, so an in-process app would see
  * their stubs.
  */
-export const authenticatedGet = async (
+export const authenticatedRequest = async (
   routeModule: string,
-  options: { token?: string; refreshToken?: string; query?: Query; path?: string } = {},
+  options: {
+    token?: string;
+    refreshToken?: string;
+    query?: Query;
+    path?: string;
+    method?: string;
+    body?: string;
+    headers?: Record<string, string>;
+  } = {},
 ) => {
   const url = new URL(options.path ?? "/", "http://localhost");
   for (const [key, value] of Object.entries(options.query ?? {})) {
@@ -49,6 +57,9 @@ export const authenticatedGet = async (
         url: url.href,
         token: options.token,
         refreshToken: options.refreshToken,
+        method: options.method,
+        body: options.body,
+        headers: options.headers,
       }),
     ],
     { stdout: "pipe", stderr: "pipe", env: process.env },

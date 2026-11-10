@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { answers, awards, questions } from "../drizzle/schema";
 import {
-  authenticatedGet,
+  authenticatedRequest,
   removeAccount,
   removeProvincialOfficerAccount,
   seedAdminAccount,
@@ -36,8 +36,6 @@ if (!dbReachable) {
 }
 
 const describeDb = dbReachable ? describe : describe.skip;
-
-const VALIDATION_STATUS_WITHOUT_ROOT_ERROR_HANDLER = 422;
 
 const BASE = 99700;
 const ADMIN_ID = BASE;
@@ -254,7 +252,7 @@ type ListBody = {
 };
 
 const list = async (route: SearchRoute, query: Query) => {
-  const response = await authenticatedGet(route.module, {
+  const response = await authenticatedRequest(route.module, {
     token: tokens[route.caller],
     query: { ...route.list.requiredQuery, ...query },
   });
@@ -410,7 +408,7 @@ for (const route of ROUTES) {
     it("rejects a term over 100 characters, measured before trimming", async () => {
       for (const search of ["z".repeat(101), `${LONG_TERM} `]) {
         const { status } = await list(route, { search });
-        expect(status).toBe(VALIDATION_STATUS_WITHOUT_ROOT_ERROR_HANDLER);
+        expect(status).toBe(400);
       }
     });
 

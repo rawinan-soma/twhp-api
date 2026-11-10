@@ -72,7 +72,7 @@ const unreachableBackingServices = {
 };
 
 /**
- * Runs in a child process for the same reason as `authenticatedGet`: other test files `mock.module`
+ * Runs in a child process for the same reason as `authenticatedRequest`: other test files `mock.module`
  * config, utils and the database client, and Bun never restores them.
  */
 const observe = async (): Promise<AccessMatrix> => {

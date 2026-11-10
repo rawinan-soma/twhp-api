@@ -106,11 +106,11 @@ See [Database](./database.md) before provisioning an integration-test database. 
 
 ### Authenticated route tests
 
-`src/test/authenticated-request.ts` tests a protected route with a real access token. Its `authenticatedGet` sends one GET through the real route module, `jwtPlugin`, guards, and database. `signAccessToken` issues the token. `seedEvaluatorAccount`, `seedAdminAccount`, and `seedProvincialOfficerAccount` create callers of each staff role. Remove a Provincial Officer caller with `removeProvincialOfficerAccount`, because `provincialOfficers.accountId` is `onDelete: restrict` and `removeAccount` alone fails. For an example, see `src/routes/evaluators/factories/index.authenticated.integration.test.ts`.
+`src/test/authenticated-request.ts` tests a protected route with a real access token. Its `authenticatedRequest` sends one request (GET by default; `method`, `body`, and `headers` are optional) through the real route module, `jwtPlugin`, guards, and database. `signAccessToken` issues the token. `seedEvaluatorAccount`, `seedAdminAccount`, and `seedProvincialOfficerAccount` create callers of each staff role. Remove a Provincial Officer caller with `removeProvincialOfficerAccount`, because `provincialOfficers.accountId` is `onDelete: restrict` and `removeAccount` alone fails. For an example, see `src/routes/evaluators/factories/index.authenticated.integration.test.ts`.
 
-`authenticatedGet` runs the request in a child process (`src/test/handle-request.ts`). Other test files call `mock.module` on the configuration, utilities, and database client, and Bun does not restore those mocks between files. An in-process app would see the stubs.
+`authenticatedRequest` runs the request in a child process (`src/test/handle-request.ts`). Other test files call `mock.module` on the configuration, utilities, and database client, and Bun does not restore those mocks between files. An in-process app would see the stubs.
 
-These tests write to `DATABASE_URL`, so the database rules above apply. The child process mounts the route without the root app's error handler, so a validation failure returns Elysia's default `422` instead of the deployed `400`.
+These tests write to `DATABASE_URL`, so the database rules above apply. The child process cannot import the root app, which boots the server, so `src/test/handle-request.ts` repeats its validation mapping. A validation failure returns the deployed `400`, not Elysia's default `422`.
 
 ## Static checks
 
