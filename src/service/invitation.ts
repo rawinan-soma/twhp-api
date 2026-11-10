@@ -181,18 +181,25 @@ export const createInvitationService = (database: typeof db) => ({
   },
 
   acceptInvitation: async (token: string, password: string) => {
+    const tokenHash = hashToken(token);
+    const isLive = and(eq(invitations.tokenHash, tokenHash), gt(invitations.expiresAt, sql`now()`));
+
+    // This route is public, so a token that matches nothing must not cost a bcrypt hash. The check
+    // does not claim the link. The DELETE below still decides who wins.
+    const [live] = await database
+      .select({ id: invitations.id })
+      .from(invitations)
+      .where(isLive)
+      .limit(1);
+    if (!live) return status(400, { message: "invalid token" });
+
     const hashedPassword = await bcrypt.hash(password, 12);
 
     try {
       await database.transaction(async (tx) => {
         // The DELETE is the claim: concurrent accepts serialize on the row lock and the loser
         // gets no row.
-        const [claimed] = await tx
-          .delete(invitations)
-          .where(
-            and(eq(invitations.tokenHash, hashToken(token)), gt(invitations.expiresAt, sql`now()`)),
-          )
-          .returning();
+        const [claimed] = await tx.delete(invitations).where(isLive).returning();
         if (!claimed) tx.rollback();
 
         if (await findEmailConflict(tx, claimed.email)) tx.rollback();

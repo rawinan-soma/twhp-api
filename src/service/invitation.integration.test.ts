@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, setDefaultTimeout } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it, setDefaultTimeout, spyOn } from "bun:test";
 import * as bcrypt from "bcrypt";
 import { and, eq, inArray, like, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -18,6 +18,7 @@ import type { CreateEnrollWithFilesDto } from "../schema/enroll";
 import { authenticatedRequest, signAccessToken } from "../test/authenticated-request";
 import { Role } from "./authentication";
 import { createEnrollService } from "./enroll";
+import { createInvitationService } from "./invitation";
 
 setDefaultTimeout(30_000);
 
@@ -346,6 +347,34 @@ describeDb("Evaluator Invitations", () => {
       const stillPending = await invite({ email: expiredEmail });
       expect(stillPending.status).toBe(400);
       expect(stillPending.json<{ message: string }>().message).toBe("email already invited");
+    });
+
+    it("refuses a password under 8 characters and leaves the link usable", async () => {
+      const email = newEmail();
+      const token = await inviteForToken(email);
+
+      expect((await accept(token, "")).status).toBe(422);
+      expect((await accept(token, "1234567")).status).toBe(422);
+      const created = await db.select().from(accounts).where(eq(accounts.email, email));
+      expect(created).toHaveLength(0);
+
+      expect((await accept(token, "12345678")).status).toBe(200);
+    });
+
+    it("spends no password hashing on a token that matches nothing", async () => {
+      const hash = spyOn(bcrypt, "hash");
+      try {
+        const refused = await createInvitationService(db as never).acceptInvitation(
+          "no-such-token",
+          PASSWORD,
+        );
+
+        expect(refused).toBeInstanceOf(ElysiaCustomStatusResponse);
+        expect((refused as ElysiaCustomStatusResponse<400>).code).toBe(400);
+        expect(hash).not.toHaveBeenCalled();
+      } finally {
+        hash.mockRestore();
+      }
     });
 
     it("creates exactly one account from concurrent accepts", async () => {

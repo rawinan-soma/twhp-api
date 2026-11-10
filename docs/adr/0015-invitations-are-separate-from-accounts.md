@@ -16,7 +16,7 @@ An Invitation is its own row in the `Invitations` table. No `Accounts`, `Evaluat
 
 - `POST /admins/invitations` invites an Evaluator or a Provincial Officer. It creates the row and queues an `invitation` email. The email carries the username, which is the lowercased invited email, and a link built on `FRONTEND_URL`.
 - The link holds a random 256-bit token. The database stores only its SHA-256 hash and an expiry 10 minutes ahead.
-- `POST /authentication/accept-invitation` takes the token and a password. One transaction deletes the Invitation, re-checks that the email is free, creates the account, and creates the role's profile row.
+- `POST /authentication/accept-invitation` takes the token and a password of at least 8 characters. One transaction deletes the Invitation, re-checks that the email is free, creates the account, and creates the role's profile row.
 - The `DELETE` is the claim. Concurrent accepts serialize on the row lock, so exactly one gets the row.
 - Every refusal returns the same `400 { "message": "invalid token" }`, whether the token is unknown, expired, used, voided, or cancelled, or the email was taken after the invite. A refusal after the claim rolls back, so the Invitation stays pending.
 - Until acceptance, an Admin can resend the Invitation, correct its email, or cancel it. Resend and correction replace the token hash and expiry, which voids every earlier link. Only the email can be corrected. Any other mistake is fixed by cancelling and inviting again.

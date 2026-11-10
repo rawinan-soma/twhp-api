@@ -1,6 +1,6 @@
 # Elysia Documentation
 
-> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-11-09
+> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-11-10
 
 60 operations across 8 groups.
 

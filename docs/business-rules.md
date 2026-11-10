@@ -428,7 +428,7 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 
 - **Rule:** No `Accounts`, `Evaluators`, or `ProvincialOfficers` row exists for a pending person. One transaction claims the Invitation, re-checks that the email is free, creates the account with username and email set to the invited email, and creates the role's profile with `isChangePassword=true`.
 - **Implementation:** `invitationService.acceptInvitation`; `roleRules[role].createProfile`.
-- **Inputs/conditions:** a live token; a password under the same rule as `/reset-password`, hashed with bcrypt cost 12 outside the transaction.
+- **Inputs/conditions:** a live token; a password of at least 8 characters, hashed with bcrypt cost 12 outside the transaction and only after the token is found live.
 - **Result:** a pending person cannot log in and no Enrollment can record them. After acceptance the person logs in with OTP from the first login (BR-02), skips the seeded first-login step, and can use password reset. Acceptance sets no cookies.
 - **Edges/failure:** the re-check and the account unique indexes cover a seeded account claiming the email between invite and accept. Seeded accounts and their first-login flow are unchanged.
 - **Failure behavior:** see BR-32.

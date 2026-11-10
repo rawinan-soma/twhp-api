@@ -30,7 +30,7 @@ Passwords are hashed with bcrypt cost 12 on factory registration and updates, ad
 Password strength is inconsistent (**Verified**):
 
 - `UpdateAdminSchema` applies a 12-character requirement through the admin schema.
-- Factory registration/update, reset-password, accept-invitation, and evaluator/provincial first-password routes use unconstrained `t.String()`. Empty strings are therefore accepted as passwords; this is a verified defect, not merely a weak minimum.
+- Factory registration/update, reset-password, and evaluator/provincial first-password routes use unconstrained `t.String()`. Empty strings are therefore accepted as passwords; this is a verified defect, not merely a weak minimum. `POST /authentication/accept-invitation` is the exception and requires at least 8 characters.
 - Login username and password have no length bounds.
 - Changing a password does not clear `Accounts.hashedRefreshToken`; an already-issued refresh session therefore survives a password reset/change unless separately logged out or replaced (**Verified behavior; whether this is acceptable policy is Unknown**).
 
@@ -198,7 +198,7 @@ The route returns 400 when the lowercased email belongs to an account's `email` 
 
 The service stores `SHA-256(token)` and an expiry 10 minutes ahead, then queues an `invitation` email with three attempts and five-second backoff. The email shows the username and links to `${FRONTEND_URL}/accept-invitation?token=...`. A failed queue add leaves the Invitation row in place.
 
-`POST /authentication/accept-invitation` is public and takes `{ token, password }`. One transaction deletes the Invitation row, re-checks that the email is free, creates the account with username and email set to the invited address, and creates the Evaluator or Provincial Officer row with `isChangePassword=true`. Acceptance sets no cookies. The person then logs in through the normal OTP flow.
+`POST /authentication/accept-invitation` is public and takes `{ token, password }`, with a password of at least 8 characters. The service first looks up the token and returns the refusal without hashing when the token matches nothing, so an anonymous request costs no bcrypt work. One transaction then deletes the Invitation row, re-checks that the email is free, creates the account with username and email set to the invited address, and creates the Evaluator or Provincial Officer row with `isChangePassword=true`. Acceptance sets no cookies. The person then logs in through the normal OTP flow.
 
 Every refusal is the same `400 { "message": "invalid token" }`, whether the token is unknown, expired, used, voided, or cancelled, or another account took the email after the invite. Concurrent accepts serialize on the Invitation row, so one succeeds and the rest get that 400. A refusal after the claim rolls back, so the Invitation stays pending.
 

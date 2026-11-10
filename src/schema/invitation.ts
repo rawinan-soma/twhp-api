@@ -32,7 +32,10 @@ export const CreateInvitationBody = t.Union([EvaluatorInvitationBody, Provincial
 
 export type CreateInvitationDto = Static<typeof CreateInvitationBody>;
 
-export const AcceptInvitationBody = t.Object({ token: t.String(), password: t.String() });
+export const AcceptInvitationBody = t.Object({
+  token: t.String(),
+  password: t.String({ minLength: 8 }),
+});
 
 export const InvitationIdParams = t.Object({
   id: t.Integer({ minimum: 1, maximum: 2_147_483_647 }),
