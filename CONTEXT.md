@@ -5,10 +5,18 @@
 ### Staff Account
 An internal `accounts` row whose role is `DOED`, `Evaluator`, or `Provincial` — the three privileged tiers with cross-factory data visibility (DOED: all factories; Evaluator: one region; Provincial: one province). Distinguished from a **Factory** account, which is external and sees only its own Cover. Two-Factor Authentication applies to Staff Accounts only; Factory accounts are out of scope.
 
+### Admin
+The Staff Account of the national department (role `DOED`), and only that. An Admin may add [[Evaluator]] and [[Provincial Officer]] accounts, but not another Admin.
+_Avoid_: "admin" for a Provincial Officer or an Evaluator, even where a file or seed name still says so (`admin_province.json`).
+
 ### Two-Factor Authentication (2FA)
 A mandatory second login step for every Staff Account, delivered as an **Email OTP**: a one-time numeric code emailed to the account's `email` after a correct password. Login only succeeds once the code is verified. State is held entirely in Redis (mirroring the password-reset token pattern) — there is no database column and no per-user enrollment.
 
-**First-login exemption:** Evaluator and Provincial accounts set their real `email` during their first-login password change (`editFirstPassword`, gated by `isChangePassword`). While `isChangePassword === false`, that login bypasses OTP so the code is never sent to a placeholder address. From the second login onward, OTP is enforced. DOED accounts have no first-login flow and are subject to OTP from the start.
+**First-login exemption:** Evaluator and Provincial accounts set their real `email` during their first-login password change (`editFirstPassword`, gated by `isChangePassword`). While `isChangePassword === false`, that login bypasses OTP so the code is never sent to a placeholder address. From the second login onward, OTP is enforced. DOED accounts have no first-login flow and are subject to OTP from the start. The exemption concerns seeded accounts only: an account added through an [[Invitation]] has a real email from the start and never uses it.
+
+### Invitation
+An [[Admin]]'s emailed offer of a new [[Evaluator]] or [[Provincial Officer]] account to a named person, who accepts it by setting their own password. The Admin never knows that password. No account exists until it is accepted. The invited email becomes the account's username. Its link works once and expires after 10 minutes. Until it is accepted the Admin may resend it, correct its email, or cancel it, and each resend voids the previous link.
+_Avoid_: "temporary password" or "first login" for this path; those belong to seeded accounts.
 
 ### 2FA Challenge
 The server-side pending state created after a correct staff password but before OTP verification. Held only in Redis at `2fa:challenge:{challengeId}` as `{ accountId, codeHash, attempts }` with a 5-minute TTL. The `challengeId` (opaque random string) is returned in the `/login` response body; no auth cookie exists until the challenge is satisfied, so a Challenge can never be mistaken for a real session. A successful verify deletes the key (single-use). The OTP is a 6-digit numeric code, stored hashed (`Bun.SHA256`), never in plaintext.
@@ -103,7 +111,7 @@ A Cover becomes **finished** only when **all** of its Answers are `finished` (wh
 _Avoid_: "approved" as a distinct status — every approve (tier-1 **or** ODPC) is `recommended` until finalize; an ODPC finalize converts it to `finished`. _Avoid_: treating change-score as a distinct status — it is `recommended` + a `verdict_choice`. _Avoid_: reading `rejected` as "needs a factory decision" — the only decision left to the Factory is redoing a hard reject.
 
 ### Evaluator
-A Staff Account scoped by `region` (which factories' Covers it sees) and `level`, which sets both **what it reviews** and **its authority**. Review is **hierarchical**, not peer:
+A Staff Account scoped by `region` (which factories' Covers it sees) and `level`, which sets both **what it reviews** and **its authority**. Several Evaluators may share one region and level, and each holds that level's full authority over the region's Covers, including finalize at ODPC. Review is **hierarchical**, not peer:
 - **Mental** and **DOH** — tier-1 reviewers. Category ownership: **DOH** → `Disease`, `Safety`; **Mental** → `Mental`. Each renders verdicts only on its own categories. Tier-1 Evaluators **may edit their own previously submitted verdicts** at any time. Their submissions are **non-finalizing** — a tier-1 approve writes `recommended` (not `finished`), so ODPC can still override it.
 - **ODPC** — the final reviewer. Primary categories: `Collaborate`, `Outcome`. Holds **full override authority over all categories** — via per-Answer saves it may rewrite any non-`finished` verdict (re-score a change-score, flip a reject to approve, override a tier-1 `recommended`, etc.) and backstops any Answer still `in_review`, then finalizes. ODPC is the **sole finalizer** — **only finalize writes `finished`** and transitions the Cover.
 
