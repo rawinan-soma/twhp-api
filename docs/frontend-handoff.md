@@ -360,7 +360,7 @@ DOED บันทึกรางวัลระดับทอง (`gold`, `cons
 
 | Status | เมื่อไร | `message` |
 |---|---|---|
-| 400 | body ไม่ถูกต้อง (ปีนอกช่วง, ปี พ.ศ., ไม่ใช่จำนวนเต็ม, เกรดต่ำกว่าทอง, JSON เสีย, JSON ที่ไม่ใช่ object) | ข้อความจาก validation |
+| 400 | body ไม่ถูกต้อง (ปีนอกช่วง, ปี พ.ศ., ไม่ใช่จำนวนเต็ม, เกรดต่ำกว่าทอง, `awards` ไม่ใช่ array, JSON เสีย, JSON ที่ไม่ใช่ object) | `Bad Request` |
 | 400 | `fiscalYear` ซ้ำใน `awards` | `fiscal year repeated: 2025` |
 | 400 | มีแถว `Awards` ของโรงงานและปีนั้นอยู่แล้ว ไม่ว่าเกรดใด | `award already exists for fiscal year: 2025` |
 | 400 | โรงงานได้รับอนุมัติแล้ว | `factory already validated` |

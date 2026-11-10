@@ -18,7 +18,6 @@ const FACTORY_ID = 99911;
 const UNKNOWN_FACTORY_ID = 99912;
 const TEST_PROVINCE_ID = 10;
 const JSON_CONTENT = { "content-type": "application/json" };
-const VALIDATION_STATUS_WITHOUT_ROOT_ERROR_HANDLER = 422;
 
 let doedToken: string;
 
@@ -60,8 +59,8 @@ const yearsAndGrades = async () =>
 const seedAward = (fiscalYear: number, grade: Grade) =>
   db.insert(awards).values({ factoryId: FACTORY_ID, fiscalYear, grade });
 
-const expectRefusedAndUntouched = async (response: RawResponse, expectedStatus = 400) => {
-  expect(response.status).toBe(expectedStatus);
+const expectRefusedAndUntouched = async (response: RawResponse) => {
+  expect(response.status).toBe(400);
   expect(await isValidated()).toBe(false);
   expect(await awardRows()).toEqual([]);
 };
@@ -249,10 +248,7 @@ describe("PATCH /validate/:id, refused bodies leave the Factory pending", () => 
 
   for (const [name, body] of invalid) {
     it(`refuses ${name}`, async () => {
-      await expectRefusedAndUntouched(
-        await approve(body),
-        VALIDATION_STATUS_WITHOUT_ROOT_ERROR_HANDLER,
-      );
+      await expectRefusedAndUntouched(await approve(body));
     });
   }
 
@@ -280,6 +276,25 @@ describe("PATCH /validate/:id, refused bodies leave the Factory pending", () => 
     '"x"',
   ]) {
     it(`refuses the JSON value ${rawBody}, which is not an object`, async () => {
+      const response = await authenticatedRequest(ROUTE, {
+        method: "PATCH",
+        path: `/validate/${FACTORY_ID}`,
+        token: doedToken,
+        rawBody,
+        headers: JSON_CONTENT,
+      });
+
+      await expectRefusedAndUntouched(response);
+    });
+  }
+
+  for (const rawBody of [
+    '{"awards":{"0":{"fiscalYear":2025,"grade":"gold"},"1":{"fiscalYear":2030,"grade":"silver"},"length":1}}',
+    '{"awards":{"0":{"fiscalYear":2025,"grade":"gold"},"length":1}}',
+    '{"awards":{"0":{"fiscalYear":2024,"grade":"gold"},"1":{"fiscalYear":2025,"grade":"gold"},"length":2}}',
+    '{"awards":{"length":0}}',
+  ]) {
+    it(`refuses ${rawBody}, whose awards are not an array`, async () => {
       const response = await authenticatedRequest(ROUTE, {
         method: "PATCH",
         path: `/validate/${FACTORY_ID}`,

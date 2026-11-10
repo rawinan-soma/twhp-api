@@ -1,4 +1,4 @@
-import { ParseError, t } from "elysia";
+import { getSchemaValidator, ParseError, t } from "elysia";
 import type { App } from "../../..";
 import { adminGuard } from "../../../middleware/guards";
 import { AdminFactoryListItemSchema, ApproveFactoryBodySchema } from "../../../schema/factory";
@@ -7,6 +7,10 @@ import { FiscalYearQuery } from "../../../schema/fiscal-year";
 import { Paginated, PaginationQuery } from "../../../schema/pagination";
 import { adminService } from "../../../service/admin";
 import { factoryService } from "../../../service/factory";
+
+const approveBodyValidator = getSchemaValidator(ApproveFactoryBodySchema, {
+  additionalProperties: true,
+});
 
 export default (app: App) =>
   app.group("", { detail: { tags: ["admins"] } }, (group) =>
@@ -46,10 +50,11 @@ export default (app: App) =>
               "อนุมัติการลงทะเบียน และบันทึกรางวัลในอดีต (Prior Award) ของโรงงานในคำขอเดียวกันได้ ไม่ส่ง body ก็ได้",
           },
           params: t.Object({ id: t.Number() }),
-          // Elysia swallows a JSON parse error on an optional body and does not validate a JSON value
-          // that is not an object. Either would approve the Factory and silently drop its Prior
-          // Awards. The named parser never runs; it is what makes the OpenAPI document list the JSON
-          // body.
+          // On an optional body Elysia swallows a JSON parse error, does not validate a value that is
+          // not an object, and copies an object with a numeric length into an array before
+          // validating it. Each would approve the Factory and drop or hide Prior Awards, so the
+          // body is checked here as sent. The named parser never runs; it is what makes the OpenAPI
+          // document list the JSON body.
           parse: [
             async ({ request, contentType }) => {
               if (contentType === "multipart/form-data") {
@@ -63,7 +68,7 @@ export default (app: App) =>
               } catch {
                 throw new ParseError();
               }
-              if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+              if (!approveBodyValidator.Check(parsed)) {
                 throw new ParseError();
               }
               return parsed;
