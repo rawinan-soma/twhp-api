@@ -23,6 +23,7 @@ const exact: Record<string, Access> = {
   "POST /authentication/login/resend-otp": "public",
   "POST /authentication/reset-password-request": "public",
   "POST /authentication/reset-password": "public",
+  "POST /authentication/accept-invitation": "public",
   "GET /authentication": "authenticated",
   "POST /authentication/logout": "authenticated",
   "GET /file/presigned-url": "authenticated",
@@ -72,8 +73,8 @@ const unreachableBackingServices = {
 };
 
 /**
- * Runs in a child process for the same reason as `authenticatedGet`: other test files `mock.module`
- * config, utils and the database client, and Bun never restores them.
+ * Runs in a child process for the same reason as `authenticatedRequest`: other test files
+ * `mock.module` config, utils and the database client, and Bun never restores them.
  */
 const observe = async (): Promise<AccessMatrix> => {
   const child = Bun.spawn(["bun", resolve(import.meta.dir, "../test/route-access-matrix.ts")], {

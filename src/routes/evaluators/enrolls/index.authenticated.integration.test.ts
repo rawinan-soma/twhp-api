@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import {
-  authenticatedGet,
+  authenticatedRequest,
   removeAccount,
   seedEvaluatorAccount,
   signAccessToken,
@@ -80,7 +80,7 @@ afterAll(async () => {
 type ListBody = { items: Array<{ factoryId: number }>; meta: { total: number } };
 
 const get = async (query: Record<string, string | number | boolean | undefined>, t = token) => {
-  const response = await authenticatedGet(ROUTE, { token: t, query });
+  const response = await authenticatedRequest(ROUTE, { token: t, query });
   return { status: response.status, body: response.json<ListBody>() };
 };
 
@@ -92,7 +92,7 @@ const mine = (body: ListBody) =>
 
 describeDb("GET evaluators/enrolls with a real access token", () => {
   it("rejects a request with no token", async () => {
-    const response = await authenticatedGet(ROUTE);
+    const response = await authenticatedRequest(ROUTE);
     expect(response.status).toBe(401);
   });
 

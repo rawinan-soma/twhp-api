@@ -37,6 +37,8 @@ mock.module("../../service/authentication", () => ({
   },
 }));
 
+mock.module("../../service/invitation", () => ({ invitationService: {} }));
+
 mock.module("../../middleware/jwt", () => ({
   jwtPlugin: new Elysia(),
 }));

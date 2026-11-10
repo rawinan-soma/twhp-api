@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { answers, awards, questions } from "../drizzle/schema";
 import {
-  authenticatedGet,
+  authenticatedRequest,
   removeAccount,
   removeProvincialOfficerAccount,
   seedAdminAccount,
@@ -254,7 +254,7 @@ type ListBody = {
 };
 
 const list = async (route: SearchRoute, query: Query) => {
-  const response = await authenticatedGet(route.module, {
+  const response = await authenticatedRequest(route.module, {
     token: tokens[route.caller],
     query: { ...route.list.requiredQuery, ...query },
   });

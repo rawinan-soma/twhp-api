@@ -52,6 +52,7 @@ review/finalization, evidence deletion, list pagination, or Cover-status resolut
 | [0012](adr/0012-score-changes-are-terminal.md) | A score change is terminal; the loop survives for hard rejects only |
 | [0013](adr/0013-province-scoped-read-only-cover-review.md) | Provincial Officers read Covers in their province; `in_progress` is invisible and verdicts are redacted while `in_review` |
 | [0014](adr/0014-consec-gold-and-the-gold-gate.md) | Five-grade ladder, the FY − 3 `consec-gold` rule, and the settled `gold` special gate |
+| [0015](adr/0015-invitations-are-separate-from-accounts.md) | Invitations are separate from accounts; invited accounts skip the seeded first-login step |
 
 ## AI agent reading order
 

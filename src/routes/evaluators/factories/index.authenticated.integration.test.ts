@@ -11,7 +11,7 @@ import {
   subdistricts,
 } from "../../../drizzle/schema";
 import {
-  authenticatedGet,
+  authenticatedRequest,
   removeAccount,
   seedEvaluatorAccount,
   signAccessToken,
@@ -169,7 +169,7 @@ afterAll(async () => {
 type ListBody = { items: Array<{ account_id: number }>; meta: { total: number } };
 
 const get = async (query: Record<string, string | number | boolean | undefined>, t = token) => {
-  const response = await authenticatedGet(ROUTE, {
+  const response = await authenticatedRequest(ROUTE, {
     token: t,
     query: { validated: true, ...query },
   });
@@ -181,7 +181,7 @@ const mine = (body: ListBody) =>
 
 describeDb("GET evaluators/factories with a real access token", () => {
   it("rejects a request with no token", async () => {
-    const response = await authenticatedGet(ROUTE, { query: { validated: true } });
+    const response = await authenticatedRequest(ROUTE, { query: { validated: true } });
     expect(response.status).toBe(401);
   });
 

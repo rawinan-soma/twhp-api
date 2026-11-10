@@ -12,7 +12,7 @@ import {
 } from "../drizzle/schema";
 import type { Role } from "../service/authentication";
 import {
-  authenticatedGet,
+  authenticatedRequest,
   removeAccount,
   seedEvaluatorAccount,
   signAccessToken,
@@ -51,7 +51,7 @@ type SessionBody = {
 };
 
 const sessionOf = async (identity: TestIdentity) => {
-  const res = await authenticatedGet(SESSION_ROUTE, {
+  const res = await authenticatedRequest(SESSION_ROUTE, {
     token: await signAccessToken(identity),
     path: "/",
   });
@@ -121,7 +121,7 @@ const cleanup = async () => {
 
 describeDb("GET /provinces response", () => {
   it("returns a numeric health_region on every row alongside name_th and province_id", async () => {
-    const res = await authenticatedGet(LOCATION_ROUTE, { path: "/provinces" });
+    const res = await authenticatedRequest(LOCATION_ROUTE, { path: "/provinces" });
     expect(res.status).toBe(200);
     const rows = res.json<{ name_th: string; province_id: number; health_region: number }[]>();
 
