@@ -18,3 +18,6 @@ export const CONSEC_GOLD_LOOKBACK_YEARS = 3;
  * is valid for three fiscal years: an award in year A blocks A + 1 and A + 2, and A + 3 is open.
  */
 export const GOLD_ENROLMENT_LOCKOUT_YEARS = 2;
+
+export const PRIOR_AWARD_FIRST_FISCAL_YEAR = 2023;
+export const PRIOR_AWARD_LAST_FISCAL_YEAR = 2025;

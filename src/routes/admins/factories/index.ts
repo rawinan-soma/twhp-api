@@ -1,7 +1,7 @@
-import { t } from "elysia";
+import { ParseError, t } from "elysia";
 import type { App } from "../../..";
 import { adminGuard } from "../../../middleware/guards";
-import { AdminFactoryListItemSchema } from "../../../schema/factory";
+import { AdminFactoryListItemSchema, ApproveFactoryBodySchema } from "../../../schema/factory";
 import { FactoryNameSearchQuery } from "../../../schema/factory-name-search";
 import { FiscalYearQuery } from "../../../schema/fiscal-year";
 import { Paginated, PaginationQuery } from "../../../schema/pagination";
@@ -37,12 +37,34 @@ export default (app: App) =>
       )
       .patch(
         "/validate/:id",
-        async ({ params }) => {
-          return await adminService.approveFactoryRegister(params.id);
+        async ({ params, body }) => {
+          return await adminService.approveFactoryRegister(params.id, body?.awards);
         },
         {
-          detail: { description: "อนุมัติการลงทะเบียน" },
+          detail: {
+            description:
+              "อนุมัติการลงทะเบียน และบันทึกรางวัลในอดีต (Prior Award) ของโรงงานในคำขอเดียวกันได้ ไม่ส่ง body ก็ได้",
+          },
           params: t.Object({ id: t.Number() }),
+          // Elysia swallows a JSON parse error on an optional body, which would approve the Factory
+          // and silently drop its Prior Awards. The named parser never runs; it is what makes the
+          // OpenAPI document list the JSON body.
+          parse: [
+            async ({ request, contentType }) => {
+              if (contentType === "multipart/form-data") {
+                return Object.fromEntries(await request.formData());
+              }
+              const raw = await request.text();
+              if (raw.trim() === "") return {};
+              try {
+                return JSON.parse(raw);
+              } catch {
+                throw new ParseError();
+              }
+            },
+            "application/json",
+          ],
+          body: ApproveFactoryBodySchema,
           response: {
             200: t.Object({
               message: t.String({ default: "factory validated!" }),
@@ -50,9 +72,13 @@ export default (app: App) =>
             404: t.Object({
               message: t.String({ default: "factory not found" }),
             }),
-            400: t.Object({
-              message: t.String({ default: "factory already validated" }),
-            }),
+            400: t.Object(
+              { message: t.String({ default: "factory already validated" }) },
+              {
+                description:
+                  "โรงงานได้รับอนุมัติแล้ว, body ไม่ถูกต้อง, fiscalYear ซ้ำใน awards หรือมีแถว Awards ของปีนั้นอยู่แล้ว (ข้อความระบุปี)",
+              },
+            ),
           },
         },
       ),
