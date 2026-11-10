@@ -91,6 +91,7 @@ const expectRefused = async (token: string) => {
 const firstLink = (response: Awaited<ReturnType<typeof authenticatedRequest>>) => {
   expect(response.status).toBe(200);
   expect(response.queuedEmails.map(({ name }) => name)).toEqual(["invitation"]);
+  expect(["Evaluator", "Provincial"]).toContain(response.queuedEmails[0]?.data.role as string);
   return response.queuedEmails[0]?.data as { email: string; token: string };
 };
 

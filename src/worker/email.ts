@@ -3,6 +3,7 @@ import * as nodemailer from "nodemailer";
 import { env } from "../config";
 import type { Grade } from "../drizzle/grades";
 import { adminService } from "../service/admin";
+import type { InvitedRole } from "../service/invitation";
 import { GRADE_LABEL } from "./gradeLabel";
 
 export const emailWorker = new Worker(
@@ -135,27 +136,36 @@ const sendPasswordResetEmail = async (data: { email: string; token: string }) =>
   }
 };
 
-const sendInvitationEmail = async (data: { email: string; token: string }) => {
+const PROJECT_NAME = "โครงการพัฒนาสถานประกอบการปลอดโรค ปลอดภัย กายใจเป็นสุข";
+
+const INVITED_ROLE_LABEL: Record<InvitedRole, string> = {
+  Evaluator: "ผู้ประเมิน",
+  Provincial: "เจ้าหน้าที่จังหวัด",
+};
+
+const sendInvitationEmail = async (data: { email: string; role: InvitedRole; token: string }) => {
   const acceptLink = `${env.FRONTEND_URL}/accept-invitation?token=${data.token}`;
+  const roleLabel = INVITED_ROLE_LABEL[data.role];
 
   try {
     await sendAndLog("invitation", {
       from: `Total Worker health support <${env.SMTP_USER}>`,
       to: data.email,
-      subject: "คำเชิญเข้าใช้งาน เว็บไซต์ โครงการพัฒนาสถานประกอบการปลอดโรค ปลอดภัย กายใจเป็นสุข",
-      text: `ท่านได้รับเชิญให้เข้าใช้งานระบบ\n\nชื่อผู้ใช้ของท่าน: ${data.email}\n\nคลิกลิงก์เพื่อตั้งรหัสผ่านและตอบรับคำเชิญ: ${acceptLink}\n\nลิงก์นี้ใช้ได้ครั้งเดียวและจะหมดอายุใน 10 นาที หากลิงก์หมดอายุ กรุณาติดต่อผู้ดูแลระบบเพื่อขอลิงก์ใหม่`,
+      subject: `คำเชิญเข้าใช้งาน เว็บไซต์ ${PROJECT_NAME}`,
+      text: `ท่านได้รับเชิญให้เข้าใช้งานเว็บไซต์${PROJECT_NAME} ในบทบาท${roleLabel}\n\nชื่อผู้ใช้ของท่าน: ${data.email}\n\nลิงก์นี้จะหมดอายุใน 10 นาที และใช้ได้ครั้งเดียว\nคลิกลิงก์เพื่อตั้งรหัสผ่านและตอบรับคำเชิญ: ${acceptLink}\n\nหากลิงก์หมดอายุ กรุณาติดต่อผู้ดูแลระบบเพื่อขอลิงก์ใหม่`,
       html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
                <h2 style="color: #2E8B57; font-size: 24px;">คำเชิญเข้าใช้งานระบบ</h2>
                <p>สวัสดีค่ะ</p>
-               <p>ท่านได้รับเชิญให้เข้าใช้งานระบบ โปรดตั้งรหัสผ่านเพื่อตอบรับคำเชิญ</p>
+               <p>ท่านได้รับเชิญให้เข้าใช้งานเว็บไซต์<strong>${PROJECT_NAME}</strong> ในบทบาท<strong>${roleLabel}</strong> โปรดตั้งรหัสผ่านเพื่อตอบรับคำเชิญ</p>
                <p>ชื่อผู้ใช้ของท่าน: <strong>${data.email}</strong></p>
+               <p style="font-size: 16px; font-weight: bold; color: #B3261E; text-align: center;">ลิงก์นี้จะหมดอายุใน 10 นาที และใช้ได้ครั้งเดียว</p>
                <div style="text-align: center; margin: 20px 0;">
                <a href="${acceptLink}" style="background-color: #2E8B57; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
                    ตั้งรหัสผ่านและตอบรับคำเชิญ
                </a>
                </div>
+               <p style="font-size: 14px; color: #666;">หากลิงก์หมดอายุ กรุณาติดต่อผู้ดูแลระบบเพื่อขอลิงก์ใหม่</p>
                <p style="font-size: 14px; color: #666;">หากท่านไม่ได้คาดหวังคำเชิญนี้ โปรดเพิกเฉยต่ออีเมลฉบับนี้</p>
-               <p style="font-size: 12px; color: #999;">ลิงก์นี้ใช้ได้ครั้งเดียวและจะหมดอายุใน 10 นาที หากลิงก์หมดอายุ กรุณาติดต่อผู้ดูแลระบบเพื่อขอลิงก์ใหม่</p>
                <hr style="margin-top: 30px; border: none; border-top: 1px solid #ccc;" />
                <p style="font-size: 12px; color: #999; text-align: center;">
                อีเมลฉบับนี้ถูกส่งโดยระบบอัตโนมัติจากระบบ กรุณาอย่าตอบกลับ<br/>

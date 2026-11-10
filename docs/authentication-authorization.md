@@ -196,7 +196,7 @@ An Admin adds an Evaluator or a Provincial Officer with `POST /admins/invitation
 
 The route returns 400 when the lowercased email belongs to an account's `email` or `username` (`email already exists`), belongs to another pending Invitation (`email already invited`), names a health region with no province (`health region not found`), or names a province that does not exist (`province not found`). A missing or invalid `level`, or a field that belongs to the other role, fails schema validation.
 
-The service stores `SHA-256(token)` and an expiry 10 minutes ahead, then queues an `invitation` email with three attempts and five-second backoff. The email shows the username and links to `${FRONTEND_URL}/accept-invitation?token=...`. A failed queue add leaves the Invitation row in place.
+The service stores `SHA-256(token)` and an expiry 10 minutes ahead, then queues an `invitation` email with three attempts and five-second backoff. The email names the project and the invited role, shows the username, states the 10-minute expiry beside the link, and links to `${FRONTEND_URL}/accept-invitation?token=...`. A failed queue add leaves the Invitation row in place.
 
 `POST /authentication/accept-invitation` is public and takes `{ token, password }`, with a password of at least 8 characters. The service first looks up the token and returns the refusal without hashing when the token matches nothing, so an anonymous request costs no bcrypt work. One transaction then deletes the Invitation row, re-checks that the email is free, creates the account with username and email set to the invited address, and creates the Evaluator or Provincial Officer row with `isChangePassword=true`. Acceptance sets no cookies. The person then logs in through the normal OTP flow.
 

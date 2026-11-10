@@ -396,7 +396,7 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Rule:** An Invitation link holds a random 256-bit token, valid for 10 minutes and usable once. Only its SHA-256 hash is stored.
 - **Implementation:** `invitation.ts:issueLink`, `INVITATION_TTL_SECONDS`; `Invitations.token_hash`, `expires_at`; `src/worker/email.ts:sendInvitationEmail`.
 - **Inputs/conditions:** a pending `Invitations` row.
-- **Result:** the email shows the username, which is the invited email, and links to `${FRONTEND_URL}/accept-invitation?token=...`.
+- **Result:** the email names the project and the invited role, shows the username, which is the invited email, states the 10-minute expiry beside the link, and links to `${FRONTEND_URL}/accept-invitation?token=...`.
 - **Edges/failure:** the expiry is computed by the database clock. An expired Invitation stays listed with status `expired` and can be resent. Use deletes the row, so a used token matches nothing.
 - **Failure behavior:** see BR-32.
 - **Risk of change:** High—the token is the only credential for creating the account.

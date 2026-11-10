@@ -240,6 +240,7 @@ describeDb("Provincial Officer Invitations", () => {
       expect(response.queuedEmails).toHaveLength(1);
       expect(response.queuedEmails[0]?.name).toBe("invitation");
       expect(response.queuedEmails[0]?.data.email).toBe(email);
+      expect(response.queuedEmails[0]?.data.role).toBe("Provincial");
       expect(response.queuedEmails[0]?.data.token).toMatch(/^[0-9a-f]{64}$/);
 
       const pendingLogin = await login(email);

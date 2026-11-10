@@ -174,6 +174,7 @@ describeDb("Evaluator Invitations", () => {
       const [job] = response.queuedEmails;
       expect(job?.name).toBe("invitation");
       expect(job?.data.email).toBe(email);
+      expect(job?.data.role).toBe("Evaluator");
       expect(job?.data.token).toMatch(/^[0-9a-f]{64}$/);
       expect(response.body).not.toContain(job?.data.token as string);
       expect(job?.opts).toMatchObject({

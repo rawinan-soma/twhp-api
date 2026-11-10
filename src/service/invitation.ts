@@ -134,12 +134,12 @@ export const issueLink = async (
       expiresAt: sql`now() + make_interval(secs => ${INVITATION_TTL_SECONDS})`,
     })
     .where(eq(invitations.id, invitationId))
-    .returning({ email: invitations.email });
+    .returning({ email: invitations.email, role: invitations.role });
   if (!invitation) return false;
 
   await emailQueue.add(
     "invitation",
-    { email: invitation.email, token },
+    { email: invitation.email, role: invitation.role, token },
     {
       attempts: 3,
       backoff: 5000,
