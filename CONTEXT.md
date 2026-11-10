@@ -76,6 +76,9 @@ The award tier derived from a `finished` Cover's scores. One of `consec-gold`, `
 
 The lower tiers use overall **floors** (`≥ 80`, `≥ 60`), not closed bands — so a Cover demoted from a higher tier (e.g. missing a `gold` category/`special` gate) falls cleanly to the next tier instead of into an ungraded hole. Examples: `92%` overall with a category at `70%` → fails `gold` (category ≤ 80%) → **`silver`**; `85%` overall with a category at `55%` → fails `silver` (category ≤ 60%) → **`certificate`**; `95%` overall but a `special` question not full → **`silver`**. Note the deliberate **Silver→Certificate cliff**: a single category **≤ 60%** drops even a very-high-overall Cover to `certificate` — `silver` requires *high **and** balanced*. The Grade is meaningful **only for a `finished` Cover**, computed from each Answer's **live choice** (the factory's `selectedChoice`, or an accepted [[Verdict Score]] where one replaced it). It is returned both in the ODPC finalize response **and** in the [[Score Report]] (`grade` field, `null` for non-`finished` Covers) — the latter is how a Grade is retrieved after the finalize email. Stored at finalize, never recomputed (ADR-0001, amended).
 
+### Prior Award
+A gold-tier award (`gold` or `consec-gold`) a Factory won in an earlier fiscal year, with no Cover for that year in this system. It counts exactly like an award earned through a Cover for the enrolment lockout and for `consec-gold`. _Avoid_: imported history, which names one way of recording it.
+
 ### Verdict Score
 An Evaluator's **settled correction** of a single Answer's choice, recorded on `answerLogs` (`verdict_choice`, reusing the `Choices` enum **restricted to `0`/`1`/`2`/`3` — never `n/a`**) together with a mandatory `description`. It is final on save — the Factory neither accepts nor contests it (ADR-0012).
 
