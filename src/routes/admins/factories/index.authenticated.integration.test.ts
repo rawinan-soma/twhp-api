@@ -18,6 +18,14 @@ const FACTORY_ID = 99911;
 const UNKNOWN_FACTORY_ID = 99912;
 const TEST_PROVINCE_ID = 10;
 const JSON_CONTENT = { "content-type": "application/json" };
+const MULTIPART_CONTENT = { "content-type": "multipart/form-data; boundary=b" };
+const multipart = (...fields: [string, string][]) =>
+  `${fields
+    .map(
+      ([name, value]) =>
+        `--b\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`,
+    )
+    .join("")}--b--\r\n`;
 
 let doedToken: string;
 
@@ -183,6 +191,10 @@ describe("PATCH /validate/:id, a plain approval", () => {
       "no body with a charset on the content-type",
       { headers: { "content-type": "application/json; charset=utf-8" } },
     ],
+    [
+      "a multipart body without an awards field",
+      { rawBody: multipart(["note", "x"]), headers: MULTIPART_CONTENT },
+    ],
   ];
 
   for (const [name, request] of plainApprovals) {
@@ -301,6 +313,32 @@ describe("PATCH /validate/:id, refused bodies leave the Factory pending", () => 
         token: doedToken,
         rawBody,
         headers: JSON_CONTENT,
+      });
+
+      await expectRefusedAndUntouched(response);
+    });
+  }
+
+  const invalidMultipart: [string, [string, string][]][] = [
+    ["a blank awards field", [["awards", ""]]],
+    [
+      "an invalid awards field followed by a blank one",
+      [
+        ["awards", '[{"fiscalYear":2030,"grade":"silver"}]'],
+        ["awards", ""],
+      ],
+    ],
+    ["an invalid awards field", [["awards", '[{"fiscalYear":2030,"grade":"silver"}]']]],
+  ];
+
+  for (const [name, fields] of invalidMultipart) {
+    it(`refuses a multipart body with ${name}`, async () => {
+      const response = await authenticatedRequest(ROUTE, {
+        method: "PATCH",
+        path: `/validate/${FACTORY_ID}`,
+        token: doedToken,
+        rawBody: multipart(...fields),
+        headers: MULTIPART_CONTENT,
       });
 
       await expectRefusedAndUntouched(response);
