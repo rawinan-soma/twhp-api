@@ -1,12 +1,16 @@
-import { t } from "elysia";
+import { getSchemaValidator, ParseError, t } from "elysia";
 import type { App } from "../../..";
 import { adminGuard } from "../../../middleware/guards";
-import { AdminFactoryListItemSchema } from "../../../schema/factory";
+import { AdminFactoryListItemSchema, ApproveFactoryBodySchema } from "../../../schema/factory";
 import { FactoryNameSearchQuery } from "../../../schema/factory-name-search";
 import { FiscalYearQuery } from "../../../schema/fiscal-year";
 import { Paginated, PaginationQuery } from "../../../schema/pagination";
 import { adminService } from "../../../service/admin";
 import { factoryService } from "../../../service/factory";
+
+const approveBodyValidator = getSchemaValidator(ApproveFactoryBodySchema, {
+  additionalProperties: true,
+});
 
 export default (app: App) =>
   app.group("", { detail: { tags: ["admins"] } }, (group) =>
@@ -37,12 +41,38 @@ export default (app: App) =>
       )
       .patch(
         "/validate/:id",
-        async ({ params }) => {
-          return await adminService.approveFactoryRegister(params.id);
+        async ({ params, body }) => {
+          return await adminService.approveFactoryRegister(params.id, body?.awards);
         },
         {
-          detail: { description: "อนุมัติการลงทะเบียน" },
+          detail: {
+            description:
+              "อนุมัติการลงทะเบียน และบันทึกรางวัลในอดีต (Prior Award) ของโรงงานในคำขอเดียวกันได้ ไม่ส่ง body ก็ได้",
+          },
           params: t.Object({ id: t.Number() }),
+          // On an optional body Elysia swallows a JSON parse error, does not validate a value that is
+          // not an object, and copies anything with a length into an array before validating it.
+          // Each would approve the Factory and drop or hide Prior Awards, so this route reads only
+          // JSON and checks the body as sent. The named parser never runs; it is what makes the OpenAPI
+          // document list the JSON body.
+          parse: [
+            async ({ request }) => {
+              const raw = await request.text();
+              if (raw.trim() === "") return {};
+              let parsed: unknown;
+              try {
+                parsed = JSON.parse(raw);
+              } catch {
+                throw new ParseError();
+              }
+              if (!approveBodyValidator.Check(parsed)) {
+                throw new ParseError();
+              }
+              return parsed;
+            },
+            "application/json",
+          ],
+          body: ApproveFactoryBodySchema,
           response: {
             200: t.Object({
               message: t.String({ default: "factory validated!" }),
@@ -50,9 +80,13 @@ export default (app: App) =>
             404: t.Object({
               message: t.String({ default: "factory not found" }),
             }),
-            400: t.Object({
-              message: t.String({ default: "factory already validated" }),
-            }),
+            400: t.Object(
+              { message: t.String({ default: "factory already validated" }) },
+              {
+                description:
+                  "โรงงานได้รับอนุมัติแล้ว, body ไม่ถูกต้อง, fiscalYear ซ้ำใน awards หรือมีแถว Awards ของปีนั้นอยู่แล้ว (ข้อความระบุปี)",
+              },
+            ),
           },
         },
       ),

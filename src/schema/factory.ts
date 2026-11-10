@@ -1,5 +1,10 @@
 import { type Static, t } from "elysia";
 import {
+  GOLD_TIER_GRADES,
+  PRIOR_AWARD_FIRST_FISCAL_YEAR,
+  PRIOR_AWARD_LAST_FISCAL_YEAR,
+} from "../drizzle/grades";
+import {
   BaseDistrictSelect,
   BaseFactoryInsert,
   BaseFactorySelect,
@@ -17,6 +22,20 @@ export const CreateFactorySchema = t.Composite([
 ]);
 
 export const UpdateFactorySchema = t.Partial(t.Omit(CreateFactorySchema, ["username"]));
+
+export const PriorAwardSchema = t.Object({
+  fiscalYear: t.Integer({
+    minimum: PRIOR_AWARD_FIRST_FISCAL_YEAR,
+    maximum: PRIOR_AWARD_LAST_FISCAL_YEAR,
+  }),
+  grade: t.UnionEnum(GOLD_TIER_GRADES),
+});
+
+export const ApproveFactoryBodySchema = t.Optional(
+  t.Object({ awards: t.Optional(t.Array(PriorAwardSchema)) }),
+);
+
+export type PriorAwardDto = Static<typeof PriorAwardSchema>;
 
 export const AllFactoriesQueryParamsSchema = t.Object({
   validated: t.Boolean(),

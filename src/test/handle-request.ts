@@ -18,7 +18,7 @@ mock.module("../queue/email", () => ({
 const define = (await import(resolve(job.routeModule))).default as RouteDefinition;
 const app = new Elysia({ prefix: job.mountAt ?? "" }).use(define);
 
-const headers = new Headers();
+const headers = new Headers(job.headers);
 const cookies = [
   job.token && `Authentication=${job.token}`,
   job.refreshToken && `Refresh=${job.refreshToken}`,
@@ -29,7 +29,7 @@ const response = await app.handle(
   new Request(job.url, {
     method: job.method,
     headers,
-    body: job.body === undefined ? undefined : JSON.stringify(job.body),
+    body: job.rawBody ?? (job.body === undefined ? undefined : JSON.stringify(job.body)),
   }),
 );
 

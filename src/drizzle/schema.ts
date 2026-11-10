@@ -337,7 +337,8 @@ export const grades = pgEnum("Grades", GRADE_VALUES);
 
 /**
  * The permanent record of what each factory has won: one row per factory per fiscal year, written
- * by finalize (ADR-0001 amendment). `coverId` is null for imported history, which has no Cover here.
+ * by finalize (ADR-0001 amendment), the manual backfill, or DOED approval. `coverId` is null for a
+ * backfilled row or a Prior Award, which have no Cover here.
  *
  * `fiscalYear` is Common Era, the year the fiscal year ends in (FY2569 -> 2026). The check rejects a
  * Buddhist Era year such as 2566 on the first bad write. The table, column and constraint names are
@@ -353,7 +354,7 @@ export const awards = pgTable(
     fiscalYear: integer("fiscal_year").notNull(),
     grade: grades().notNull(),
     // Restrict: an award is a public record and must not be silently orphaned. Postgres treats
-    // nulls as distinct, so many imported rows coexist while a real Cover is awarded at most once.
+    // nulls as distinct, so many Cover-less rows coexist while a real Cover is awarded at most once.
     coverId: integer("cover_id").references(() => covers.id, {
       onDelete: "restrict",
       onUpdate: "cascade",

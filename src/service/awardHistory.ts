@@ -16,8 +16,7 @@ import { awards } from "../drizzle/schema";
  * two subtly different definitions enter one codebase (the same rule `coverStatus.ts` sets for
  * Cover status under ADR-0010).
  *
- * Gold-tier means the row's grade is `gold` or `consec-gold`. The row's origin does not matter: it
- * may come from a finalize or from the imported FY2566 history. A missing row is "did not hold".
+ * Gold-tier means the row's grade is `gold` or `consec-gold`.
  *
  * Fiscal years are Common Era integers (FY2569 -> 2026), so every lookback is plain arithmetic.
  */

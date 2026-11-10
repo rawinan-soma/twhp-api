@@ -1,9 +1,10 @@
 import * as bcrypt from "bcrypt";
 import { eq } from "drizzle-orm";
-import { status } from "elysia";
+import { ElysiaCustomStatusResponse, status } from "elysia";
 import { db } from "../drizzle";
-import { accounts, adminsDoed, factories, provinces } from "../drizzle/schema";
+import { accounts, adminsDoed, awards, factories, provinces } from "../drizzle/schema";
 import type { UpdateAdminDto } from "../schema/admin";
+import type { PriorAwardDto } from "../schema/factory";
 
 export const createAdminService = (database: typeof db) => {
   return {
@@ -71,29 +72,54 @@ export const createAdminService = (database: typeof db) => {
 
       return { message: "factory deleted!" };
     },
-    approveFactoryRegister: async (accountId: number) => {
-      const factory = await database
-        .select({ isValidate: factories.isValidate, id: factories.accountId })
-        .from(factories)
-        .where(eq(factories.accountId, accountId))
-        .limit(1)
-        .then((res) => res[0]);
-      if (!factory) {
-        return status(404, { message: "factory not found" });
-      }
-      if (factory.isValidate) {
-        return status(400, { message: "factory already validated" });
+    approveFactoryRegister: async (accountId: number, priorAwards: PriorAwardDto[] = []) => {
+      const years = priorAwards.map((award) => award.fiscalYear);
+      const repeated = [...new Set(years.filter((year, i) => years.indexOf(year) !== i))];
+      if (repeated.length > 0) {
+        return status(400, { message: `fiscal year repeated: ${repeated.join(", ")}` });
       }
 
-      await database
-        .update(factories)
-        .set({ isValidate: true })
-        .where(eq(factories.accountId, accountId))
-        .returning()
-        .then((res) => res[0]);
-      return {
-        message: "factory validated!",
-      };
+      try {
+        return await database.transaction(async (tx) => {
+          const factory = await tx
+            .select({ isValidate: factories.isValidate })
+            .from(factories)
+            .where(eq(factories.accountId, accountId))
+            .for("update")
+            .then((res) => res[0]);
+          if (!factory) {
+            return status(404, { message: "factory not found" });
+          }
+          if (factory.isValidate) {
+            return status(400, { message: "factory already validated" });
+          }
+
+          await tx
+            .update(factories)
+            .set({ isValidate: true })
+            .where(eq(factories.accountId, accountId));
+
+          if (priorAwards.length > 0) {
+            const inserted = await tx
+              .insert(awards)
+              .values(priorAwards.map((award) => ({ ...award, factoryId: accountId })))
+              .onConflictDoNothing({ target: [awards.factoryId, awards.fiscalYear] })
+              .returning({ fiscalYear: awards.fiscalYear });
+            const recorded = new Set(inserted.map((row) => row.fiscalYear));
+            const conflicting = years.filter((year) => !recorded.has(year));
+            if (conflicting.length > 0) {
+              throw status(400, {
+                message: `award already exists for fiscal year: ${conflicting.join(", ")}`,
+              });
+            }
+          }
+
+          return { message: "factory validated!" };
+        });
+      } catch (e) {
+        if (e instanceof ElysiaCustomStatusResponse) return e;
+        throw e;
+      }
     },
 
     getPendingValidationData: async () => {

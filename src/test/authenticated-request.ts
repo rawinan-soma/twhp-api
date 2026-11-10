@@ -36,6 +36,8 @@ export type RunnerJob = {
   url: string;
   method: string;
   body?: unknown;
+  rawBody?: string;
+  headers?: Record<string, string>;
   token?: string;
   refreshToken?: string;
   mountAt?: string;
@@ -53,6 +55,9 @@ export const authenticatedRequest = async (
   options: {
     method?: "GET" | "POST" | "PATCH" | "DELETE";
     body?: unknown;
+    /** Sent as is, with only the `headers` given, for a body that is not valid JSON. */
+    rawBody?: string;
+    headers?: Record<string, string>;
     token?: string;
     refreshToken?: string;
     query?: Query;
@@ -70,6 +75,8 @@ export const authenticatedRequest = async (
     url: url.href,
     method: options.method ?? "GET",
     body: options.body,
+    rawBody: options.rawBody,
+    headers: options.headers,
     token: options.token,
     refreshToken: options.refreshToken,
     mountAt: options.mountAt,

@@ -388,13 +388,19 @@
 ### `PATCH /twhp/api/admins/factories/validate/{id}`
 
 
-อนุมัติการลงทะเบียน
+อนุมัติการลงทะเบียน และบันทึกรางวัลในอดีต (Prior Award) ของโรงงานในคำขอเดียวกันได้ ไม่ส่ง body ก็ได้
 
 **Parameters**
 
 | Name | In | Required | Type | Description |
 | --- | --- | --- | --- | --- |
 | `id` | path | yes | `number` |  |
+
+**Request body** (`application/json`)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `awards` | `object[]` | — |  |
 
 **Responses**
 
@@ -404,7 +410,7 @@
   | --- | --- | --- | --- |
   | `message` | `string` | yes |  |
 
-- `400` — Response for status 400
+- `400` — โรงงานได้รับอนุมัติแล้ว, body ไม่ถูกต้อง, fiscalYear ซ้ำใน awards หรือมีแถว Awards ของปีนั้นอยู่แล้ว (ข้อความระบุปี)
 
   | Field | Type | Required | Description |
   | --- | --- | --- | --- |

@@ -338,4 +338,37 @@ Evaluator ทุกระดับกรองรายการโรงงา�
 
 ---
 
+## § 8 บันทึกรางวัลในอดีต (Prior Award) ตอนอนุมัติโรงงาน (ADDITIVE)
+
+เพิ่ม 10 พ.ย. 2026 · Issue #62 · การเรียกเดิมที่ไม่ส่ง body ทำงานเหมือนเดิมทุกประการ
+
+DOED บันทึกรางวัลระดับทอง (`gold`, `consec-gold`) ที่โรงงานเคยได้ใน FY2566–FY2568 ได้ในคำขออนุมัติครั้งเดียว
+รางวัลที่บันทึกแล้วมีผลกับการล็อกการสมัครและ `consec-gold` เหมือนรางวัลที่ได้จากการประเมินในระบบ
+
+### `PATCH /twhp/api/admins/factories/validate/:id`
+
+```json
+{ "awards": [{ "fiscalYear": 2025, "grade": "gold" }] }
+```
+
+- body และ `awards` เป็น optional ไม่ส่ง body, ส่ง `{}` หรือส่ง `{ "awards": [] }` คือการอนุมัติปกติ
+- `fiscalYear` เป็นปี **ค.ศ.** จำนวนเต็ม 2023–2025 Frontend ต้องแปลงจาก พ.ศ. เอง (FY2568 → `2025`)
+- `grade` รับเฉพาะ `gold` และ `consec-gold`
+- response 200 เหมือนเดิม `{ "message": "factory validated!" }`
+
+### Error
+
+| Status | เมื่อไร | `message` |
+|---|---|---|
+| 400 | body ไม่ถูกต้อง (ปีนอกช่วง, ปี พ.ศ., ไม่ใช่จำนวนเต็ม, เกรดต่ำกว่าทอง, `awards` ไม่ใช่ array, JSON เสีย, JSON ที่ไม่ใช่ object, body ที่ไม่ใช่ JSON เช่น multipart) | `Bad Request` |
+| 400 | `fiscalYear` ซ้ำใน `awards` | `fiscal year repeated: 2025` |
+| 400 | มีแถว `Awards` ของโรงงานและปีนั้นอยู่แล้ว ไม่ว่าเกรดใด | `award already exists for fiscal year: 2025` |
+| 400 | โรงงานได้รับอนุมัติแล้ว | `factory already validated` |
+| 404 | ไม่พบโรงงาน | `factory not found` |
+
+ทุกกรณีที่ถูกปฏิเสธ โรงงานยังรออนุมัติอยู่และไม่มีแถวใดถูกบันทึก แก้ข้อมูลแล้วส่งใหม่ได้เลย
+การกดอนุมัติซ้ำพร้อมกันจะสำเร็จหนึ่งครั้ง และอีกครั้งได้ 400 `factory already validated`
+
+---
+
 *สแกน 51 operations เทียบ `docs/api/openapi.json` กับ `dev` ที่รันจริง · เปลี่ยน 9 · 0 path เพิ่ม/ลด · 0 body เปลี่ยน*
