@@ -14,6 +14,7 @@ import type { CreateFactoryDto, UpdateFactoryDto } from "../schema/factory";
 import { buildPage, type PaginationQueryDto, resolvePage } from "../schema/pagination";
 import { utilities } from "../utils";
 import { factoryNameSearchPredicate } from "./factoryNameSearch";
+import { hasValues } from "./hasValues";
 
 /** Shared projection for every factory list variant. The Admin variant prepends `username`. */
 const factoryListColumns = {
@@ -366,16 +367,13 @@ export const createFactoryService = (database: typeof db) => {
         return status(404, { message: "factory not found" });
       }
 
-      if (dto.password) {
-        dto.password = await bcrypt.hash(dto.password, 12);
-      }
-
-      if (dto.subdistrictId) {
-        const location = await database
+      let location: { subdistrictId: number; districtId: number; provinceId: number } | undefined;
+      if (dto.subdistrictId !== undefined) {
+        location = await database
           .select({
-            province_id: districts.provinceId,
-            district_id: districts.districtId,
-            subdistrict_id: subdistricts.subdistrictId,
+            provinceId: districts.provinceId,
+            districtId: districts.districtId,
+            subdistrictId: subdistricts.subdistrictId,
           })
           .from(subdistricts)
           .innerJoin(districts, eq(subdistricts.districtId, districts.districtId))
@@ -385,40 +383,23 @@ export const createFactoryService = (database: typeof db) => {
         if (!location) {
           return status(400, { message: "invalid subdistrict id" });
         }
-
-        await database
-          .update(factories)
-          .set({
-            subdistrictId: location.subdistrict_id,
-            districtId: location.district_id,
-            provinceId: location.province_id,
-          })
-          .where(eq(factories.accountId, accountId))
-          .returning()
-          .then((res) => res[0]);
       }
 
-      const { email, password, ...factoryData } = dto;
-      const accountData = { email, password };
+      const { email, password, ...factoryFields } = dto;
+      const factoryPatch = { ...factoryFields, ...location };
+      const accountPatch = {
+        email,
+        password: password ? await bcrypt.hash(password, 12) : undefined,
+      };
 
       await database.transaction(async (tx) => {
-        Object.keys(factoryData).length > 0
-          ? await tx
-              .update(factories)
-              .set(factoryData)
-              .where(eq(factories.accountId, accountId))
-              .returning()
-              .then((res) => res[0])
-          : undefined;
+        if (hasValues(factoryPatch)) {
+          await tx.update(factories).set(factoryPatch).where(eq(factories.accountId, accountId));
+        }
 
-        Object.keys(accountData).length > 0
-          ? await tx
-              .update(accounts)
-              .set(accountData)
-              .where(eq(accounts.id, accountId))
-              .returning()
-              .then((res) => res[0])
-          : undefined;
+        if (hasValues(accountPatch)) {
+          await tx.update(accounts).set(accountPatch).where(eq(accounts.id, accountId));
+        }
       });
       return { message: "factory updated successfully" };
     },
