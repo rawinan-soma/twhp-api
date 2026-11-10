@@ -2,6 +2,7 @@ import { t } from "elysia";
 import type { App } from "../../../index";
 import { adminGuard } from "../../../middleware/guards";
 import { CoverStatusQuery, EnrollWithCoverPageSchema } from "../../../schema/enroll";
+import { FactoryNameSearchQuery } from "../../../schema/factory-name-search";
 import { FiscalYearQuery } from "../../../schema/fiscal-year";
 import { PaginationQuery } from "../../../schema/pagination";
 import { enrollService } from "../../../service/enroll";
@@ -19,6 +20,7 @@ export default (app: App) =>
             page: query.page,
             limit: query.limit,
             fiscalYear: query.fiscalYear,
+            search: query.search,
           },
         );
       },
@@ -34,6 +36,7 @@ export default (app: App) =>
             provinceId: t.Optional(t.Number()),
           }),
           PaginationQuery,
+          FactoryNameSearchQuery,
           FiscalYearQuery,
         ]),
         response: EnrollWithCoverPageSchema,

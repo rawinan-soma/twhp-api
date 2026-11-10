@@ -2,6 +2,7 @@ import { ElysiaCustomStatusResponse, t } from "elysia";
 import type { App } from "../../..";
 import { evalGuard } from "../../../middleware/guards";
 import { CoverStatusQuery, EnrollWithCoverPageSchema } from "../../../schema/enroll";
+import { FactoryNameSearchQuery } from "../../../schema/factory-name-search";
 import { FiscalYearQuery } from "../../../schema/fiscal-year";
 import { PaginationQuery } from "../../../schema/pagination";
 import { enrollService } from "../../../service/enroll";
@@ -28,6 +29,7 @@ export default (app: App) =>
             page: query.page,
             limit: query.limit,
             fiscalYear: query.fiscalYear,
+            search: query.search,
           },
         );
       },
@@ -39,6 +41,7 @@ export default (app: App) =>
         query: t.Composite([
           t.Object({ coverStatus: CoverStatusQuery, provinceId: t.Optional(t.Number()) }),
           PaginationQuery,
+          FactoryNameSearchQuery,
           FiscalYearQuery,
         ]),
         response: {

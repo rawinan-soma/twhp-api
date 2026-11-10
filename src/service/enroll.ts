@@ -20,6 +20,7 @@ import { buildPage, type PaginationQueryDto, resolvePage } from "../schema/pagin
 import { utilities } from "../utils";
 import { createAwardHistory } from "./awardHistory";
 import { latestCoverLogLateral } from "./coverStatus";
+import { factoryNameSearchPredicate } from "./factoryNameSearch";
 
 /** Cover-status filter value. `none` = enroll has no cover yet. */
 export type CoverStatusFilter = "finished" | "in_progress" | "in_review" | "none";
@@ -89,6 +90,7 @@ export const createEnrollService = (database: typeof db) => {
     provinceId,
     coverStatus,
     fiscalYear,
+    search,
     page,
     limit,
   }: {
@@ -96,6 +98,7 @@ export const createEnrollService = (database: typeof db) => {
     provinceId?: number;
     coverStatus?: CoverStatusFilter;
     fiscalYear?: number;
+    search?: string;
   } & PaginationQueryDto) => {
     const {
       fiscalYear: resolvedFiscalYear,
@@ -111,6 +114,7 @@ export const createEnrollService = (database: typeof db) => {
       region === undefined ? undefined : eq(provinces.healthRegion, region),
       provinceId === undefined ? undefined : eq(provinces.provinceId, provinceId),
       coverStatusPredicate(latest, coverStatus),
+      factoryNameSearchPredicate(search),
     );
 
     const [total, items] = await Promise.all([
@@ -135,14 +139,14 @@ export const createEnrollService = (database: typeof db) => {
     getAllEnrollsByProvince: async (
       provinceId: number,
       coverStatus?: CoverStatusFilter,
-      pagination?: PaginationQueryDto & { fiscalYear?: number },
+      pagination?: PaginationQueryDto & { fiscalYear?: number; search?: string },
     ) => listEnrolls({ provinceId, coverStatus, ...pagination }),
 
     getAllEnrolls: async (
       region?: number,
       provinceId?: number,
       coverStatus?: CoverStatusFilter,
-      pagination?: PaginationQueryDto & { fiscalYear?: number },
+      pagination?: PaginationQueryDto & { fiscalYear?: number; search?: string },
     ) => listEnrolls({ region, provinceId, coverStatus, ...pagination }),
 
     /**

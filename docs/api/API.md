@@ -124,6 +124,7 @@
 | `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -369,6 +370,7 @@
 | `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -430,6 +432,7 @@
 | `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -1174,6 +1177,7 @@ logout
 | `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -1208,6 +1212,7 @@ logout
 | `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -1240,6 +1245,7 @@ logout
 | `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -2260,6 +2266,7 @@ Get a 5-minute presigned URL for a stored file
 | `coverStatus` | query | — | `"finished" \| "in_progress" \| "in_review" \| "none"` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -2293,6 +2300,7 @@ Get a 5-minute presigned URL for a stored file
 | `enrolled` | query | — | `boolean` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -2324,6 +2332,7 @@ Get a 5-minute presigned URL for a stored file
 | --- | --- | --- | --- | --- |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**

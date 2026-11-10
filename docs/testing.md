@@ -106,7 +106,7 @@ See [Database](./database.md) before provisioning an integration-test database. 
 
 ### Authenticated route tests
 
-`src/test/authenticated-request.ts` tests a protected route with a real access token. Its `authenticatedRequest` sends one request (GET by default, or POST, PATCH, or DELETE with a JSON `body`) through the real route module, `jwtPlugin`, guards, and database. `signAccessToken` issues the token, and `seedEvaluatorAccount` creates an Evaluator caller. For an example, see `src/routes/evaluators/factories/index.authenticated.integration.test.ts`.
+`src/test/authenticated-request.ts` tests a protected route with a real access token. Its `authenticatedRequest` sends one request (GET by default, or POST, PATCH, or DELETE with a JSON `body`) through the real route module, `jwtPlugin`, guards, and database. `signAccessToken` issues the token. `seedEvaluatorAccount`, `seedAdminAccount`, and `seedProvincialOfficerAccount` create callers of each staff role. Remove a Provincial Officer caller with `removeProvincialOfficerAccount`, because `provincialOfficers.accountId` is `onDelete: restrict` and `removeAccount` alone fails. For an example, see `src/routes/evaluators/factories/index.authenticated.integration.test.ts`.
 
 `authenticatedRequest` runs the request in a child process (`src/test/handle-request.ts`). Other test files call `mock.module` on the configuration, utilities, and database client, and Bun does not restore those mocks between files. An in-process app would see the stubs.
 
