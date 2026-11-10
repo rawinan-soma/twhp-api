@@ -268,6 +268,30 @@ describe("PATCH /validate/:id, refused bodies leave the Factory pending", () => 
     await expectRefusedAndUntouched(response);
   });
 
+  for (const rawBody of [
+    "null",
+    "[]",
+    '[{"fiscalYear":2030,"grade":"silver"}]',
+    '[{"fiscalYear":2025,"grade":"gold"}]',
+    '[{"awards":[{"fiscalYear":2025,"grade":"gold"}]}]',
+    "0",
+    "1",
+    "false",
+    '"x"',
+  ]) {
+    it(`refuses the JSON value ${rawBody}, which is not an object`, async () => {
+      const response = await authenticatedRequest(ROUTE, {
+        method: "PATCH",
+        path: `/validate/${FACTORY_ID}`,
+        token: doedToken,
+        rawBody,
+        headers: JSON_CONTENT,
+      });
+
+      await expectRefusedAndUntouched(response);
+    });
+  }
+
   it("refuses a form-encoded body", async () => {
     const response = await authenticatedRequest(ROUTE, {
       method: "PATCH",

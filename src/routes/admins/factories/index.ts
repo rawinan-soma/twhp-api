@@ -46,9 +46,10 @@ export default (app: App) =>
               "อนุมัติการลงทะเบียน และบันทึกรางวัลในอดีต (Prior Award) ของโรงงานในคำขอเดียวกันได้ ไม่ส่ง body ก็ได้",
           },
           params: t.Object({ id: t.Number() }),
-          // Elysia swallows a JSON parse error on an optional body, which would approve the Factory
-          // and silently drop its Prior Awards. The named parser never runs; it is what makes the
-          // OpenAPI document list the JSON body.
+          // Elysia swallows a JSON parse error on an optional body and does not validate a JSON value
+          // that is not an object. Either would approve the Factory and silently drop its Prior
+          // Awards. The named parser never runs; it is what makes the OpenAPI document list the JSON
+          // body.
           parse: [
             async ({ request, contentType }) => {
               if (contentType === "multipart/form-data") {
@@ -56,11 +57,16 @@ export default (app: App) =>
               }
               const raw = await request.text();
               if (raw.trim() === "") return {};
+              let parsed: unknown;
               try {
-                return JSON.parse(raw);
+                parsed = JSON.parse(raw);
               } catch {
                 throw new ParseError();
               }
+              if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+                throw new ParseError();
+              }
+              return parsed;
             },
             "application/json",
           ],
