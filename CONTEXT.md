@@ -15,6 +15,10 @@ The server-side pending state created after a correct staff password but before 
 
 **Attempt limits:** 5 wrong codes destroy the Challenge (forcing a fresh login). At most one active Challenge per account; re-issuing is throttled to once per 60s. After 10 cumulative failed codes within 15 minutes, 2FA is locked for that account for 15 minutes.
 
+### Factory Name Search
+A Staff Account's free-text lookup that narrows a staff list to the factories whose registered Thai or English name contains the term. It only ever narrows: it cannot surface a factory, enrollment, or [[Score Report]] that the same list would not show without it.
+_Avoid_: "filter by name" for an exact match — the term is a fragment of either name, never the whole name.
+
 ## Authentication Endpoints
 
 Login is a two-step flow for Staff Accounts; Factory and first-login staff complete in one step.

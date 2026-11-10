@@ -1,6 +1,7 @@
 import { ElysiaCustomStatusResponse, status, t } from "elysia";
 import type { App } from "../../..";
 import { officerGuard } from "../../../middleware/guards";
+import { FactoryNameSearchQuery } from "../../../schema/factory-name-search";
 import { FiscalYearQuery } from "../../../schema/fiscal-year";
 import { PaginationQuery } from "../../../schema/pagination";
 import { ScoreReportPageSchema } from "../../../schema/score";
@@ -19,13 +20,14 @@ export default (app: App) =>
           page: query.page,
           limit: query.limit,
           fiscalYear: query.fiscalYear,
+          search: query.search,
         });
       },
       {
         detail: {
           description: "ดูคะแนนประเมินโรงงานทั้งหมดในจังหวัด (แบ่งหน้าด้วย ?page= ?limit=)",
         },
-        query: t.Composite([PaginationQuery, FiscalYearQuery]),
+        query: t.Composite([PaginationQuery, FactoryNameSearchQuery, FiscalYearQuery]),
         response: {
           200: ScoreReportPageSchema,
           404: t.Object({ message: t.String({ default: "provincial officer not found" }) }),

@@ -14,6 +14,7 @@ import {
 import { buildPage, type PaginationQueryDto, resolvePage } from "../schema/pagination";
 import { utilities } from "../utils";
 import { latestCoverLogFor, latestCoverLogLateral } from "./coverStatus";
+import { factoryNameSearchPredicate } from "./factoryNameSearch";
 import {
   type AnswerWithCategory,
   type CategoryKey,
@@ -147,9 +148,15 @@ export const createScoreService = (database: typeof db) => {
     region,
     provinceId,
     fiscalYear,
+    search,
     page,
     limit,
-  }: { region?: number; provinceId?: number; fiscalYear?: number } & PaginationQueryDto) => {
+  }: {
+    region?: number;
+    provinceId?: number;
+    fiscalYear?: number;
+    search?: string;
+  } & PaginationQueryDto) => {
     const {
       fiscalYear: resolvedFiscalYear,
       fiscalYearStart,
@@ -165,6 +172,7 @@ export const createScoreService = (database: typeof db) => {
       provinceId === undefined ? undefined : eq(provinces.provinceId, provinceId),
       // Scorable filter in SQL, not JavaScript — this is what makes `total` correct.
       inArray(latest.status, [...SCORABLE_STATUSES]),
+      factoryNameSearchPredicate(search),
     );
 
     // Phase 1 — paginate the aggregate root.
@@ -282,17 +290,21 @@ export const createScoreService = (database: typeof db) => {
 
     getScoresByRegion: async (
       region: number,
-      pagination?: PaginationQueryDto & { fiscalYear?: number; provinceId?: number },
+      pagination?: PaginationQueryDto & {
+        fiscalYear?: number;
+        provinceId?: number;
+        search?: string;
+      },
     ) => listScoreReports({ ...pagination, region }),
 
     getScoresByProvince: async (
       provinceId: number,
-      pagination?: PaginationQueryDto & { fiscalYear?: number },
+      pagination?: PaginationQueryDto & { fiscalYear?: number; search?: string },
     ) => listScoreReports({ provinceId, ...pagination }),
 
     getAllScores: async (
       filters?: { region?: number; provinceId?: number },
-      pagination?: PaginationQueryDto & { fiscalYear?: number },
+      pagination?: PaginationQueryDto & { fiscalYear?: number; search?: string },
     ) => listScoreReports({ ...filters, ...pagination }),
   };
 };

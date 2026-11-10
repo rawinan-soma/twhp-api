@@ -1,6 +1,7 @@
 import { t } from "elysia";
 import type { App } from "../../..";
 import { adminGuard } from "../../../middleware/guards";
+import { FactoryNameSearchQuery } from "../../../schema/factory-name-search";
 import { FiscalYearQuery } from "../../../schema/fiscal-year";
 import { PaginationQuery } from "../../../schema/pagination";
 import { ScoreReportPageSchema } from "../../../schema/score";
@@ -13,7 +14,12 @@ export default (app: App) =>
       async ({ query }) => {
         return await scoreService.getAllScores(
           { region: query.region, provinceId: query.provinceId },
-          { page: query.page, limit: query.limit, fiscalYear: query.fiscalYear },
+          {
+            page: query.page,
+            limit: query.limit,
+            fiscalYear: query.fiscalYear,
+            search: query.search,
+          },
         );
       },
       {
@@ -26,6 +32,7 @@ export default (app: App) =>
             provinceId: t.Optional(t.Number()),
           }),
           PaginationQuery,
+          FactoryNameSearchQuery,
           FiscalYearQuery,
         ]),
         response: {

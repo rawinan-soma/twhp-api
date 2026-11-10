@@ -12,12 +12,12 @@
   - [`GET /twhp/api/admins/factories`](#get-twhp-api-admins-factories)
   - [`PATCH /twhp/api/admins/factories/validate/{id}`](#patch-twhp-api-admins-factories-validate-id)
   - [`GET /twhp/api/admins/score`](#get-twhp-api-admins-score)
+  - [`GET /twhp/api/admins/covers/{coverId}/answers`](#get-twhp-api-admins-covers-coverid-answers)
+  - [`POST /twhp/api/admins/covers/{coverId}/finalize`](#post-twhp-api-admins-covers-coverid-finalize)
   - [`GET /twhp/api/admins/enrolls/{id}`](#get-twhp-api-admins-enrolls-id)
   - [`GET /twhp/api/admins/factories/{id}`](#get-twhp-api-admins-factories-id)
   - [`PATCH /twhp/api/admins/factories/{id}`](#patch-twhp-api-admins-factories-id)
   - [`DELETE /twhp/api/admins/factories/{id}`](#delete-twhp-api-admins-factories-id)
-  - [`POST /twhp/api/admins/covers/{coverId}/finalize`](#post-twhp-api-admins-covers-coverid-finalize)
-  - [`GET /twhp/api/admins/covers/{coverId}/answers`](#get-twhp-api-admins-covers-coverid-answers)
   - [`POST /twhp/api/admins/covers/{coverId}/answers/{answerId}/verdict`](#post-twhp-api-admins-covers-coverid-answers-answerid-verdict)
 - [authentication](#authentication)
   - [`POST /twhp/api/authentication/login`](#post-twhp-api-authentication-login)
@@ -34,17 +34,14 @@
   - [`GET /twhp/api/evaluators/enrolls`](#get-twhp-api-evaluators-enrolls)
   - [`GET /twhp/api/evaluators/factories`](#get-twhp-api-evaluators-factories)
   - [`GET /twhp/api/evaluators/score`](#get-twhp-api-evaluators-score)
+  - [`GET /twhp/api/evaluators/covers/{coverId}/answers`](#get-twhp-api-evaluators-covers-coverid-answers)
+  - [`POST /twhp/api/evaluators/covers/{coverId}/finalize`](#post-twhp-api-evaluators-covers-coverid-finalize)
   - [`GET /twhp/api/evaluators/enrolls/{id}`](#get-twhp-api-evaluators-enrolls-id)
   - [`GET /twhp/api/evaluators/factories/{id}`](#get-twhp-api-evaluators-factories-id)
-  - [`POST /twhp/api/evaluators/covers/{coverId}/finalize`](#post-twhp-api-evaluators-covers-coverid-finalize)
-  - [`GET /twhp/api/evaluators/covers/{coverId}/answers`](#get-twhp-api-evaluators-covers-coverid-answers)
   - [`POST /twhp/api/evaluators/covers/{coverId}/answers/{answerId}/verdict`](#post-twhp-api-evaluators-covers-coverid-answers-answerid-verdict)
 - [factories](#factories)
   - [`POST /twhp/api/factories/register`](#post-twhp-api-factories-register)
   - [`PATCH /twhp/api/factories`](#patch-twhp-api-factories)
-  - [`GET /twhp/api/factories/enrolls`](#get-twhp-api-factories-enrolls)
-  - [`POST /twhp/api/factories/enrolls`](#post-twhp-api-factories-enrolls)
-  - [`PATCH /twhp/api/factories/enrolls`](#patch-twhp-api-factories-enrolls)
   - [`GET /twhp/api/factories/assessments/covers`](#get-twhp-api-factories-assessments-covers)
   - [`POST /twhp/api/factories/assessments/covers`](#post-twhp-api-factories-assessments-covers)
   - [`GET /twhp/api/factories/assessments/questions`](#get-twhp-api-factories-assessments-questions)
@@ -54,6 +51,9 @@
   - [`POST /twhp/api/factories/assessments/answers/negotiate`](#post-twhp-api-factories-assessments-answers-negotiate)
   - [`POST /twhp/api/factories/assessments/submission`](#post-twhp-api-factories-assessments-submission)
   - [`GET /twhp/api/factories/assessments/score`](#get-twhp-api-factories-assessments-score)
+  - [`GET /twhp/api/factories/enrolls`](#get-twhp-api-factories-enrolls)
+  - [`POST /twhp/api/factories/enrolls`](#post-twhp-api-factories-enrolls)
+  - [`PATCH /twhp/api/factories/enrolls`](#patch-twhp-api-factories-enrolls)
 - [file](#file)
   - [`GET /twhp/api/file/presigned-url`](#get-twhp-api-file-presigned-url)
 - [location](#location)
@@ -65,9 +65,9 @@
   - [`GET /twhp/api/provincialOfficers/enrolls`](#get-twhp-api-provincialofficers-enrolls)
   - [`GET /twhp/api/provincialOfficers/factories`](#get-twhp-api-provincialofficers-factories)
   - [`GET /twhp/api/provincialOfficers/score`](#get-twhp-api-provincialofficers-score)
+  - [`GET /twhp/api/provincialOfficers/covers/{coverId}/answers`](#get-twhp-api-provincialofficers-covers-coverid-answers)
   - [`GET /twhp/api/provincialOfficers/enrolls/{id}`](#get-twhp-api-provincialofficers-enrolls-id)
   - [`GET /twhp/api/provincialOfficers/factories/{id}`](#get-twhp-api-provincialofficers-factories-id)
-  - [`GET /twhp/api/provincialOfficers/covers/{coverId}/answers`](#get-twhp-api-provincialofficers-covers-coverid-answers)
 
 ## admins
 
@@ -118,6 +118,7 @@
 | `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -147,6 +148,7 @@
 | `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -208,6 +210,7 @@
 | `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -218,6 +221,88 @@
   | --- | --- | --- | --- |
   | `items` | `object[]` | yes |  |
   | `meta` | `object` | yes |  |
+
+
+---
+
+### `GET /twhp/api/admins/covers/{coverId}/answers`
+
+
+ดูคำตอบในฝาประเมิน (ผู้ดูแลระบบทำหน้าที่ ODPC ระดับประเทศ ไม่กรองตามภูมิภาค)
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `coverId` | path | yes | `number` |  |
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `answers` | `object[]` | yes |  |
+  | `standards` | `object[]` | yes |  |
+
+- `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+
+---
+
+### `POST /twhp/api/admins/covers/{coverId}/finalize`
+
+
+สรุปผลทั้งฝาประเมิน (ผู้ดูแลระบบทำหน้าที่ ODPC ระดับประเทศ; อ่าน answerLogs ล่าสุด, gate in_review, แปลง recommended→finished, บันทึก transition, คำนวณเกรด, ส่งอีเมล)
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `coverId` | path | yes | `number` |  |
+
+**Request body** (`application/json`)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+  | `coverStatus` | `string` | yes |  |
+  | `grade` | `string \| string \| string \| string \| string \| null` | yes |  |
+
+- `400` — Response for status 400
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `403` — Response for status 403
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `500` — Response for status 500
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
 
 
 ---
@@ -423,88 +508,6 @@ update ข้อมูลของ สปก. ตาม id ของสปก.
   | Field | Type | Required | Description |
   | --- | --- | --- | --- |
   | `message` | `string` | yes |  |
-
-- `404` — Response for status 404
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-
----
-
-### `POST /twhp/api/admins/covers/{coverId}/finalize`
-
-
-สรุปผลทั้งฝาประเมิน (ผู้ดูแลระบบทำหน้าที่ ODPC ระดับประเทศ; อ่าน answerLogs ล่าสุด, gate in_review, แปลง recommended→finished, บันทึก transition, คำนวณเกรด, ส่งอีเมล)
-
-**Parameters**
-
-| Name | In | Required | Type | Description |
-| --- | --- | --- | --- | --- |
-| `coverId` | path | yes | `number` |  |
-
-**Request body** (`application/json`)
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-
-**Responses**
-
-- `200` — Response for status 200
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-  | `coverStatus` | `string` | yes |  |
-  | `grade` | `string \| string \| string \| string \| string \| null` | yes |  |
-
-- `400` — Response for status 400
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-- `403` — Response for status 403
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-- `404` — Response for status 404
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-- `500` — Response for status 500
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-
----
-
-### `GET /twhp/api/admins/covers/{coverId}/answers`
-
-
-ดูคำตอบในฝาประเมิน (ผู้ดูแลระบบทำหน้าที่ ODPC ระดับประเทศ ไม่กรองตามภูมิภาค)
-
-**Parameters**
-
-| Name | In | Required | Type | Description |
-| --- | --- | --- | --- | --- |
-| `coverId` | path | yes | `number` |  |
-
-**Responses**
-
-- `200` — Response for status 200
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `answers` | `object[]` | yes |  |
-  | `standards` | `object[]` | yes |  |
 
 - `404` — Response for status 404
 
@@ -912,6 +915,7 @@ logout
 | `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -946,6 +950,7 @@ logout
 | `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -978,6 +983,7 @@ logout
 | `provinceId` | query | — | `number` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -990,6 +996,88 @@ logout
   | `meta` | `object` | yes |  |
 
 - `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+
+---
+
+### `GET /twhp/api/evaluators/covers/{coverId}/answers`
+
+
+ดูคำตอบในฝาประเมิน กรองตาม level ของผู้ประเมิน
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `coverId` | path | yes | `number` |  |
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `answers` | `object[]` | yes |  |
+  | `standards` | `object[]` | yes |  |
+
+- `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+
+---
+
+### `POST /twhp/api/evaluators/covers/{coverId}/finalize`
+
+
+สรุปผลทั้งฝาประเมิน (ODPC เท่านั้น; อ่าน answerLogs ล่าสุด, gate in_review, แปลง recommended→finished, ลบไฟล์ที่ถูก reject, บันทึก transition, คำนวณเกรด, ส่งอีเมล)
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `coverId` | path | yes | `number` |  |
+
+**Request body** (`application/json`)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+  | `coverStatus` | `string` | yes |  |
+  | `grade` | `string \| string \| string \| string \| string \| null` | yes |  |
+
+- `400` — Response for status 400
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `403` — Response for status 403
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `500` — Response for status 500
 
   | Field | Type | Required | Description |
   | --- | --- | --- | --- |
@@ -1119,88 +1207,6 @@ logout
   | `province_name_th` | `string` | yes |  |
   | `district_name_th` | `string` | yes |  |
   | `subdistrict_name_th` | `string` | yes |  |
-
-- `404` — Response for status 404
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-
----
-
-### `POST /twhp/api/evaluators/covers/{coverId}/finalize`
-
-
-สรุปผลทั้งฝาประเมิน (ODPC เท่านั้น; อ่าน answerLogs ล่าสุด, gate in_review, แปลง recommended→finished, ลบไฟล์ที่ถูก reject, บันทึก transition, คำนวณเกรด, ส่งอีเมล)
-
-**Parameters**
-
-| Name | In | Required | Type | Description |
-| --- | --- | --- | --- | --- |
-| `coverId` | path | yes | `number` |  |
-
-**Request body** (`application/json`)
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-
-**Responses**
-
-- `200` — Response for status 200
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-  | `coverStatus` | `string` | yes |  |
-  | `grade` | `string \| string \| string \| string \| string \| null` | yes |  |
-
-- `400` — Response for status 400
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-- `403` — Response for status 403
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-- `404` — Response for status 404
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-- `500` — Response for status 500
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-
----
-
-### `GET /twhp/api/evaluators/covers/{coverId}/answers`
-
-
-ดูคำตอบในฝาประเมิน กรองตาม level ของผู้ประเมิน
-
-**Parameters**
-
-| Name | In | Required | Type | Description |
-| --- | --- | --- | --- | --- |
-| `coverId` | path | yes | `number` |  |
-
-**Responses**
-
-- `200` — Response for status 200
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `answers` | `object[]` | yes |  |
-  | `standards` | `object[]` | yes |  |
 
 - `404` — Response for status 404
 
@@ -1415,172 +1421,6 @@ logout
   | Field | Type | Required | Description |
   | --- | --- | --- | --- |
   | `message` | `string` | yes |  |
-
-- `404` — Response for status 404
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-
----
-
-### `GET /twhp/api/factories/enrolls`
-
-
-ดึงข้อมูลการสมัครเข้าร่วมโครงการของตนเอง
-
-**Parameters**
-
-| Name | In | Required | Type | Description |
-| --- | --- | --- | --- | --- |
-| `fiscalYear` | query | — | `string<numeric> \| number` |  |
-
----
-
-### `POST /twhp/api/factories/enrolls`
-
-
-ลงทะเบียนการสมัครเข้าร่วมโครงการ
-
-**Request body** (`multipart/form-data`)
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `employeeThM` | `string<numeric> \| number` | yes |  |
-| `employeeMmM` | `string<numeric> \| number` | yes |  |
-| `employeeKhM` | `string<numeric> \| number` | yes |  |
-| `employeeLaM` | `string<numeric> \| number` | yes |  |
-| `employeeVnM` | `string<numeric> \| number` | yes |  |
-| `employeeCnM` | `string<numeric> \| number` | yes |  |
-| `employeePhM` | `string<numeric> \| number` | yes |  |
-| `employeeJpM` | `string<numeric> \| number` | yes |  |
-| `employeeInM` | `string<numeric> \| number` | yes |  |
-| `employeeOtherM` | `string<numeric> \| number` | yes |  |
-| `employeeThF` | `string<numeric> \| number` | yes |  |
-| `employeeMmF` | `string<numeric> \| number` | yes |  |
-| `employeeKhF` | `string<numeric> \| number` | yes |  |
-| `employeeLaF` | `string<numeric> \| number` | yes |  |
-| `employeeVnF` | `string<numeric> \| number` | yes |  |
-| `employeeCnF` | `string<numeric> \| number` | yes |  |
-| `employeePhF` | `string<numeric> \| number` | yes |  |
-| `employeeJpF` | `string<numeric> \| number` | yes |  |
-| `employeeInF` | `string<numeric> \| number` | yes |  |
-| `employeeOtherF` | `string<numeric> \| number` | yes |  |
-| `standardHc` | `boolean \| string \| string` | yes |  |
-| `standardSan` | `boolean \| string \| string` | yes |  |
-| `standardSanPlus` | `boolean \| string \| string` | yes |  |
-| `standardWellness` | `boolean \| string \| string` | yes |  |
-| `standardSafety` | `boolean \| string \| string` | yes |  |
-| `standardTis18001` | `boolean \| string \| string` | yes |  |
-| `standardIso45001` | `boolean \| string \| string` | yes |  |
-| `standardIso14001` | `boolean \| string \| string` | yes |  |
-| `standardZero` | `boolean \| string \| string` | yes |  |
-| `standard5S` | `boolean \| string \| string` | yes |  |
-| `standardHas` | `boolean \| string \| string` | yes |  |
-| `safetyOfficerPrefix` | `string` | yes |  |
-| `safetyOfficerFirstName` | `string` | yes |  |
-| `safetyOfficerLastName` | `string` | yes |  |
-| `safetyOfficerPosition` | `string` | yes |  |
-| `safetyOfficerEmail` | `string` | — |  |
-| `safetyOfficerPhone` | `string` | — |  |
-| `safetyOfficerLineId` | `string` | — |  |
-| `fileStandardHc` | `string<binary>` | — |  |
-| `fileStandardSan` | `string<binary>` | — |  |
-| `fileStandardSanPlus` | `string<binary>` | — |  |
-| `fileStandardWellness` | `string<binary>` | — |  |
-| `fileStandardSafety` | `string<binary>` | — |  |
-| `fileStandardTis18001` | `string<binary>` | — |  |
-| `fileStandardIso45001` | `string<binary>` | — |  |
-| `fileStandardIso14001` | `string<binary>` | — |  |
-| `fileStandardZero` | `string<binary>` | — |  |
-| `fileStandard5S` | `string<binary>` | — |  |
-| `fileStandardHas` | `string<binary>` | — |  |
-
-**Responses**
-
-- `201` — Response for status 201
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-- `400` — Response for status 400
-
----
-
-### `PATCH /twhp/api/factories/enrolls`
-
-
-อัปเดตข้อมูลการสมัครเข้าร่วมโครงการ
-
-**Request body** (`multipart/form-data`)
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `employeeThM` | `string<numeric> \| number` | — |  |
-| `employeeMmM` | `string<numeric> \| number` | — |  |
-| `employeeKhM` | `string<numeric> \| number` | — |  |
-| `employeeLaM` | `string<numeric> \| number` | — |  |
-| `employeeVnM` | `string<numeric> \| number` | — |  |
-| `employeeCnM` | `string<numeric> \| number` | — |  |
-| `employeePhM` | `string<numeric> \| number` | — |  |
-| `employeeJpM` | `string<numeric> \| number` | — |  |
-| `employeeInM` | `string<numeric> \| number` | — |  |
-| `employeeOtherM` | `string<numeric> \| number` | — |  |
-| `employeeThF` | `string<numeric> \| number` | — |  |
-| `employeeMmF` | `string<numeric> \| number` | — |  |
-| `employeeKhF` | `string<numeric> \| number` | — |  |
-| `employeeLaF` | `string<numeric> \| number` | — |  |
-| `employeeVnF` | `string<numeric> \| number` | — |  |
-| `employeeCnF` | `string<numeric> \| number` | — |  |
-| `employeePhF` | `string<numeric> \| number` | — |  |
-| `employeeJpF` | `string<numeric> \| number` | — |  |
-| `employeeInF` | `string<numeric> \| number` | — |  |
-| `employeeOtherF` | `string<numeric> \| number` | — |  |
-| `standardHc` | `boolean \| string \| string` | — |  |
-| `standardSan` | `boolean \| string \| string` | — |  |
-| `standardSanPlus` | `boolean \| string \| string` | — |  |
-| `standardWellness` | `boolean \| string \| string` | — |  |
-| `standardSafety` | `boolean \| string \| string` | — |  |
-| `standardTis18001` | `boolean \| string \| string` | — |  |
-| `standardIso45001` | `boolean \| string \| string` | — |  |
-| `standardIso14001` | `boolean \| string \| string` | — |  |
-| `standardZero` | `boolean \| string \| string` | — |  |
-| `standard5S` | `boolean \| string \| string` | — |  |
-| `standardHas` | `boolean \| string \| string` | — |  |
-| `safetyOfficerPrefix` | `string` | — |  |
-| `safetyOfficerFirstName` | `string` | — |  |
-| `safetyOfficerLastName` | `string` | — |  |
-| `safetyOfficerPosition` | `string` | — |  |
-| `safetyOfficerEmail` | `string<email>` | — |  |
-| `safetyOfficerPhone` | `string` | — |  |
-| `safetyOfficerLineId` | `string` | — |  |
-| `fileStandardHc` | `string<binary>` | — |  |
-| `fileStandardSan` | `string<binary>` | — |  |
-| `fileStandardSanPlus` | `string<binary>` | — |  |
-| `fileStandardWellness` | `string<binary>` | — |  |
-| `fileStandardSafety` | `string<binary>` | — |  |
-| `fileStandardTis18001` | `string<binary>` | — |  |
-| `fileStandardIso45001` | `string<binary>` | — |  |
-| `fileStandardIso14001` | `string<binary>` | — |  |
-| `fileStandardZero` | `string<binary>` | — |  |
-| `fileStandard5S` | `string<binary>` | — |  |
-| `fileStandardHas` | `string<binary>` | — |  |
-
-**Responses**
-
-- `200` — Response for status 200
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-- `400` — Response for status 400
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes | Standard = true but no file |
 
 - `404` — Response for status 404
 
@@ -1877,6 +1717,172 @@ logout
 
 ---
 
+### `GET /twhp/api/factories/enrolls`
+
+
+ดึงข้อมูลการสมัครเข้าร่วมโครงการของตนเอง
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `fiscalYear` | query | — | `string<numeric> \| number` |  |
+
+---
+
+### `POST /twhp/api/factories/enrolls`
+
+
+ลงทะเบียนการสมัครเข้าร่วมโครงการ
+
+**Request body** (`multipart/form-data`)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `employeeThM` | `string<numeric> \| number` | yes |  |
+| `employeeMmM` | `string<numeric> \| number` | yes |  |
+| `employeeKhM` | `string<numeric> \| number` | yes |  |
+| `employeeLaM` | `string<numeric> \| number` | yes |  |
+| `employeeVnM` | `string<numeric> \| number` | yes |  |
+| `employeeCnM` | `string<numeric> \| number` | yes |  |
+| `employeePhM` | `string<numeric> \| number` | yes |  |
+| `employeeJpM` | `string<numeric> \| number` | yes |  |
+| `employeeInM` | `string<numeric> \| number` | yes |  |
+| `employeeOtherM` | `string<numeric> \| number` | yes |  |
+| `employeeThF` | `string<numeric> \| number` | yes |  |
+| `employeeMmF` | `string<numeric> \| number` | yes |  |
+| `employeeKhF` | `string<numeric> \| number` | yes |  |
+| `employeeLaF` | `string<numeric> \| number` | yes |  |
+| `employeeVnF` | `string<numeric> \| number` | yes |  |
+| `employeeCnF` | `string<numeric> \| number` | yes |  |
+| `employeePhF` | `string<numeric> \| number` | yes |  |
+| `employeeJpF` | `string<numeric> \| number` | yes |  |
+| `employeeInF` | `string<numeric> \| number` | yes |  |
+| `employeeOtherF` | `string<numeric> \| number` | yes |  |
+| `standardHc` | `boolean \| string \| string` | yes |  |
+| `standardSan` | `boolean \| string \| string` | yes |  |
+| `standardSanPlus` | `boolean \| string \| string` | yes |  |
+| `standardWellness` | `boolean \| string \| string` | yes |  |
+| `standardSafety` | `boolean \| string \| string` | yes |  |
+| `standardTis18001` | `boolean \| string \| string` | yes |  |
+| `standardIso45001` | `boolean \| string \| string` | yes |  |
+| `standardIso14001` | `boolean \| string \| string` | yes |  |
+| `standardZero` | `boolean \| string \| string` | yes |  |
+| `standard5S` | `boolean \| string \| string` | yes |  |
+| `standardHas` | `boolean \| string \| string` | yes |  |
+| `safetyOfficerPrefix` | `string` | yes |  |
+| `safetyOfficerFirstName` | `string` | yes |  |
+| `safetyOfficerLastName` | `string` | yes |  |
+| `safetyOfficerPosition` | `string` | yes |  |
+| `safetyOfficerEmail` | `string` | — |  |
+| `safetyOfficerPhone` | `string` | — |  |
+| `safetyOfficerLineId` | `string` | — |  |
+| `fileStandardHc` | `string<binary>` | — |  |
+| `fileStandardSan` | `string<binary>` | — |  |
+| `fileStandardSanPlus` | `string<binary>` | — |  |
+| `fileStandardWellness` | `string<binary>` | — |  |
+| `fileStandardSafety` | `string<binary>` | — |  |
+| `fileStandardTis18001` | `string<binary>` | — |  |
+| `fileStandardIso45001` | `string<binary>` | — |  |
+| `fileStandardIso14001` | `string<binary>` | — |  |
+| `fileStandardZero` | `string<binary>` | — |  |
+| `fileStandard5S` | `string<binary>` | — |  |
+| `fileStandardHas` | `string<binary>` | — |  |
+
+**Responses**
+
+- `201` — Response for status 201
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `400` — Response for status 400
+
+---
+
+### `PATCH /twhp/api/factories/enrolls`
+
+
+อัปเดตข้อมูลการสมัครเข้าร่วมโครงการ
+
+**Request body** (`multipart/form-data`)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `employeeThM` | `string<numeric> \| number` | — |  |
+| `employeeMmM` | `string<numeric> \| number` | — |  |
+| `employeeKhM` | `string<numeric> \| number` | — |  |
+| `employeeLaM` | `string<numeric> \| number` | — |  |
+| `employeeVnM` | `string<numeric> \| number` | — |  |
+| `employeeCnM` | `string<numeric> \| number` | — |  |
+| `employeePhM` | `string<numeric> \| number` | — |  |
+| `employeeJpM` | `string<numeric> \| number` | — |  |
+| `employeeInM` | `string<numeric> \| number` | — |  |
+| `employeeOtherM` | `string<numeric> \| number` | — |  |
+| `employeeThF` | `string<numeric> \| number` | — |  |
+| `employeeMmF` | `string<numeric> \| number` | — |  |
+| `employeeKhF` | `string<numeric> \| number` | — |  |
+| `employeeLaF` | `string<numeric> \| number` | — |  |
+| `employeeVnF` | `string<numeric> \| number` | — |  |
+| `employeeCnF` | `string<numeric> \| number` | — |  |
+| `employeePhF` | `string<numeric> \| number` | — |  |
+| `employeeJpF` | `string<numeric> \| number` | — |  |
+| `employeeInF` | `string<numeric> \| number` | — |  |
+| `employeeOtherF` | `string<numeric> \| number` | — |  |
+| `standardHc` | `boolean \| string \| string` | — |  |
+| `standardSan` | `boolean \| string \| string` | — |  |
+| `standardSanPlus` | `boolean \| string \| string` | — |  |
+| `standardWellness` | `boolean \| string \| string` | — |  |
+| `standardSafety` | `boolean \| string \| string` | — |  |
+| `standardTis18001` | `boolean \| string \| string` | — |  |
+| `standardIso45001` | `boolean \| string \| string` | — |  |
+| `standardIso14001` | `boolean \| string \| string` | — |  |
+| `standardZero` | `boolean \| string \| string` | — |  |
+| `standard5S` | `boolean \| string \| string` | — |  |
+| `standardHas` | `boolean \| string \| string` | — |  |
+| `safetyOfficerPrefix` | `string` | — |  |
+| `safetyOfficerFirstName` | `string` | — |  |
+| `safetyOfficerLastName` | `string` | — |  |
+| `safetyOfficerPosition` | `string` | — |  |
+| `safetyOfficerEmail` | `string<email>` | — |  |
+| `safetyOfficerPhone` | `string` | — |  |
+| `safetyOfficerLineId` | `string` | — |  |
+| `fileStandardHc` | `string<binary>` | — |  |
+| `fileStandardSan` | `string<binary>` | — |  |
+| `fileStandardSanPlus` | `string<binary>` | — |  |
+| `fileStandardWellness` | `string<binary>` | — |  |
+| `fileStandardSafety` | `string<binary>` | — |  |
+| `fileStandardTis18001` | `string<binary>` | — |  |
+| `fileStandardIso45001` | `string<binary>` | — |  |
+| `fileStandardIso14001` | `string<binary>` | — |  |
+| `fileStandardZero` | `string<binary>` | — |  |
+| `fileStandard5S` | `string<binary>` | — |  |
+| `fileStandardHas` | `string<binary>` | — |  |
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `400` — Response for status 400
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes | Standard = true but no file |
+
+- `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+
+---
+
 ## file
 
 ### `GET /twhp/api/file/presigned-url`
@@ -1998,6 +2004,7 @@ Get a 5-minute presigned URL for a stored file
 | `coverStatus` | query | — | `"finished" \| "in_progress" \| "in_review" \| "none"` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -2031,6 +2038,7 @@ Get a 5-minute presigned URL for a stored file
 | `enrolled` | query | — | `boolean` |  |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -2062,6 +2070,7 @@ Get a 5-minute presigned URL for a stored file
 | --- | --- | --- | --- | --- |
 | `page` | query | — | `string<numeric> \| number` |  |
 | `limit` | query | — | `string<numeric> \| number` |  |
+| `search` | query | — | `string` |  |
 | `fiscalYear` | query | — | `string<numeric> \| number` |  |
 
 **Responses**
@@ -2072,6 +2081,35 @@ Get a 5-minute presigned URL for a stored file
   | --- | --- | --- | --- |
   | `items` | `object[]` | yes |  |
   | `meta` | `object` | yes |  |
+
+- `404` — Response for status 404
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+
+---
+
+### `GET /twhp/api/provincialOfficers/covers/{coverId}/answers`
+
+
+ดูคำตอบในฝาประเมินของจังหวัด (read-only) — ต้องมีสถานะ in_review หรือ finished เท่านั้น ขณะ in_review ผลตัดสิน (verdict choice/description) และสถานะรายข้อจะถูกซ่อนเป็น null/in_review ใบรับรองมาตรฐานแสดงผลไม่ถูกซ่อนทั้งสองสถานะ
+
+**Parameters**
+
+| Name | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `coverId` | path | yes | `number` |  |
+
+**Responses**
+
+- `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `answers` | `object[]` | yes |  |
+  | `standards` | `object[]` | yes |  |
 
 - `404` — Response for status 404
 
@@ -2203,35 +2241,6 @@ Get a 5-minute presigned URL for a stored file
   | `province_name_th` | `string` | yes |  |
   | `district_name_th` | `string` | yes |  |
   | `subdistrict_name_th` | `string` | yes |  |
-
-- `404` — Response for status 404
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `message` | `string` | yes |  |
-
-
----
-
-### `GET /twhp/api/provincialOfficers/covers/{coverId}/answers`
-
-
-ดูคำตอบในฝาประเมินของจังหวัด (read-only) — ต้องมีสถานะ in_review หรือ finished เท่านั้น ขณะ in_review ผลตัดสิน (verdict choice/description) และสถานะรายข้อจะถูกซ่อนเป็น null/in_review ใบรับรองมาตรฐานแสดงผลไม่ถูกซ่อนทั้งสองสถานะ
-
-**Parameters**
-
-| Name | In | Required | Type | Description |
-| --- | --- | --- | --- | --- |
-| `coverId` | path | yes | `number` |  |
-
-**Responses**
-
-- `200` — Response for status 200
-
-  | Field | Type | Required | Description |
-  | --- | --- | --- | --- |
-  | `answers` | `object[]` | yes |  |
-  | `standards` | `object[]` | yes |  |
 
 - `404` — Response for status 404
 

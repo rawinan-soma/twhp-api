@@ -293,6 +293,18 @@ Each of these requests returns `200` with `items: []` and `meta.total` 0:
 
 The server does not look up these values and returns neither `403` nor `400` for them. A non-numeric value fails query validation and returns `400`, as [Validation status](#validation-status) describes.
 
+#### Factory name search
+
+Every paginated staff list accepts an optional `search` query parameter: `GET /twhp/api/{admins,evaluators,provincialOfficers}/{factories,enrolls,score}`.
+
+`search` narrows the list to rows whose factory's Thai or English name contains the term. The match ignores letter case and treats the term as one string, so `Motors Toyota` does not match `Toyota Motors`. `%`, `_`, and `\` in the term match only those characters.
+
+The server removes surrounding spaces before matching. An empty or whitespace-only value applies no filter. A term longer than 100 characters, measured before the spaces are removed, fails query validation and returns `400`, as [Validation status](#validation-status) describes.
+
+`search` combines with AND with every other filter and with the caller's region or province scope, so it never adds a row the list would not otherwise return. `meta.total` and `meta.totalPages` count only the matches, and each list keeps its existing order. Evaluator and Provincial Officer factory lists still exclude a factory that has never enrolled.
+
+Enrollment and Score Report rows show only the Thai name, but a row can match on either name.
+
 #### Data for filter dropdowns
 
 `GET /twhp/api/location/provinces` is public and returns a bare array of `{ name_th, province_id, health_region }` rows.

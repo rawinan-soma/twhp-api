@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { SignJWT } from "jose";
-import { accounts, evaluators } from "../drizzle/schema";
+import { accounts, evaluators, provincialOfficers } from "../drizzle/schema";
 import type { Role } from "../service/authentication";
 
 export type TestIdentity = { id: number; username: string; role: Role };
@@ -88,6 +88,45 @@ export const seedEvaluatorAccount = async (
     phoneNumber: "0000000000",
   });
   return { id: evaluator.id, username, role: "Evaluator" as Role };
+};
+
+export const seedAdminAccount = async (database: NodePgDatabase, admin: { id: number }) => {
+  const username = `test_auth_admin_${admin.id}`;
+  await database.insert(accounts).values({
+    id: admin.id,
+    username,
+    password: "hashed",
+    email: `${username}@test.com`,
+    role: "DOED",
+  });
+  return { id: admin.id, username, role: "DOED" as Role };
+};
+
+export const seedProvincialOfficerAccount = async (
+  database: NodePgDatabase,
+  officer: { id: number; provinceId: number },
+) => {
+  const username = `test_auth_officer_${officer.id}`;
+  await database.insert(accounts).values({
+    id: officer.id,
+    username,
+    password: "hashed",
+    email: `${username}@test.com`,
+    role: "Provincial",
+  });
+  await database.insert(provincialOfficers).values({
+    accountId: officer.id,
+    firstName: "ทดสอบ",
+    lastName: "ทดสอบ",
+    phoneNumber: "0000000000",
+    provinceId: officer.provinceId,
+  });
+  return { id: officer.id, username, role: "Provincial" as Role };
+};
+
+export const removeProvincialOfficerAccount = async (database: NodePgDatabase, id: number) => {
+  await database.delete(provincialOfficers).where(eq(provincialOfficers.accountId, id));
+  await removeAccount(database, id);
 };
 
 export const removeAccount = async (database: NodePgDatabase, id: number) => {

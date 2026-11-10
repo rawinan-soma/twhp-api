@@ -13,6 +13,7 @@ import {
 import type { CreateFactoryDto, UpdateFactoryDto } from "../schema/factory";
 import { buildPage, type PaginationQueryDto, resolvePage } from "../schema/pagination";
 import { utilities } from "../utils";
+import { factoryNameSearchPredicate } from "./factoryNameSearch";
 
 /** Shared projection for every factory list variant. The Admin variant prepends `username`. */
 const factoryListColumns = {
@@ -37,6 +38,7 @@ type FactoryListParams = {
   validated: boolean;
   enrolled?: boolean;
   fiscalYear?: number;
+  search?: string;
 } & PaginationQueryDto;
 
 /**
@@ -223,6 +225,7 @@ export const createFactoryService = (database: typeof db) => {
       enrolled = true,
       provinceId,
       fiscalYear,
+      search,
       page,
       limit,
     }: FactoryListParams & { provinceId: number }) => {
@@ -234,6 +237,7 @@ export const createFactoryService = (database: typeof db) => {
         eq(factories.isValidate, validated),
         eq(factories.provinceId, provinceId),
         enrollExists(database, enrolled, fiscalYear),
+        factoryNameSearchPredicate(search),
       );
 
       const [total, items] = await Promise.all([
@@ -264,6 +268,7 @@ export const createFactoryService = (database: typeof db) => {
       region,
       provinceId,
       fiscalYear,
+      search,
       page,
       limit,
     }: FactoryListParams & { region: number; provinceId?: number }) => {
@@ -274,6 +279,7 @@ export const createFactoryService = (database: typeof db) => {
         eq(provinces.healthRegion, region),
         provinceId === undefined ? undefined : eq(provinces.provinceId, provinceId),
         enrollExists(database, enrolled, fiscalYear),
+        factoryNameSearchPredicate(search),
       );
 
       const [total, items] = await Promise.all([
@@ -304,6 +310,7 @@ export const createFactoryService = (database: typeof db) => {
       region,
       provinceId,
       fiscalYear,
+      search,
       page,
       limit,
     }: FactoryListParams & { region?: number; provinceId?: number }) => {
@@ -317,6 +324,7 @@ export const createFactoryService = (database: typeof db) => {
         region === undefined ? undefined : eq(provinces.healthRegion, region),
         provinceId === undefined ? undefined : eq(provinces.provinceId, provinceId),
         enrolled ? enrollExists(database, true, fiscalYear) : undefined,
+        factoryNameSearchPredicate(search),
       );
 
       const [total, items] = await Promise.all([
