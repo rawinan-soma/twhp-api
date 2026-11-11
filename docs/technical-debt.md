@@ -1,6 +1,6 @@
 # Technical debt and maintainability register
 
-Audit date: 2026-07-15. Reviewed for currency on 2026-09-02; the deltas are marked **Update 2026-09-02** on the affected items and summarized under [Status of this register](#status-of-this-register). No item was closed.
+Audit date: 2026-07-15. Reviewed for currency on 2026-09-02 and 2026-11-11; the deltas are marked **Update 2026-09-02** or **Update 2026-11-11** on the affected items and summarized under [Status of this register](#status-of-this-register). No item was closed.
 Scope: synthesis of the architecture, database, API, domain, security, development/deployment, testing, and operations investigations, with targeted source spot-checks. This register describes repository evidence; it does not claim that an environment-dependent risk has occurred in production.
 
 ## Classification
@@ -22,6 +22,18 @@ Reviewed on 2026-09-02 against branch `dev`. The 2026-07-15 evidence still holds
 | TD-10 | Inventory refreshed: 18 files / 315 declared cases, 201 isolated tests passing, Biome down to 3 errors. The gate itself is unchanged and still absent. |
 | TD-13 | The README boilerplate item is closed; the rest stands. |
 | TD-15 | Cover latest-log duplication is closed by `src/service/coverStatus.ts` (ADR-0010). Answer latest-log duplication, standard mapping, queue-name duplication, and the index question stand. |
+
+Reviewed again on 2026-11-11 at `f194141` (`main`, `staging`, and `dev` identical). Five items moved, none closed:
+
+| Item | Movement |
+|---|---|
+| TD-03 | Narrowed. `deploy/production/` builds immutable `<short sha>` image tags from `origin/main`, checks schema fit, writes a verified `pg_dump`, and supports rollback. RustFS is digest-pinned. The `migrate-prod` no-op, the `:latest` Compose tag, floating Bun/Nginx images, and the out-of-band `seed_data/` stand. |
+| TD-08 | Invitation acceptance requires an 8-character password; every other credential route is unchanged. |
+| TD-10 | Inventory refreshed: 53 test files, 33 of them integration. An access-matrix test now covers every route's role guard. The gate itself is still absent. |
+| TD-12 | A verified `pg_dump` is written before each production release. Restore, readiness, and worker health stand. |
+| TD-14 | Line counts refreshed; `evaluator-review.ts` and `answer.ts` grew. |
+
+One observed defect that was never in this register was found and fixed: until 2026-11-09 (#41) `requireRoles` did not reach routes that mount a guard, so any valid session passed all four role guards. `src/middleware/guards.test.ts` now pins every route's access.
 
 Nothing here is safe to treat as fixed on the strength of a document date. Re-verify against source before acting on any item.
 
@@ -62,6 +74,7 @@ Nothing here is safe to treat as fixed on the strength of a document date. Re-ve
 - **Engineering impact:** A deployment cannot be reproduced or tied reliably to source/schema state. A green dependency gate does not prove schema compatibility.
 - **Operational / business impact:** Release, recovery, and rollback can fail during an incident or introduce irreversible data drift; the deployed version cannot be established from Compose alone.
 - **Remediation:** Define an owned, reviewable production schema/data promotion process with preflight drift validation, backup, import/migration, post-check, and rollback. Establish an authoritative protected source/packaging contract for `seed_data/`. Publish immutable application and base image tags/digests with provenance and a promotion/rollback runbook. Make the startup gate fail until the actual release step succeeds.
+- **Update 2026-11-11:** `deploy/production/Makefile` (added 2026-11-09) now builds a commit on `origin/main`, pushes `rawinan/twhp-elysia-api:<short sha>`, runs `fit-check.ts` (tables, columns, enum values, and `docker.env` against the new image, in a read-only session), writes a verified `pg_dump` to `~/twhp-backups`, recreates only `api` and `worker`, and supports `rollback TAG=previous`. The build copies the local `seed_data/` into the build context. Compose still names `:latest`, which the release re-points on the server; `migrate-prod` is still a no-op; schema changes reach production only as hand-run SQL (`deploy/production/invitations.sql`); and `fit-check` does not compare types, constraints, or indexes. The object store is now a digest-pinned RustFS image; Bun and Nginx images still float.
 - **Required before handover:** Yes
 - **Confidence:** High for repository absence; any external release process is Unknown
 
@@ -123,6 +136,7 @@ Nothing here is safe to treat as fixed on the strength of a document date. Re-ve
 - **Path / symbol:** `src/service/authentication.ts`; `src/schema/authentication.ts`; inline authentication/factory/admin credential schemas.
 - **Engineering impact:** Security policy is fragmented across DTOs and Redis/database flows, increasing bypass and regression risk.
 - **Operational / business impact:** Credential stuffing and account enumeration are easier; password recovery may not eject an attacker with a refresh token; failed OTP delivery can leave a throttled live challenge.
+- **Update 2026-11-11:** `POST /authentication/accept-invitation` requires a password of at least 8 characters and is refused uniformly with `400 invalid token`. Every other credential route keeps the behavior above.
 - **Remediation:** Reject blank/weak passwords through one bounded policy, add trusted account-plus-network throttling, make reset responses uniform if enumeration matters, revoke/rotate sessions according to an explicit multi-device and first-login policy, and make OTP challenge issuance/verification atomic or enforce the active challenge ID. Test all credential-change routes and the pre-OTP first-login refresh lifecycle.
 - **Required before handover:** Yes
 - **Confidence:** High
@@ -131,7 +145,7 @@ Nothing here is safe to treat as fixed on the strength of a document date. Re-ve
 
 - **Severity:** High
 - **Category:** Potential risk
-- **Evidence:** Compose hard-codes `minioadmin` root credentials. PostgreSQL and unauthenticated/non-TLS Redis are host-published by production-inclusive profiles. In `nginx.conf.template`, the API-key `map` accepts the substituted `NGINX_API_KEY`; if that value renders empty, a request with no header can match it and pass the gate, and Compose does not validate non-empty substitution. The application/repository Nginx has no CORS policy, CSRF origin/token check, general browser security headers, or trusted-proxy definition. A fixed weak DOED seed credential is used by development and staging seed flow. Actual firewall, outer proxy/TLS, secret store, and credential reuse are not present in the repository.
+- **Evidence:** Compose hard-codes `minioadmin` root credentials (as `RUSTFS_ACCESS_KEY`/`RUSTFS_SECRET_KEY` since the 2026-11-09 move to RustFS). PostgreSQL and unauthenticated/non-TLS Redis are host-published by production-inclusive profiles. In `nginx.conf.template`, the API-key `map` accepts the substituted `NGINX_API_KEY`; if that value renders empty, a request with no header can match it and pass the gate, and Compose does not validate non-empty substitution. The application/repository Nginx has no CORS policy, CSRF origin/token check, general browser security headers, or trusted-proxy definition. A fixed weak DOED seed credential is used by development and staging seed flow. Actual firewall, outer proxy/TLS, secret store, and credential reuse are not present in the repository.
 - **Path / symbol:** `docker-compose.yaml`; `src/drizzle/seed.ts`; `src/index.ts`; `nginx/nginx.conf`; `nginx/nginx.conf.template`.
 - **Engineering impact:** Secure behavior cannot be inferred from checked-in deployment configuration, and environment promotion can accidentally retain development defaults.
 - **Operational / business impact:** An empty production/staging API key can make the shared proxy gate fail open. If externally reachable or reused, defaults and exposed stateful services can enable data/queue/storage compromise; browser mutations may rely only on cookie SameSite behavior.
@@ -145,6 +159,7 @@ Nothing here is safe to treat as fixed on the strength of a document date. Re-ve
 - **Category:** Confirmed debt
 - **Evidence (2026-07-15; superseded counts — see the 2026-09-02 update below):** The repository had 12 Bun test files with 167 `it(...)` declarations, but `bun run test` intentionally exits 1. Five isolated files passed separately (86 tests, 0 failures); the 81 PostgreSQL integration tests were not run because the global preload falls back to the ordinary local `twhp` development database and tests perform real inserts/deletes. There is no `TEST_DATABASE_URL`, test-only database guard, per-run schema/database, migration/seed bootstrap, or rollback harness. The current read-only Biome invocation checked 77 files and failed with 8 errors and 30 warnings. Package format/lint/check scripts mutate files, no direct pinned TypeScript binary/typecheck script exists, and no CI or coverage gate is checked in. High-risk gaps include refresh/RBAC middleware, password reset/revocation, object authorization, fiscal boundaries, write concurrency/idempotency, cross-store recovery, and worker delivery.
 - **Update 2026-09-02:** the inventory grew to 18 files and 315 declared cases; the 8 isolated files now run in one process (201 pass, 0 fail) and the read-only Biome check is down to 3 errors / 32 warnings / 3 infos across 86 files. The new coverage is real — the pagination contract, route composition, and cover-status resolution are all tested — but every structural finding below is unchanged: `bun run test` still exits 1, there is still no `TEST_DATABASE_URL` or test-only guard, no ephemeral database, no pinned TypeScript, and no CI.
+- **Update 2026-11-11:** the inventory is 53 test files, 33 of them PostgreSQL integration files; see [Testing](testing.md) for the current isolated list and results. `src/middleware/guards.test.ts` now checks every autoloaded route against an access table. The structural findings are unchanged: `bun run test` exits 1, there is no test-only database guard, no pinned TypeScript, and no CI.
 - **Path / symbol:** `package.json` scripts; `bunfig.toml`; `src/test/setup.ts`; test files under `src/`; repository workflow inventory.
 - **Engineering impact:** Contributors and automation cannot invoke one canonical, hermetic verification pipeline. A careless bare integration run can mutate a developer database, shared fixture IDs/order make parallelism risky, overlapping Bun module mocks require separate processes, and the current static-analysis baseline is red.
 - **Operational / business impact:** Releases may ship with session, authorization, assessment integrity, or deployment regressions without a failed gate.
@@ -157,7 +172,8 @@ Nothing here is safe to treat as fixed on the strength of a document date. Re-ve
 - **Severity:** High
 - **Category:** Confirmed debt
 - **Evidence:** Finalize commits database changes, then enqueues email outside the transaction; enqueue failure is caught and finalization still returns success. Authentication writes challenge/throttle state before queue publication. Evaluator result jobs lack the retry/retention policy used by OTP/reset jobs and have no deterministic job ID. Required `SMTP_STARTTLS` and `SMTP_SECURE` values are ignored by `nodemailer.createTransport`.
-- **Path / symbol:** `src/service/evaluator-review.ts#finalize`; `src/service/authentication.ts#createChallenge`; `src/queue/email.ts`; `src/worker/email.ts` transporter and job switch.
+- **Update 2026-11-11:** the `invitation` job (added 2026-11-10) uses the OTP/reset retry and retention policy; evaluator result jobs still have none. An Invitation's token is written before its job is queued, so a failed enqueue leaves a pending Invitation without a delivered link, which the Admin can resend.
+- **Path / symbol:** `src/service/evaluator-review.ts#finalize`; `src/service/authentication.ts#createChallenge`; `src/service/invitation.ts#issueLink`; `src/queue/email.ts`; `src/worker/email.ts` transporter and job switch.
 - **Engineering impact:** Database/Redis state and notification intent diverge, retries can duplicate mail, and two validated security controls have no runtime effect.
 - **Operational / business impact:** Factories may never learn that a result or revision is ready; operators cannot distinguish delayed, failed, or duplicate notifications; SMTP may not use the intended TLS mode.
 - **Remediation:** Use a transactional/durable outbox or persisted notification intent, deterministic job IDs, explicit retry/backoff/retention/dead-letter policy, and delivery-status visibility. Wire and test TLS flags or remove them and document provider-enforced TLS.
@@ -173,6 +189,7 @@ Nothing here is safe to treat as fixed on the strength of a document date. Re-ve
 - **Engineering impact:** Failure modes cannot be detected or correlated consistently; health can be falsely green or falsely red after configuration changes, and process termination may abandon in-flight work/connections. Operators lack a safe, repeatable way to distinguish or repair database, queue, and object-store partial failure.
 - **Operational / business impact:** Orchestrators can route traffic to a dependency-broken process; queue failures/data loss may remain silent; recovery time and data loss bounds are undefined.
 - **Remediation:** Separate liveness and readiness, parameterize or explicitly fix healthcheck invariants, and add worker/queue health, structured BullMQ events, redacted correlation IDs, metrics/alerts, and graceful drain/close hooks. Define log retention/redaction, on-call ownership, RPO/RTO, and backup/restore/rollback/replay procedures; exercise them against PostgreSQL, Redis/BullMQ, and MinIO without replaying non-idempotent operations blindly.
+- **Update 2026-11-11:** `deploy/production/backup.sh` writes and verifies a `pg_dump` before each release and never prunes it. No restore has been tested, and readiness, worker health, and the other gaps above stand.
 - **Required before handover:** Yes — owners and minimum runbooks must be named
 - **Confidence:** High for repository/configuration behavior and missing checked-in capabilities; current deployed monitoring, backups, and external runbooks are Unknown
 
@@ -193,7 +210,7 @@ Nothing here is safe to treat as fixed on the strength of a document date. Re-ve
 
 - **Severity:** Medium
 - **Category:** Confirmed debt
-- **Evidence:** Service factories inject a database but close over production Redis, BullMQ, MinIO, environment, clock, utilities, or other singleton services. Services return Elysia transport status objects. Import-time singletons open/construct infrastructure transitively. `utilities()` combines fiscal clock, Redis construction, upload/delete, and presigning. Large modules mix many responsibilities: `answer.ts` ~1,040 lines, `authentication.ts` ~631, `enroll.ts` ~555, `evaluator-review.ts` ~736 (grew with the 2026-09-03 three-way reviewer-scope refactor and provincial cover-review redaction), and the email worker ~243.
+- **Evidence:** Service factories inject a database but close over production Redis, BullMQ, MinIO, environment, clock, utilities, or other singleton services. Services return Elysia transport status objects. Import-time singletons open/construct infrastructure transitively. `utilities()` combines fiscal clock, Redis construction, upload/delete, and presigning. Large modules mix many responsibilities (line counts as of 2026-11-11): `answer.ts` ~1,070 lines, `authentication.ts` ~630, `enroll.ts` ~590, `evaluator-review.ts` ~865 (grew with the 2026-09-03 three-way reviewer-scope refactor, provincial cover-review redaction, the stored Grade, and the evaluation period), and the email worker ~310.
 - **Path / symbol:** service modules under `src/service/`; `src/utils.ts`; `src/queue/email.ts`; `src/worker/email.ts`; singleton exports at module bottoms.
 - **Engineering impact:** Unit isolation requires global mocking or live infrastructure; changing workflow, storage, or authentication touches large coupled modules. Importing narrow code can trigger unrelated config/connection requirements.
 - **Operational / business impact:** Slower, riskier changes and lower testability increase lead time for fixes in assessment and authentication workflows.
@@ -257,12 +274,12 @@ The receiving team should not infer answers to these from source:
 1. **Refresh validity:** ADR/API prose says a valid, expiring refresh token is required; source requires only exact hash equality. Decide absolute/sliding semantics before fixing TD-01.
 2. **Finalizer race:** CONTEXT/ADRs claim a single finalizer removes races or that a second call is guarded; source has no cover-state/locking/idempotency guard. Choose repeat-call and concurrency semantics.
 3. **Review/edit state:** CONTEXT restricts evaluator/factory activity by cover phase; services use partial answer-state checks. Approve one transition matrix.
-4. **Accepted choice and score:** CONTEXT/ADR-0004 says factory choice remains immutable and score uses accepted choice; negotiation source overwrites `selectedChoice`, and score reads it. Choose the audit model.
+4. **Accepted choice and score:** settled by ADR-0012: finalize overwrites `selectedChoice` with the settled Verdict Score, and score reads it. The open decision is only whether to preserve the factory's original claim for audit, which needs a schema change.
 5. **Standards/N/A/grade:** source, seed metadata, and domain prose disagree on accepted standard score, N/A eligibility. (The Gold `special` set is settled — ADR-0014.) Product decision and boundary tests are required.
-6. **Evidence deletion:** ADR-0006/source delete evidence for every rejected answer at finalize; older CONTEXT/ADR-0005 prose says hard rejects only. Treat ADR-0006 as authority or reverse the code, then update all stale material.
+6. **Evidence deletion:** settled by ADR-0012, which supersedes ADR-0006: finalize deletes evidence only for hard rejects, plus the named standard certificates on a standard-backed question. Prose written between 2026-07-07 and 2026-08-25 may still describe the ADR-0006 behavior.
 7. **Cardinality:** domain language treats one enrollment/year, cover/enrollment, and answer/cover/question as guarantees; the database does not. Confirm keys and cleanup before constraints.
 8. **Assignment and scope:** enrollment stores named evaluator IDs, while review authorization uses any same-region/level actor. Decide whether assignment is authorization, routing, or audit-only.
-9. **Production migration:** comments name a production migration/import phase; Compose only echoes and succeeds. Identify the external process or replace the no-op.
+9. **Production migration:** comments name a production migration/import phase; Compose only echoes and succeeds, and the one checked-in production schema change is hand-run SQL (`deploy/production/invitations.sql`). Identify the external process or replace the no-op.
 10. **Contract status:** OpenAPI/tests/runtime disagree on 200/201 and 400/422; middleware error bodies also differ. Pick one public contract.
 11. **Presign lifetime:** route text says five minutes, implementation says five seconds. Choose based on UX only after resource authorization is fixed.
 12. **SMTP security:** TLS flags are mandatory configuration but unused. Wire them or remove the misleading contract.

@@ -1,11 +1,11 @@
 # Architecture
 
-This backend serves the Total Worker Health Promotion (TWHP) system, verified on 2026-09-02 on branch `dev`. It is a Bun/TypeScript application with two executable processes:
+This backend serves the Total Worker Health Promotion (TWHP) system, verified on 2026-09-02 on branch `dev` and re-checked on 2026-11-11 at `f194141` (the head of `main`, `staging`, and `dev`). It is a Bun/TypeScript application with two executable processes:
 
 - an Elysia HTTP API for authentication, enrollment, factory assessments, scoring, review, administration, locations, and file access;
 - a BullMQ worker for transactional and scheduled email.
 
-PostgreSQL is the durable system of record. Redis holds queue data and temporary authentication state. MinIO stores uploaded evidence and certificate files; PostgreSQL stores their filenames.
+PostgreSQL is the durable system of record. Redis holds queue data and temporary authentication state. An S3-compatible object store holds uploaded evidence and certificate files; PostgreSQL stores their filenames. Since 2026-11-09 Compose runs RustFS for that store. The Compose service is still named `minio`, the code still uses the `minio` npm client, and the configuration keys keep their `MINIO_*` names (see [MinIO to RustFS migration](minio-to-rustfs-migration.md)). "MinIO" below means that store.
 
 For code navigation, see [Project structure](project-structure.md). For behavior and data details, see [Domain model](domain-model.md), [Business rules](business-rules.md), [Database](database.md), and [Authentication and authorization](authentication-authorization.md).
 
@@ -17,7 +17,7 @@ flowchart LR
     Nginx --> API[Elysia API<br/>src/index.ts]
     API --> PG[(PostgreSQL)]
     API --> Redis[(Redis)]
-    API --> MinIO[(MinIO)]
+    API --> MinIO[(Object storage<br/>RustFS, service minio)]
     API --> Queue[BullMQ email queue]
     Queue --> Worker[Email worker<br/>src/workers.ts]
     Worker --> SMTP[SMTP provider]
@@ -32,7 +32,7 @@ flowchart LR
 | Persistence | Drizzle ORM with PostgreSQL | `src/drizzle/index.ts`, `src/drizzle/schema.ts` |
 | Authentication | Cookie JWT, refresh rotation, staff email OTP | `src/middleware/jwt.ts`, `src/service/authentication.ts` |
 | Authorization | Role-specific Elysia guards | `src/middleware/rbac.ts`, `src/middleware/guards.ts` |
-| Object storage | MinIO | `src/utils.ts` |
+| Object storage | S3-compatible store (RustFS in Compose) through the `minio` client | `src/utils.ts`, `docker-compose.yaml` |
 | Jobs and temporary state | BullMQ and Redis | `src/queue/email.ts`, `src/workers.ts` |
 | Email | Nodemailer in a separate worker | `src/worker/email.ts` |
 | Logging | `@bogeychan/elysia-logger`; console logging remains in worker/utilities | `src/index.ts`, `src/worker/email.ts` |
@@ -62,12 +62,13 @@ The release image deliberately runs the API from TypeScript source. `elysia-auto
 `src/workers.ts` is the worker composition root used by `bun run worker`. Importing `src/worker/email.ts` creates the BullMQ worker as a module side effect. The process consumes these `email` queue job names:
 
 - `password-reset-request`
+- `invitation`
 - `factory-validation-reminder`
 - `2fa-otp`
 - `verdict-result-finished`
 - `verdict-result-in-progress`
 
-The bootstrap also registers `factory-validation-reminder` with cron pattern `30 8 * * *`. The pattern has no explicit timezone. Its intended 08:30 Bangkok execution relies on the worker process environment; Compose sets `TZ=Asia/Bangkok`. Any non-Compose launch must preserve that invariant.
+The bootstrap also installs `factory-validation-reminder` through `upsertJobScheduler` with pattern `30 8 * * 1-5` and `tz: "Asia/Bangkok"`, both declared in `src/queue/schedule.ts`. The reminder runs at 08:30 Bangkok time on weekdays only, and the timezone no longer depends on the worker process environment. Before installing the scheduler, the bootstrap removes any legacy repeatable entry of the same name, because an older daily entry would otherwise keep firing on weekends.
 
 Worker replica count, repeat-job ownership, job replay, delivery monitoring, and dead-letter procedures are **Unknown / Requires Organizational Knowledge**.
 
@@ -93,10 +94,11 @@ export const xxxService = createXxxService(db);
 This is a useful database seam, but it is **not full dependency injection**. Do not assume `createXxxService(testDb)` isolates the complete module:
 
 - `createAuthenticationUsecase(database)` still uses global `redisConnector`, `emailQueue`, and `env`.
-- `createEvaluatorReviewService(database)` still uses global `emailQueue`, MinIO utilities, and the production `evaluatorService` singleton when resolving evaluators.
+- `createEvaluatorReviewService(database)` still uses global `emailQueue`, MinIO utilities, and the production `evaluatorService` and `provincialOfficerService` singletons when resolving reviewers.
+- `createInvitationService(database)` still uses the global `emailQueue` to send Invitation links.
 - answer, enrollment, and file services use process-global MinIO helpers; cover, factory, and score use the fiscal-year helper exported by the same overloaded global utilities module.
 
-Services also return Elysia `status(...)` objects, and routes detect `ElysiaCustomStatusResponse`. The business layer is therefore coupled to the HTTP framework. `src/service/scoreHelpers.ts` and `src/service/answerFileRules.ts` are the notable pure modules: scoring/grade computation and per-choice evidence rules, with no Elysia or infrastructure imports. `src/schema/pagination.ts` and `src/service/coverStatus.ts` are similarly narrow shared contracts.
+Services also return Elysia `status(...)` objects, and routes detect `ElysiaCustomStatusResponse`. The business layer is therefore coupled to the HTTP framework. `src/service/scoreHelpers.ts` and `src/service/answerFileRules.ts` are the notable pure modules: scoring/grade computation and per-choice evidence rules, with no Elysia or infrastructure imports. `src/schema/pagination.ts` and `src/service/coverStatus.ts` are similarly narrow shared contracts, as are `src/service/awardHistory.ts` (the one reader of `Awards` for "held gold in fiscal year Y", ADR-0014) and `src/service/factoryNameSearch.ts` (the one Factory Name Search predicate, used by the nine staff lists).
 
 For known maintainability consequences, see [Technical debt](technical-debt.md).
 
@@ -124,6 +126,8 @@ The precomposed guards in `src/middleware/guards.ts` are:
 | `evalGuard` | `Evaluator` |
 | `officerGuard` | `Provincial` |
 
+Each guard is lifted with `.as("scoped")`, and `requireRoles` derives with `as: "scoped"`, so the role check applies to the route that mounts the guard and not to its siblings. Both are required. Before 2026-11-09 (#41) the role check did not reach guarded routes, so any valid session passed all four guards. `src/middleware/guards.test.ts` now sends every autoloaded route an anonymous request and one request per role, and checks each result against an access table. A route with no entry in that table fails the test.
+
 See [API conventions](api-conventions.md) for route and response conventions and [Authentication and authorization](authentication-authorization.md) for token, OTP, and role behavior.
 
 ## State and consistency boundaries
@@ -142,7 +146,7 @@ Cover status resolution was consolidated into `src/service/coverStatus.ts` durin
 
 Answer state resolution is **not** consolidated. Changes to answer log ordering or defaults must still be checked across `answer.ts`, `score.ts`, and `evaluator-review.ts`. Per-choice evidence requirements live in `src/service/answerFileRules.ts`.
 
-Scores are derived on demand. The Grade is stored in `Awards` at finalize and never recomputed. See [Business rules](business-rules.md) and ADR [0001](adr/0001-score-calculated-on-demand.md).
+Scores are derived on demand. The Grade is stored in `Awards` at finalize and never recomputed. A DOED approval of a Factory can also write `Awards` rows for Prior Awards, in the same transaction as the approval. See [Business rules](business-rules.md) and ADR [0001](adr/0001-score-calculated-on-demand.md).
 
 ### PostgreSQL and MinIO
 
@@ -161,6 +165,7 @@ Queue publication is not transactional with PostgreSQL or Redis state:
 
 - evaluator finalization commits before it publishes a result email, and enqueue failure is logged without rolling back finalization;
 - OTP challenge keys are written before the email job is published, so challenge state can exist without successful delivery.
+- an Invitation's token hash and expiry are written before its email job is published, so a pending Invitation can exist with no delivered link. The Admin can resend it.
 
 There is no transactional outbox in the current source.
 
@@ -184,7 +189,7 @@ Importing a route or service can therefore create network clients transitively. 
 
 ## Configuration
 
-Configuration is mostly centralized in `src/config.ts`. Importing it eagerly parses required numbers/booleans and fails startup on missing or malformed values. It covers database, API, JWT/cookies, Redis, SMTP, frontend, OTP, development bypass, and MinIO settings.
+Configuration is mostly centralized in `src/config.ts`. Importing it eagerly parses required numbers/booleans and fails startup on missing or malformed values. It covers database, API, JWT/cookies, Redis, SMTP, frontend, OTP, development bypass, MinIO settings, and the optional `EVALUATION_PERIOD_END` override.
 
 Exceptions are tooling entry points:
 
@@ -213,11 +218,11 @@ There is no general application build script. `Dockerfile` is the release packag
 - the API source, dependencies, Drizzle config, and seed inputs are copied into the runtime image;
 - the default image command runs `bun src/index.ts`.
 
-`docker-compose.yaml` supplies development, staging, and production profiles with API, worker, PostgreSQL 17, Redis 7, MinIO, and Nginx services.
+`docker-compose.yaml` supplies development, staging, and production profiles with API, worker, PostgreSQL 17, Redis 7, object storage, and Nginx services. The object-storage service is named `minio` but runs a digest-pinned `rustfs/rustfs` image.
 
-The `migrate-prod` service is intentionally a **no-op**. It prints a warning that production data/schema changes are imported manually. The owner, procedure, validation, rollback, and recovery steps for that process are **Unknown / Requires Organizational Knowledge** and must be established before production changes.
+The `migrate-prod` service is intentionally a **no-op**. It prints a warning that production data/schema changes are imported manually. The one checked-in production schema script is `deploy/production/invitations.sql`, which creates `Invitations` (ADR-0015). Beyond that, the owner, procedure, validation, rollback, and recovery steps for production schema/data changes are **Unknown / Requires Organizational Knowledge** and must be established before production changes.
 
-Production uses floating application image tags in this repository. Image publication, deployment, replica counts, rollback, backups, and disaster recovery are also **Unknown / Requires Organizational Knowledge**. See [Deployment](deployment.md).
+Since 2026-11-09 the repository has a production release path, `deploy/production/Makefile`. It builds a commit on `origin/main` for `linux/amd64`, pushes it as `rawinan/twhp-elysia-api:<short sha>`, checks the image against the live database and `docker.env` (`fit-check.ts`, read-only), writes a verified `pg_dump` (`backup.sh`), and then recreates only `api` and `worker`. Compose still names the floating `:latest` tag, and the release re-points `:latest` on the server to the chosen image. `rollback TAG=previous` restores the image that ran before. No target runs `db:push`, `db:seed`, or a Compose `down`, so schema changes still need a separately reviewed migration. Replica counts, restore testing, and disaster recovery remain **Unknown / Requires Organizational Knowledge**. See [Deployment](deployment.md).
 
 ## Architectural invariants
 
@@ -230,12 +235,15 @@ Before changing cross-cutting behavior, preserve or explicitly revise these inva
 5. Standard enum keys, enrollment columns, service mappings, DTOs, and seed data must remain aligned.
 6. File I/O stays outside database transactions and therefore requires failure compensation.
 7. API and Nginx request-body limits both currently allow 130 MB.
-8. The daily worker schedule requires Bangkok process timezone.
+8. The weekday validation reminder declares `Asia/Bangkok` in its job scheduler (`src/queue/schedule.ts`); it must not go back to relying on the process timezone.
 9. Service factories inject a database, not every external dependency.
 10. Cover status is resolved only through `src/service/coverStatus.ts`; a second `coverLogs` subquery is a review failure (ADR-0010).
 11. The `{ items, meta }` pagination envelope is scoped to the nine staff list endpoints. Bounded collections stay bare arrays (ADR-0007), and every paginated query must impose a total order or OFFSET has no defined meaning (ADR-0009).
 12. An evaluator's `change_score` is terminal and preserves evidence; only a hard reject (`status = 'rejected'` **and** `verdict_choice IS NULL`) deletes files and returns the Cover to the factory (ADR-0012).
+13. A Provincial Officer reads Covers through the same `evaluatorReviewService.getAnswers` as the Evaluator and DOED reads; no write route exists under `provincialOfficers/**` except the seeded first-login `PATCH /provincialOfficers/password` (ADR-0013).
+14. `src/service/awardHistory.ts` is the only reader of `Awards` for "held gold in fiscal year Y"; grading and the enrolment lockout both use it (ADR-0014).
+15. An Invitation is its own `Invitations` row. No `Accounts` or profile row exists until acceptance, so no query over accounts needs a "pending" filter (ADR-0015).
 
 ## Evidence status
 
-Architecture, bootstrap, imports, scripts, and container definitions above are verified from current source and configuration on 2026-09-02. `Dockerfile`, `docker-compose.yaml`, `nginx/`, `src/config.ts`, and `src/middleware/` are unchanged since the 2026-07-15 audit, so the deployment- and configuration-shaped statements here carry that earlier verification forward. Failure outcomes described across separate systems are reasoned from operation ordering and should be fault-injection tested before remediation. Deployed runtime versions and all organization-owned operational procedures are explicitly unknown.
+Architecture, bootstrap, imports, scripts, and container definitions above were verified from source and configuration on 2026-09-02 and re-checked on 2026-11-11. Since the 2026-07-15 audit, `docker-compose.yaml` changed (RustFS, 2026-11-09), `src/config.ts` changed (`EVALUATION_PERIOD_END`, 2026-11-06), and `src/middleware/` changed (scoped role guards, 2026-11-09). The statements above about those files reflect the 2026-11-11 check. `Dockerfile` and `nginx/` are unchanged since 2026-07-15, so statements about them carry that earlier verification forward. Failure outcomes described across separate systems are reasoned from operation ordering and should be fault-injection tested before remediation. Deployed runtime versions and all organization-owned operational procedures are explicitly unknown.

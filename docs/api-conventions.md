@@ -1,6 +1,6 @@
 # API conventions and integration behavior
 
-This document describes the current HTTP contract and integration behavior of the TWHP API, verified on 2026-08-25 and re-checked on 2026-09-02. It is a conventions guide, not a complete route reference. For endpoint-specific fields, see the [generated API reference](api/API.md) or [OpenAPI snapshot](api/openapi.json); when generated artifacts differ from route/service code, the code is authoritative.
+This document describes the current HTTP contract and integration behavior of the TWHP API, verified on 2026-08-25 and re-checked on 2026-09-02 and 2026-11-11. It is a conventions guide, not a complete route reference. For endpoint-specific fields, see the [generated API reference](api/API.md) or [OpenAPI snapshot](api/openapi.json); when generated artifacts differ from route/service code, the code is authoritative.
 
 Known defects and contract drift are called out explicitly so clients do not mistake current behavior for the intended long-term design.
 
@@ -32,6 +32,7 @@ Paths in this section omit the common `/twhp/api` prefix.
 | `POST /authentication/login/resend-otp` | Public |
 | `POST /authentication/reset-password-request` | Public |
 | `POST /authentication/reset-password` | Public |
+| `POST /authentication/accept-invitation` | Public |
 | Other `/factories/**` routes | `Factory` role |
 | `/admins/**` | `DOED` role |
 | `/evaluators/**` | `Evaluator` role |
@@ -39,7 +40,7 @@ Paths in this section omit the common `/twhp/api` prefix.
 | `GET /authentication`, `POST /authentication/logout` | Any authenticated role |
 | `GET /file/presigned-url` | Any authenticated role; see the authorization defect below |
 
-Role guards are composed in [`src/middleware/guards.ts`](../src/middleware/guards.ts). Protected routes do not use Bearer authentication.
+Role guards are composed in [`src/middleware/guards.ts`](../src/middleware/guards.ts). A route that mounts a guard rejects every other authenticated role with 403, and `src/middleware/guards.test.ts` checks this for every autoloaded route. Protected routes do not use Bearer authentication.
 
 ### Cookie authentication
 
@@ -86,9 +87,9 @@ Submit a six-digit OTP to `/authentication/login/verify-otp`. OTP challenges are
 - 60-second resend throttle;
 - ten failures per account within a 15-minute failure window.
 
-OTP and password-reset email jobs request three attempts with five-second fixed backoff.
+OTP, password-reset, and Invitation email jobs request three attempts with five-second fixed backoff.
 
-Factory accounts bypass OTP. DOED accounts are mapped to the OTP-required state. Evaluator and Provincial accounts bypass OTP until their first-password flag has been changed, then require OTP.
+Factory accounts bypass OTP. DOED accounts are mapped to the OTP-required state. Seeded Evaluator and Provincial accounts bypass OTP until their first-password flag has been changed, then require OTP. An account created by accepting an Invitation has the flag set already, so it requires OTP from its first login ([ADR-0015](adr/0015-invitations-are-separate-from-accounts.md)).
 
 Development may bypass staff OTP with the `x-dev-bypass` header only when `DEV_SKIP_OTP=true`, `COOKIE_SECURE=false`, and the header matches `DEV_BYPASS_SECRET`. This control is hard-blocked when secure cookies are enabled. See [ADR-0002](adr/0002-email-otp-2fa-for-staff.md) for the staff OTP design.
 
@@ -103,6 +104,8 @@ JSON is the default request format. The following file-bearing operations requir
 - `POST /factories/assessments/answers`
 - `PATCH /factories/assessments/answers`
 - `POST /factories/assessments/answers/negotiate`
+
+`PATCH /admins/factories/validate/{id}` is the reverse case: it reads only JSON or an empty body. Malformed JSON, a JSON value that is not an object, and any non-JSON body, multipart included, return 400 and leave the Factory pending, so a Prior Award can never be silently dropped. See [frontend handoff](frontend-handoff.md), section 8.
 
 Each uploaded file must be a PDF no larger than 10 MiB. Enrollment bodies support up to eleven standard-certificate files; answer bodies support up to nine evidence files. The Elysia server and Nginx API location allow a total body size of 130 MiB, but the per-file TypeBox limits still apply.
 
@@ -121,6 +124,12 @@ Responses do not have one global casing convention:
 - authentication mixes styles such as `full_name`, `change_pw`, and `eval_level`.
 
 Clients must follow each endpoint schema and must not apply a global case conversion.
+
+### Partial profile updates
+
+`PATCH /factories`, `PATCH /admins/factories/{id}`, and `PATCH /admins` accept any subset of their fields. The service writes only the fields the request supplies, and it writes the `Accounts` row and the profile row in one transaction, so a refused request changes nothing. A body with no fields returns 200 and changes nothing.
+
+On the two Factory routes, an empty `password` counts as absent and keeps the current password. A supplied `subdistrictId` also sets the province and district. An unknown `subdistrictId`, including `0`, returns 400 `invalid subdistrict id`. On `PATCH /admins`, a password needs at least 12 characters.
 
 ### Parameters, filtering, and ordering
 
@@ -328,7 +337,7 @@ The global error handler maps validation, body parse, and invalid-file-type fail
 
 The optional fields depend on whether the framework error message can be parsed. Some route-level tests mount routes without the global handler and therefore observe Elysia's default 422; deployed root-app behavior is 400.
 
-Input strength is not uniform. For example, admin password updates require 12 characters, while registration, factory update, password reset, and first-password routes use unconstrained `t.String()` and accept an empty password. Enrollment creation accepts an unformatted optional safety-officer email, while enrollment update validates email format. Consumers should not infer validation rules from a related endpoint.
+Input strength is not uniform. For example, admin password updates require 12 characters and Invitation acceptance requires 8, while registration, password reset, and first-password routes use unconstrained `t.String()` and accept an empty password. Factory update also uses `t.String()`, but treats an empty password as absent. Enrollment creation accepts an unformatted optional safety-officer email, while enrollment update validates email format. Consumers should not infer validation rules from a related endpoint.
 
 ## Responses and errors
 
@@ -396,22 +405,22 @@ Evaluators read `/evaluators/covers/{coverId}/answers`. Answers are category-fil
 
 `POST .../answers/{answerId}/verdict` appends a verdict log with one of:
 
-- `approve`
-- `change_score`
-- `reject`
+- `approve`, which writes `recommended`;
+- `change_score`, which writes `recommended` with a `verdictChoice` and `description`. It is terminal: the factory cannot accept or redo it;
+- `reject`, a hard reject, which writes `rejected` with a null `verdictChoice`.
 
 Only ODPC, or a DOED admin acting as national ODPC, may finalize a cover. Finalize:
 
 1. rejects the request if any answer remains `in_review`;
-2. promotes `recommended` answers to `finished`;
-3. deletes and nulls evidence for rejected results;
-4. writes a cover-status transition;
+2. promotes every answer that is not a hard reject and not already `finished` to `finished`, and writes each settled `verdictChoice` into `answers.selectedChoice`;
+3. for hard rejects only, deletes and nulls evidence, deletes and un-claims the standard certificates the question names, and returns answers scored from those certificates to `in_review`;
+4. writes a cover-status transition: `in_progress` when a hard reject exists, otherwise `finished`;
 5. calculates the grade and stores it in `Awards` in the same transaction as the `finished` log;
-6. attempts to enqueue a factory result email.
+6. attempts to enqueue a result email to the factory account email, with the safety officer in cc.
 
-See [ADR-0003](adr/0003-hierarchical-odpc-gated-cover-review.md), [ADR-0004](adr/0004-verdict-score-consensus-loop.md), [ADR-0005](adr/0005-per-answer-verdict-save.md), and [ADR-0006](adr/0006-delete-files-on-change-score.md).
+During the evaluation period, a hard reject is refused with 400 on verdict save and on finalize. See [ADR-0003](adr/0003-hierarchical-odpc-gated-cover-review.md), [ADR-0005](adr/0005-per-answer-verdict-save.md), and [ADR-0012](adr/0012-score-changes-are-terminal.md), which supersedes ADR-0006 and part of ADR-0004.
 
-Finalize is currently non-idempotent. Repeating an already successful request can insert another cover transition and enqueue another email because the service does not gate on the latest cover status or use an idempotency key. Do not retry finalize blindly after an ambiguous client/network failure; verify the latest cover state first.
+Finalize is currently non-idempotent. Already `finished` answers are skipped and the stored grade is kept, but repeating an already successful request still inserts another cover transition and enqueues another email, because the service does not gate on the latest cover status or use an idempotency key. Do not retry finalize blindly after an ambiguous client/network failure; verify the latest cover state first.
 
 ## File storage and authorization
 
@@ -427,12 +436,11 @@ The response is `{ "url": "..." }`. [`utilities().getPresignedUrl`](../src/utils
 
 ### Confirmed authorization defects
 
-Two confirmed defects affect resource isolation:
+One confirmed defect affects resource isolation: `/file/presigned-url` authorizes only that the caller has some valid session. It does not verify ownership, role, region, enrollment, cover, answer, or evaluator category before signing a non-empty filename. UUID filenames reduce guessing but do not provide authorization because legitimate names are exposed by API responses.
 
-1. Evaluator enrollment and factory detail routes fetch arbitrary IDs without applying the evaluator's region. An authenticated evaluator can request known out-of-region IDs through `/evaluators/enrolls/{id}` and `/evaluators/factories/{id}`.
-2. `/file/presigned-url` authorizes only that the caller has some valid session. It does not verify ownership, role, region, enrollment, cover, answer, or evaluator category before signing a non-empty filename. UUID filenames reduce guessing but do not provide authorization because legitimate names are exposed by API responses.
+The Evaluator enrollment and factory detail routes (`/evaluators/enrolls/{id}`, `/evaluators/factories/{id}`) formerly ignored the evaluator's region. Since 2026-09-03 they enforce it, and an out-of-region id returns the same not-found response as a missing one.
 
-Clients must not treat these gaps as permission. Integrations should request only resources already authorized by their business scope. Server-side fixes are required for enforcement.
+Clients must not treat this gap as permission. Integrations should request only resources already authorized by their business scope. Server-side fixes are required for enforcement.
 
 ## External integrations and failure boundaries
 
@@ -443,7 +451,7 @@ Clients must not treat these gaps as permission. Integrations should request onl
 | PostgreSQL / Drizzle | System of record | Synchronous; domain services commonly use DB transactions |
 | Redis | OTP/reset state | Challenges, throttles, failure counters, reset tokens |
 | BullMQ queue `email` | Async email handoff | API producers and a separate worker process |
-| Nodemailer / SMTP | Email delivery | OTP, reset, result, revision, and reminder messages |
+| Nodemailer / SMTP | Email delivery | OTP, reset, Invitation, result, revision, and reminder messages |
 | MinIO | Certificates and evidence | UUID object names; short-lived presigned GET URLs |
 | Nginx | Reverse proxy | API and MinIO paths; 130 MiB API request limit |
 
@@ -460,7 +468,7 @@ These are eventual-consistency workflows. An API success that mentions sending e
 
 ### Retry, timeout, and idempotency behavior
 
-- OTP and password-reset jobs request three attempts with five-second fixed backoff.
+- OTP, password-reset, and Invitation jobs request three attempts with five-second fixed backoff.
 - Verdict-result jobs and the daily reminder do not configure multiple attempts.
 - Verdict enqueue failure after finalize is logged and swallowed; finalize still succeeds.
 - The daily reminder uses a fixed BullMQ `jobId`; OTP, reset, and verdict jobs do not.
@@ -490,7 +498,6 @@ The live OpenAPI document and generated snapshots are useful for endpoint-specif
 - common validation and unexpected-error responses are usually absent;
 - a declared status can differ from the handler's actual status;
 - finalize is described as taking no body in code comments, but its empty-object schema makes OpenAPI mark a request body as required while runtime accepts no body;
-- the static Markdown reference identifies itself as generated on 2026-07-03, while evaluator-review code changed afterward;
 - the static snapshot does not record the source commit and uses API version `0.0.0`.
 
 The public login schema also exposes the existence and conditions of the development `x-dev-bypass` header, though not its secret.
@@ -510,4 +517,5 @@ Generated API artifacts should be regenerated after route/schema changes and rev
 - [Hierarchical review ADR](adr/0003-hierarchical-odpc-gated-cover-review.md)
 - [Verdict consensus ADR](adr/0004-verdict-score-consensus-loop.md)
 - [Per-answer verdict ADR](adr/0005-per-answer-verdict-save.md)
-- [Evidence deletion ADR](adr/0006-delete-files-on-change-score.md)
+- [Evidence deletion ADR](adr/0006-delete-files-on-change-score.md), superseded by the [terminal score change ADR](adr/0012-score-changes-are-terminal.md)
+- [Invitations ADR](adr/0015-invitations-are-separate-from-accounts.md)

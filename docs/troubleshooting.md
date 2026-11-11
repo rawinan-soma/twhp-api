@@ -1,6 +1,6 @@
 # Troubleshooting and Operations Runbook
 
-This maintainer runbook is based on repository behavior verified on 2026-07-15 and re-checked on 2026-09-02; the infrastructure, configuration, and worker source it describes is unchanged since. It does not claim that any described failure has occurred. No production system, live database, SMTP server, Redis queue, or MinIO deployment was queried; current deployed state is **Unknown**.
+This maintainer runbook is based on repository behavior verified on 2026-07-15 and re-checked on 2026-11-11. Since 2026-09-02 the reminder schedule (weekdays, explicit time zone), the Compose object store (RustFS under the service name `minio`), and Evaluator detail-read scoping changed; the sections below reflect those changes. It does not claim that any described failure has occurred. No production system, live database, SMTP server, Redis queue, or MinIO deployment was queried; current deployed state is **Unknown**.
 
 ## Evidence vocabulary and safety boundary
 
@@ -159,11 +159,11 @@ docker exec twhp-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
 
 **Symptom**
 
-- `migrate-dev` stops during seed; reference records are incomplete; unique/FK errors occur; seeded staff passwords revert after a restart/deploy.
+- `migrate-dev` stops during seed (for example `ENOENT ... /app/seed_data/provinces.csv`, after which `api-dev` never starts); reference records are incomplete; unique/FK errors occur; seeded staff passwords revert after a restart/deploy.
 
 **Likely causes**
 
-- Seed reads `seed_data/` relative to the process working directory and inserts in FK order. Missing/malformed CSV/JSON or mismatched standard enum values fail the run.
+- Seed reads `seed_data/` relative to the process working directory and inserts in FK order. Missing/malformed CSV/JSON or mismatched standard enum values fail the run. An `ENOENT` on `/app/seed_data/...` means the directory was never supplied to the checkout.
 - A clean Git clone does not contain `seed_data/`: `.gitignore` excludes it and Git tracks no files there. Build and seed therefore require an approved out-of-band copy.
 - The overall seed is not one transaction. Provincial/evaluator account rows can commit before subtype rows fail, leaving partial state.
 - Reruns bcrypt-hash and overwrite every seeded Provincial/Evaluator password. A fixed development DOED account is also upserted. This is unsafe for staging/production-like environments.
@@ -271,16 +271,16 @@ docker exec twhp-redis redis-cli --scan --pattern 'bull:email:*'
 
 **Symptom**
 
-- No transactional emails; daily pending-factory reminder does not run at expected time; duplicate reminder/result messages; worker repeatedly restarts.
+- No transactional emails; weekday pending-factory reminder does not run at expected time, or still runs on weekends; duplicate reminder/result messages; worker repeatedly restarts.
 
 **Likely causes**
 
-- `src/workers.ts` starts the email worker by import side effect and registers repeat job `factory-validation-reminder` with cron `30 8 * * *` and a fixed job ID.
-- No explicit BullMQ timezone is configured. Compose sets worker container `TZ=Asia/Bangkok`; direct host execution follows host timezone.
-- Production runs compiled `./worker-bin`; development runs source with `bun run worker`. A stale image can therefore contain stale worker logic.
+- `src/workers.ts` starts the email worker by import side effect, removes every legacy repeatable entry named `factory-validation-reminder`, then upserts a BullMQ job scheduler of that name with pattern `30 8 * * 1-5` (weekdays) and `tz: "Asia/Bangkok"`. The constants live in `src/queue/schedule.ts`.
+- The time zone is explicit, so host `TZ` no longer moves the reminder. A weekend reminder means a worker running a release from before the weekday change, or a legacy repeatable entry that a current worker has not yet started and removed.
+- Production runs compiled `./worker-bin`; development runs source with `bun run worker`. A stale image can therefore contain stale worker logic. `worker-dev` has no bind mount either: it runs the source baked in at build time until rebuilt with `--build`.
 - Reminder processing queries PostgreSQL via `adminService`; it needs DB connectivity in addition to Redis/SMTP.
 - Unknown job names return `unknown job name` as success rather than failing. Worker logging is unstructured `console.*`; no repository dashboard, failed/stalled event hooks, dead-letter process, or alerting exists.
-- Verdict-result and daily-reminder jobs use default single-attempt behavior; only OTP/reset producers configure retries. Finalize is not idempotent and can enqueue duplicate verdict emails if repeated.
+- Verdict-result and validation-reminder jobs use default single-attempt behavior; only OTP/reset producers configure retries. Finalize is not idempotent and can enqueue duplicate verdict emails if repeated.
 
 **Diagnostic steps, evidence, and commands**
 
@@ -325,7 +325,8 @@ docker exec twhp-redis redis-cli --scan --pattern 'bull:email:*repeat*'
 ```bash
 docker compose --profile <profile> ps minio nginx-backend nginx-backend-stg nginx-backend-prod api api-dev
 docker compose --profile <profile> logs --since=30m minio nginx-backend nginx-backend-stg nginx-backend-prod api api-dev
-docker exec twhp-minio curl -fsS http://127.0.0.1:9000/minio/health/live
+# Compose runs RustFS under the name minio; this is its Compose health check:
+docker exec twhp-minio curl -fsS http://localhost:9000/health
 docker exec twhp-nginx nginx -T
 date -u
 docker exec twhp-minio date -u
@@ -397,7 +398,8 @@ docker exec twhp-minio date -u
 - If `NGINX_API_KEY` renders empty, the Nginx map can treat a missing header (also empty) as valid. Compose does not enforce a non-empty substitution, so this is a verified conditional fail-open.
 - Application JWT middleware returns JSON 401. RBAC returns HTTP 403 with bare string `forbidden` when JWT role is absent/not one of the route guard’s roles.
 - Roles are exact enum values: `Factory`, `Provincial`, `Evaluator`, `DOED`.
-- A domain service can separately return JSON 403 for resource/category/finalize rules. Evaluator detail region enforcement is missing on two routes and filename presigning checks only authentication; those are verified security findings, not support workarounds.
+- A domain service can separately return JSON 403 for resource/category/finalize rules. Evaluator and Provincial Officer detail reads are region/province-scoped (closed 2026-09-03), but filename presigning still checks only authentication; that is a verified security finding, not a support workaround.
+- `requireRoles` derives with `as: "scoped"` and each guard is lifted with `.as("scoped")` (#41); before that fix any valid session passed every guard. `src/middleware/guards.test.ts` checks every autoloaded route against `src/test/route-access-matrix.ts`; as of 2026-11-11 its `DOED: PATCH /twhp/api/admins/factories/validate/:id` case fails because every caller, anonymous included, gets past the guard in that test.
 
 **Diagnostic steps, evidence, and commands**
 
@@ -476,7 +478,7 @@ Inspect the rendered map without copying its secret into tickets or chat. If the
 | nginx | port 80 | `127.0.0.1:81` |
 | PostgreSQL | `postgres:5432` | host `5433` |
 | Redis | `redis:6379` | host `6380` |
-| MinIO S3/console | `minio:9000` / `minio:9001` | through nginx paths only |
+| MinIO S3/console (RustFS) | `minio:9000` / `minio:9001` | through nginx paths only |
 
 - `docker compose config --profiles` reports `dev`, `staging`, and `production`.
 - Dev services: PostgreSQL, Redis, `migrate-dev`, `api-dev`, `worker-dev`, MinIO, development nginx.
@@ -502,7 +504,7 @@ docker exec twhp-api-dev getent hosts postgres redis minio
 
 **Safe resolution**
 
-- Start exactly one intended profile; create/attach the externally managed shared network only through its deployment owner; correct service DNS/upstream selection; recreate the smallest affected service.
+- Start exactly one intended profile; create/attach the externally managed shared network only through its deployment owner (on a host where you own it, `docker network create shared-web-network` once; Compose never creates it, and the `dev` profile does not use it); correct service DNS/upstream selection; recreate the smallest affected service.
 - Do not expose API/MinIO directly or broaden loopback bindings to fix routing. Production-inclusive PostgreSQL and unauthenticated Redis host publications are already a hardening risk; live firewall/reachability is Unknown.
 
 **Escalate when**
@@ -636,10 +638,10 @@ docker inspect --format '{{.RestartCount}} {{.State.Status}} {{.State.StartedAt}
 | OpenAPI/error status | Root validation 400, route tests 422; declared create/reset statuses can be 201 while runtime is 200. **Verified**. | Generated clients and runbooks misclassify valid responses. | API owner chooses canonical contract and automation. |
 | Edge auth | Dev nginx has no API-key gate; staging/production template does. **Verified**. | “Works in dev” does not prove deployed client carries the ingress credential. | Deployment owner documents key distribution and rotation. |
 | Dev OTP protection | Comment describes production hard-block; code uses `COOKIE_SECURE`, not `NODE_ENV`. **Verified**. | A bad production config could enable bypass. | Security/deployment owner defines environment invariant and enforcement. |
-| Worker time | Compose TZ says Bangkok; BullMQ repeat has no explicit timezone. **Verified code**, runtime scheduling **Inferred**. | Direct/misconfigured worker can run reminder at wrong local time. | Define explicit timezone and replica ownership. |
+| Worker time | The reminder scheduler pins `tz: "Asia/Bangkok"` in `src/queue/schedule.ts`. **Verified code**, runtime scheduling **Inferred**. | Resolved for the reminder; a stale worker image still runs the old daily, host-timezone schedule. | Define replica ownership and image rebuild discipline. |
 | Email guarantees | OTP/reset retry; verdict/reminder default single attempt; finalize may swallow enqueue error. **Verified**. | API/DB success does not imply notification and replay may duplicate effects. | Product/operations define retry, idempotency, alerting, replay. |
 | File/DB consistency | External file operations are outside DB transactions and vary in order. **Verified**. | Failure can create orphan objects or DB references to missing files. | Define reconciliation, backup/restore, and compensation procedure. |
-| Test command | `package.json` `test` intentionally exits 1 although Bun test files exist. **Verified**. | `bun run test` is not a health/verification command. | Maintainer defines supported test suite/CI command. |
+| Test command | `package.json` `test` intentionally exits 1 although Bun test files exist. Process-global `mock.module` stubs leak across files in one `bun test` run, so results can depend on file order. **Verified**. | `bun run test` is not a health/verification command; a combined-run failure that passes alone may be mock leakage (see [Testing](./testing.md)). | Maintainer defines supported test suite/CI command. |
 
 ## Deployment unknowns requiring owner confirmation
 

@@ -2,7 +2,7 @@
 
 This document describes the deployment behavior implemented by `Dockerfile`, `docker-compose.yaml`, and the Nginx configurations. It also records the operational gaps that must be resolved outside the current repository.
 
-Verified 2026-07-15; re-checked 2026-09-02. `Dockerfile` and `docker-compose.yaml` were last changed on 2026-04-20 and `nginx/` on 2026-07-02, so every statement here stands unchanged. Nothing delivered since the original audit addressed the release, backup, rollback, or artifact-immutability gaps below.
+Verified 2026-07-15; re-checked 2026-09-02 and 2026-11-11. `Dockerfile` and `nginx/` were last changed on 2026-04-20. `docker-compose.yaml` changed on 2026-11-09 to replace MinIO with RustFS, and `deploy/` was added the same day with the staging and production release tooling described below. Changes merged from 2026-11-09 to 2026-11-10 (#41, #55, #65, #67) need no schema change or extra release step; only Invitations (#61) does.
 
 For developer setup, see [Development](development.md). For persistence details, see [Database](database.md).
 
@@ -82,9 +82,9 @@ The current production services use:
 rawinan/twhp-elysia-api:latest
 ```
 
-`latest` is mutable, so Compose alone cannot prove which source revision is deployed or provide deterministic rollback. PostgreSQL is pinned only to major version 17; Redis is pinned only to major version 7; RustFS is pinned by digest; and Nginx uses the moving `alpine` tag.
+`latest` is mutable, so Compose alone cannot prove which source revision is deployed. `deploy/production/Makefile` works around this: it pushes each release as `<short sha>` and `latest`, labels the image with the source revision, retags the running image as `previous` before switching, and appends each release to `releases.log` on the server. A release by any other route loses these guarantees. PostgreSQL is pinned only to major version 17; Redis is pinned only to major version 7; RustFS is pinned by digest; and Nginx uses the moving `alpine` tag.
 
-Before a controlled production release, the organization must define immutable image tags or digests, artifact provenance, promotion, vulnerability scanning, and rollback. No CI/CD build, publish, deploy, or rollback manifest is present in this repository.
+The organization must still define vulnerability scanning, signing, and promotion. There is no CI/CD pipeline; releases run from a laptop through the Makefile.
 
 ## Production topology and ports
 
@@ -252,14 +252,14 @@ These items remain **Unknown** until the organization assigns ownership and reco
 | Severity | Verified condition | Required resolution |
 | --- | --- | --- |
 | Critical | `migrate-prod` is an echo-only no-op | Establish owned production database release and rollback procedure |
-| Critical | Application production image uses mutable `latest` | Adopt immutable tags/digests and promotion/rollback policy |
+| Critical | Production Compose references mutable `latest`; only `deploy/production/Makefile` releases add commit tags and `previous` rollback | Release only through the Makefile, or pin Compose to an immutable tag/digest |
 | High / Potential risk | RustFS root credentials are hard-coded; Redis has no auth/TLS; database and Redis ports bind broadly. Actual external reachability is Unknown. | Externalize/rotate secrets and restrict network exposure |
 | High / Potential risk | An empty rendered `NGINX_API_KEY` can make the Nginx shared-key gate accept a missing header. Whether any deployed key is empty is Unknown. | Validate non-empty substitution and fail startup before traffic |
-| High | No CI/CD or artifact provenance manifests | Define build, verification, publication, and deploy pipeline |
+| High | No CI/CD pipeline; releases run from a laptop, with provenance only as an image revision label and `releases.log` | Define build, verification, publication, and deploy pipeline |
 | High | Compose requires `APP_PORT=3000` despite configurable app code | Enforce the invariant or template every consumer |
 | High | Health is liveness-only and worker has no health check | Define readiness, worker monitoring, and alerting |
 | High | SMTP TLS flags are unused | Wire and test transport security or remove misleading settings |
-| High | Staging uses development runtime and automatic seed | Decide whether staging must mirror production |
+| High | Staging uses the development runtime; the Compose `staging` profile also pushes schema and seeds, which the server's `compose.staging.yml` disables | Decide whether staging must mirror production |
 | Medium | Bun and several images/dependency requests are not exactly pinned | Adopt toolchain and base-image pinning policy |
 | Medium | Worker binary is platform-specific | Declare build platforms and verify multi-architecture releases |
 | High | `seed_data/` is ignored/untracked although image build and seeding require it | Establish an authoritative protected source or change packaging |
