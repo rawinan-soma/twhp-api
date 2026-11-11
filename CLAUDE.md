@@ -20,10 +20,10 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 ```
 
 `package.json`'s `test` script is a placeholder that exits 1. The real runner is `bun test <files>`.
-There are 46 test files: the 12 isolated ones listed below, 26 `*.integration.test.ts` files that need a disposable PostgreSQL, and a few more that tolerate a missing database.
+There are 54 test files: the 13 isolated ones listed below, 33 `*.integration.test.ts` files that need a disposable PostgreSQL, and a few more that tolerate a missing database.
 
 ```bash
-# Isolated only — safe anywhere. 323 pass / 0 fail as of 2026-11-09 in a fresh checkout. Bun runs
+# Isolated only — safe anywhere. 349 tests as of 2026-11-11; 341 pass / 8 fail in a fresh worktree. Bun runs
 # the files in filesystem order, not this order; when auth-dev-bypass's `utilities: () => ({})`
 # stub loads before evaluation-period.test.ts, that file's 8 getReviewerFiscalYear tests fail.
 bun test src/config.test.ts src/routes/authentication/index.test.ts \
@@ -31,7 +31,8 @@ bun test src/config.test.ts src/routes/authentication/index.test.ts \
   src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
   src/service/pagination.test.ts src/service/score.test.ts \
   src/service/evaluation-period.test.ts src/service/evaluation-period.routes.test.ts \
-  src/service/factory-closed-year.test.ts src/middleware/guards.test.ts
+  src/service/factory-closed-year.test.ts src/middleware/guards.test.ts \
+  src/routes/admins/factories/index.test.ts
 
 bun ./node_modules/.bin/biome check src   # read-only lint; the package scripts all --write
 ```
