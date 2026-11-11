@@ -1,6 +1,6 @@
 # Database and persistence
 
-This guide documents the persistence model implemented by the current source and configuration, verified on 2026-08-25 and re-checked on 2026-09-02. Where older requirements or prose disagree with the code, current code/schema is described as behavior and the disagreement is recorded under [Documentation conflicts](#documentation-conflicts).
+This guide documents the persistence model implemented by the current source and configuration, verified on 2026-08-25, re-checked on 2026-09-02, and re-checked against `src/drizzle/schema.ts` on 2026-11-11 at `f194141`. Where older requirements or prose disagree with the code, current code/schema is described as behavior and the disagreement is recorded under [Documentation conflicts](#documentation-conflicts).
 
 Related guides:
 
@@ -19,9 +19,9 @@ This is not a live-database inventory. `DATABASE_URL` was absent from the audit 
 
 ## Persistence overview
 
-**Verified.** PostgreSQL is the relational source of truth. Redis holds transient OTP/password-reset data and BullMQ state; MinIO holds evidence objects. PostgreSQL stores only MinIO UUID filenames. The application uses `drizzle-orm/node-postgres` through `db` in `src/drizzle/index.ts:1-4` and a single schema file, `src/drizzle/schema.ts`. TypeBox select/insert/update schemas are derived from the Drizzle tables in `src/schema/index.ts:1-87`.
+**Verified.** PostgreSQL is the relational source of truth. Redis holds transient OTP/password-reset data and BullMQ state; an S3-compatible object store holds evidence objects. Compose has run RustFS for that store since 2026-11-09, under the service name `minio` and through the `minio` client, so "MinIO" below means that store. PostgreSQL stores only UUID object filenames. The application uses `drizzle-orm/node-postgres` through `db` in `src/drizzle/index.ts:1-4` and a single schema file, `src/drizzle/schema.ts`. TypeBox select/insert/update schemas are derived from the Drizzle tables in `src/schema/index.ts:1-87`.
 
-The schema contains 14 tables and 8 PostgreSQL enums. Scores are calculated on demand; the Grade is stored in `Awards` at finalize (`docs/adr/0001-score-calculated-on-demand.md:9-22`, `src/service/score.ts:createScoreService`). Current Cover and Answer state is derived by “latest log wins,” ordered by descending serial `id`, not timestamp (`src/service/cover.ts:72-78`, `src/service/evaluator-review.ts:193-204`, `src/service/answer.ts:323-331`).
+The schema contains 16 tables and 8 PostgreSQL enums. Scores are calculated on demand; the Grade is stored in `Awards` at finalize (`docs/adr/0001-score-calculated-on-demand.md:9-22`, `src/service/score.ts:createScoreService`). Current Cover and Answer state is derived by “latest log wins,” ordered by descending serial `id`, not timestamp (`src/service/coverStatus.ts` for Covers; the `selectDistinctOn` reads in `src/service/evaluator-review.ts` and `src/service/answer.ts` for Answers).
 
 ```mermaid
 erDiagram
@@ -119,14 +119,14 @@ All are **Verified** in `src/drizzle/schema.ts`.
 
 | Symbol / database type | Values | Evidence |
 |---|---|---|
-| `evaluatorLevels` / `EvaluatorLevels` | `Mental`, `DOH`, `ODPC` | line 13 |
-| `roles` / `Roles` | `Factory`, `Provincial`, `Evaluator`, `DOED` | line 14 |
-| `coverStatus` / `coverStatus` | `finished`, `in_progress`, `in_review` | line 296 |
-| `answerStatus` / `answerStatus` | `finished`, `in_review`, `recommended`, `rejected` | lines 297-302 |
-| `questionCategories` / `QuestionCategories` | `Collaborate`, `Disease`, `Safety`, `Mental`, `Outcome` | lines 316-322 |
-| `standardTypes` / `StandardTypes` | `standardHC`, `standardSAN`, `standardSANPlus`, `standardWellness`, `standardSafety`, `standardTIS18001`, `standardISO45001`, `standardISO14001`, `standardZero`, `standard5S`, `standardHAS` | lines 324-337 |
-| `choices` / `Choices` | `0`, `1`, `2`, `3`, `n/a` | line 351 |
-| `grades` / `Grades` | `consec-gold`, `gold`, `silver`, `certificate`, `joined` | `src/drizzle/schema.ts` |
+| `evaluatorLevels` / `EvaluatorLevels` | `Mental`, `DOH`, `ODPC` | line 17 |
+| `roles` / `Roles` | `Factory`, `Provincial`, `Evaluator`, `DOED` | line 18 |
+| `coverStatus` / `coverStatus` | `finished`, `in_progress`, `in_review` | line 327 |
+| `answerStatus` / `answerStatus` | `finished`, `in_review`, `recommended`, `rejected` | lines 328-333 |
+| `questionCategories` / `QuestionCategories` | `Collaborate`, `Disease`, `Safety`, `Mental`, `Outcome` | lines 388-394 |
+| `standardTypes` / `StandardTypes` | `standardHC`, `standardSAN`, `standardSANPlus`, `standardWellness`, `standardSafety`, `standardTIS18001`, `standardISO45001`, `standardISO14001`, `standardZero`, `standard5S`, `standardHAS` | lines 396-409 |
+| `choices` / `Choices` | `0`, `1`, `2`, `3`, `n/a` | line 423 |
+| `grades` / `Grades` | `consec-gold`, `gold`, `silver`, `certificate`, `joined` | line 336, values from `src/drizzle/grades.ts` |
 
 Several database type names are quoted/mixed-case, so raw SQL must quote them exactly. `AnswerLogs.verdict_choice` physically permits `n/a` because it uses `Choices`; the verdict API restricts score changes to `0`-`3` (`src/schema/evaluator-review.ts:77-85`). That narrower rule is application-only.
 
@@ -136,7 +136,7 @@ Unless stated otherwise, columns are `NOT NULL`; columns marked `NULL` have no d
 
 ### Accounts
 
-`Accounts` is defined at `src/drizzle/schema.ts:234-252`.
+`Accounts` is defined at `src/drizzle/schema.ts:238-256`.
 
 - `id serial` — PK, sequence default.
 - `username text` — unique index `Accounts_username_key`.
@@ -150,7 +150,7 @@ Unless stated otherwise, columns are `NOT NULL`; columns marked `NULL` have no d
 
 ### Factories
 
-`Factories` is defined at `src/drizzle/schema.ts:87-124`.
+`Factories` is defined at `src/drizzle/schema.ts:91-128`.
 
 - `account_id int` — PK and FK to `Accounts.id`; update/delete cascade.
 - Required: `factory_type`, Thai/English names, TSIC code, address number, zipcode, phone.
@@ -162,17 +162,17 @@ The three independent location FKs do not guarantee that the subdistrict belongs
 
 ### Evaluators
 
-`Evaluators` is defined at `src/drizzle/schema.ts:16-30`.
+`Evaluators` is defined at `src/drizzle/schema.ts:20-34`.
 
 - `account_id int` — PK and FK to `Accounts.id`; update/delete cascade.
 - `level EvaluatorLevels`, `first_name`, `last_name`, `region int`, `phone_number`.
 - `isChangePassword boolean DEFAULT false`.
 
-No unique constraint ensures one Evaluator per `(region, level)`.
+No unique constraint ensures one Evaluator per `(region, level)`, and none is intended: several Evaluators may share a region and level, and Invitations add Evaluators to a region that already has one. A new Enrollment records the newest Evaluator (highest `account_id`) of each level.
 
 ### AdminsDoed
 
-`AdminsDoed` is defined at `src/drizzle/schema.ts:126-146`.
+`AdminsDoed` is defined at `src/drizzle/schema.ts:130-150`.
 
 - `account_id int` — PK and FK to `Accounts.id`; update/delete cascade.
 - `first_name`, `last_name`, `phone_number`.
@@ -180,7 +180,7 @@ No unique constraint ensures one Evaluator per `(region, level)`.
 
 ### ProvincialOfficers
 
-`ProvincialOfficers` is defined at `src/drizzle/schema.ts:254-281`.
+`ProvincialOfficers` is defined at `src/drizzle/schema.ts:258-285`.
 
 - `account_id int` — PK and FK to `Accounts.id`; update cascade, delete restrict.
 - `first_name`, `last_name`, `phone_number`.
@@ -190,7 +190,7 @@ No unique constraint ensures one Evaluator per `(region, level)`.
 
 ### Invitations
 
-`Invitations` is defined in `src/drizzle/schema.ts`. It holds pending Invitations for Evaluators and Provincial Officers only. Acceptance and cancel delete the row. Resend replaces `token_hash` and `expires_at`, and email correction also replaces `email`. The staff list derives `pending` or `expired` from `expires_at`; no status column exists (ADR-0015).
+`Invitations` is defined at `src/drizzle/schema.ts:287-312`. It holds pending Invitations for Evaluators and Provincial Officers only. Acceptance and cancel delete the row. Resend replaces `token_hash` and `expires_at`, and email correction also replaces `email`. The staff list derives `pending` or `expired` from `expires_at`; no status column exists (ADR-0015).
 
 - `id serial` — PK.
 - `email text` — unique, stored lowercase.
@@ -200,9 +200,11 @@ No unique constraint ensures one Evaluator per `(region, level)`.
 - `expires_at timestamptz`.
 - `Invitations_role_target` CHECK — an Evaluator row has `level` and `region` and no `province_id`. A Provincial row has `province_id` and no `level` or `region`. Other roles are rejected.
 
+Production does not run `db:push`, so the table is created by `deploy/production/invitations.sql`, run once before the first release that contains Invitations (see [Deployment](./deployment.md)).
+
 ### Provinces
 
-`Provinces` is defined at `src/drizzle/schema.ts:32-45`.
+`Provinces` is defined at `src/drizzle/schema.ts:36-49`.
 
 - `province_id int` — PK.
 - `name_th text`, `health_region int`.
@@ -210,7 +212,7 @@ No unique constraint ensures one Evaluator per `(region, level)`.
 
 ### Districts
 
-`Districts` is defined at `src/drizzle/schema.ts:47-65`.
+`Districts` is defined at `src/drizzle/schema.ts:51-69`.
 
 - `district_id int` — PK.
 - `province_id` — FK to `Provinces`; update cascade, delete restrict.
@@ -219,7 +221,7 @@ No unique constraint ensures one Evaluator per `(region, level)`.
 
 ### Subdistricts
 
-`Subdistricts` is defined at `src/drizzle/schema.ts:67-85`.
+`Subdistricts` is defined at `src/drizzle/schema.ts:71-89`.
 
 - `subdistrict_id int` — PK.
 - `district_id` — FK to `Districts`; update cascade, delete restrict.
@@ -228,7 +230,7 @@ No unique constraint ensures one Evaluator per `(region, level)`.
 
 ### Enrolls
 
-`Enrolls` is defined at `src/drizzle/schema.ts:148-232`.
+`Enrolls` is defined at `src/drizzle/schema.ts:152-236`.
 
 - `id serial` — PK.
 - `enroll_date timestamp(3) DEFAULT CURRENT_TIMESTAMP`.
@@ -244,7 +246,7 @@ There is no uniqueness on Factory/date and no constraint proving evaluator level
 
 ### Covers
 
-`Covers` is defined at `src/drizzle/schema.ts:283-294`.
+`Covers` is defined at `src/drizzle/schema.ts:314-325`.
 
 - `id serial` — PK.
 - `enroll_id` — FK to `Enrolls.id`; update/delete cascade.
@@ -254,7 +256,7 @@ There is no unique constraint on `enroll_id`.
 
 ### Awards
 
-`Awards` is the permanent record of what each factory has won. It is written by finalize (ADR-0001, amended), by the manual backfill SQL, and by DOED approval of a Factory that has Prior Awards (ADR-0014, amended 2026-11-10).
+`Awards` (`src/drizzle/schema.ts:347-374`) is the permanent record of what each factory has won. It is written by finalize (ADR-0001, amended), by the manual backfill SQL, and by DOED approval of a Factory that has Prior Awards (ADR-0014, amended 2026-11-10).
 
 - `id serial` — PK.
 - `factory_id` — FK to `Factories.account_id`; delete `RESTRICT`, update cascade.
@@ -268,7 +270,7 @@ Finalize inserts the row in the same transaction as the `finished` `CoverLogs` r
 
 ### CoverLogs
 
-`CoverLogs` is defined at `src/drizzle/schema.ts:304-314`.
+`CoverLogs` is defined at `src/drizzle/schema.ts:376-386`.
 
 - `id serial` — PK and event ordering key.
 - `cover_id` — FK to `Covers.id`; delete `NO ACTION`, update action unspecified/`NO ACTION`.
@@ -278,7 +280,7 @@ Finalize inserts the row in the same transaction as the `finished` `CoverLogs` r
 
 ### Questions
 
-`Questions` is defined at `src/drizzle/schema.ts:339-349`.
+`Questions` is defined at `src/drizzle/schema.ts:411-421`.
 
 - `id int` — manually assigned PK.
 - `category QuestionCategories`, `question_text`.
@@ -290,7 +292,7 @@ No checks constrain `special` or the relationship between `choice_na` and permit
 
 ### Answers
 
-`Answers` is defined at `src/drizzle/schema.ts:353-371`.
+`Answers` is defined at `src/drizzle/schema.ts:425-443`.
 
 - `id serial` — PK.
 - `question_id` — FK to `Questions.id`; delete `NO ACTION`.
@@ -302,7 +304,7 @@ There is no unique constraint on `(cover_id, question_id)`.
 
 ### AnswerLogs
 
-`AnswerLogs` is defined at `src/drizzle/schema.ts:373-385`.
+`AnswerLogs` is defined at `src/drizzle/schema.ts:445-457`.
 
 - `id serial` — PK and event ordering key.
 - `answer_id` — FK to `Answers.id`; delete restrict.
@@ -325,21 +327,21 @@ bun run db:seed   # bun src/drizzle/seed.ts
 
 The audited local versions were Bun `1.3.6`, drizzle-kit `0.31.10`, and drizzle-orm `0.45.1`. `drizzle.config.ts:4-10` points at `src/drizzle/schema.ts`, PostgreSQL dialect, output `src/core/drizzle/generated`, and `process.env.DATABASE_URL`. No generated directory or SQL migrations were found.
 
-`docker-compose.yaml:1-19` runs `db:push && db:seed` in the dev/staging `migrate-dev` one-shot before API startup. PostgreSQL is `postgres:17-alpine`, persisted in `postgres_data`, exposed on host port 5433 (`docker-compose.yaml:143-162`).
+`docker-compose.yaml:3-19` runs `db:push && db:seed` in the dev/staging `migrate-dev` one-shot before API startup. The staging server overrides that one-shot to a no-op (`deploy/staging/compose.staging.yml`), so on staging a schema change is applied explicitly with `make -C deploy/staging migrate`, which runs `db:push` only. PostgreSQL is `postgres:17-alpine`, persisted in `postgres_data`, exposed on host port 5433 (`docker-compose.yaml:144-162`).
 
 `db:push` converges state rather than preserving an auditable migration history. Reviewable ordered DDL, rollback, and repeatable production promotion are absent.
 
 ### Production
 
-**Verified repository behavior.** `migrate-prod` only echoes `do not migrate in production, import csv directly`; it performs no migration or import (`docker-compose.yaml:58-71`). No production import script, schema dump, migration files, or runbook was found.
+**Verified repository behavior.** `migrate-prod` only echoes `do not migrate in production, import csv directly`; it performs no migration or import (`docker-compose.yaml:59-71`). The only production schema artifact is `deploy/production/invitations.sql`, a one-time script that creates `Invitations`. `deploy/production/` also holds the release tooling: `fit-check.ts` refuses a release whose image needs a table, column, or enum value missing from the live database, and `backup.sh` writes a verified `pg_dump` first. No general production import script, migration history, or schema runbook was found.
 
-**Unknown / Requires Organizational Knowledge.** The actual production schema/import process, approval gate, backup/rollback procedure, and drift verification are unknown. See [Deployment](./deployment.md) for other operational unknowns. Do not infer that production is provisioned by Compose.
+**Unknown / Requires Organizational Knowledge.** The actual production schema/import process, approval gate, restore procedure, and full drift verification (`fit-check.ts` does not compare types, constraints, or indexes) are unknown. See [Deployment](./deployment.md) for other operational unknowns. Do not infer that production is provisioned by Compose.
 
 ### Connection configuration
 
 Runtime `db` uses `drizzle(env.DATABASE_URL)` with node-postgres (`src/drizzle/index.ts:1-4`). Seeding separately creates a `pg.Pool`, passes the schema to Drizzle, and closes the pool (`src/drizzle/seed.ts:14-22,287-294`). Pool size, timeouts, SSL, application name, and transaction isolation are not explicitly configured; exact behavior depends on defaults and `DATABASE_URL`.
 
-**Tooling full-environment coupling.** `drizzle.config.ts:2` imports `env` but uses `process.env.DATABASE_URL` directly. Importing `env` eagerly validates every required API, Redis, SMTP, frontend, and MinIO variable (`src/config.ts:41-89`). Therefore `db:push` can fail because an unrelated non-database variable is absent. This is current behavior, not a documented requirement.
+**Tooling full-environment coupling.** `drizzle.config.ts:2` imports `env` but uses `process.env.DATABASE_URL` directly. Importing `env` eagerly validates every required API, Redis, SMTP, frontend, and MinIO variable (`src/config.ts:59-109`). Therefore `db:push` can fail because an unrelated non-database variable is absent. This is current behavior, not a documented requirement.
 
 ### Live-environment unknowns
 
@@ -378,19 +380,22 @@ Seed risks:
 
 Verified atomic database units include:
 
-- Account + Factory registration (`src/service/factory.ts:register`, lines 59-82).
+- Account + Factory registration (`src/service/factory.ts:register`, lines 147-170).
 - Admin profile + Account update (`src/service/admin.ts:editAdminData`, lines 34-42).
 - Factory fields, location + Account update (`src/service/factory.ts:update`, lines 395-403).
 - Cover + initial CoverLog (`src/service/cover.ts:create`, lines 40-44).
 - Answer insert/update + AnswerLog append (`src/service/answer.ts:saveAnswer`, `update`, `negotiate`).
 - First-password Account/profile updates (`src/service/authentication.ts:editFirstPassword`).
-- Finalize promotions, file-column clearing, and CoverLog append (`src/service/evaluator-review.ts:finalize`, lines 458-481).
+- Factory approval + Prior Award inserts, with the Factory row locked `FOR UPDATE` (`src/service/admin.ts:approveFactoryRegister`).
+- Invitation acceptance: Invitation delete (the claim) + Account insert + Evaluator or ProvincialOfficer insert (`src/service/invitation.ts:acceptInvitation`).
+- The staff list reads Invitations, Evaluators, and Provincial Officers in one read-only `REPEATABLE READ` transaction (`src/service/staff.ts:list`).
+- Finalize promotions, settled-choice writes, file-column clearing, standard un-claims, CoverLog append, and the `Awards` insert (`src/service/evaluator-review.ts:finalize`, lines 760-841).
 
 PostgreSQL and MinIO cannot be one transaction:
 
-- Enrollment creation uploads up to 11 objects before the database insert and has no cleanup if insertion fails (`src/service/enroll.ts:create:288-335`).
-- Enrollment/Answer updates delete old objects and upload replacements before the database update. A database failure can leave missing referenced objects or orphan new objects (`src/service/enroll.ts:updateEnroll:459-536`, `src/service/answer.ts:update:556-670`, `negotiate:923-1035`).
-- Finalize strictly deletes objects before its database transaction. A deletion failure stops the transition, but a later database failure leaves files gone while old filenames/state remain (`src/service/evaluator-review.ts:443-481`).
+- Enrollment creation uploads up to 11 objects before the database insert and has no cleanup if insertion fails (`src/service/enroll.ts:create`).
+- Enrollment/Answer updates delete old objects and upload replacements before the database update. A database failure can leave missing referenced objects or orphan new objects (`src/service/enroll.ts:updateEnroll`, `src/service/answer.ts:update`, `negotiate`).
+- Finalize strictly deletes objects before its database transaction. A deletion failure stops the transition, but a later database failure leaves files gone while old filenames/state remain (`src/service/evaluator-review.ts:finalize`).
 
 No outbox, compensating cleanup, reconciliation job, object versioning, request idempotency key, row lock, serializable transaction, or optimistic version was found.
 
@@ -398,7 +403,7 @@ No outbox, compensating cleanup, reconciliation job, object versioning, request 
 
 ### Current behavior
 
-All persisted timestamps use PostgreSQL `timestamp(3)` **without time zone**, Drizzle string mode, and `CURRENT_TIMESTAMP`: `Enrolls.enroll_date`, `Covers.enroll_date`, `CoverLogs.updated_at`, and `AnswerLogs.updated_at` (`src/drizzle/schema.ts:152-154,291-293,310-312,381-383`). Latest state is ordered by log `id`, avoiding timestamp-tie ambiguity.
+All persisted timestamps except one use PostgreSQL `timestamp(3)` **without time zone**, Drizzle string mode, and `CURRENT_TIMESTAMP`: `Enrolls.enroll_date`, `Covers.enroll_date`, `Awards.awarded_at`, `CoverLogs.updated_at`, and `AnswerLogs.updated_at` (`src/drizzle/schema.ts:156-158,322-324,362-364,382-384,453-455`). The exception is `Invitations.expires_at`, a `timestamptz` in Drizzle date mode, set and compared with the database `now()` (`src/drizzle/schema.ts:303`). Latest state is ordered by log `id`, avoiding timestamp-tie ambiguity.
 
 `utilities().getFiscalYear(fiscalYear?)` constructs the October 1 00:00 boundaries against a **fixed UTC+7 offset**, not host-local dates, then callers compare ISO UTC strings against the timezone-less column. The FY2026 start therefore serialises to `2025-09-30T17:00:00.000Z` regardless of where the process runs. API/worker Compose services set `TZ=Asia/Bangkok`, and the PostgreSQL container does not set `TZ` — but the resolver no longer depends on either.
 
@@ -427,16 +432,18 @@ This is **Inferred risk** with **Unknown live configuration**, not proof that cu
 ### Observed access patterns
 
 - Current-fiscal owner lookup filters `Enrolls(factory_id, enroll_date range)` and joins `Covers(enroll_id)` throughout `answer.ts`, `cover.ts`, and `score.ts`.
-- Staff lists filter/sort `Enrolls.enroll_date` and join Factory/Province (`enroll.ts:77-154`, `score.ts:159-237`).
-- Location endpoints filter `Districts.province_id` and `Subdistricts.district_id` (`location.ts:17-34`).
-- Factory lists filter `Factories.is_validate`, province/region, and join Enrolls (`factory.ts:124-256`, `admin.ts:99-121`).
+- Staff lists filter/sort `Enrolls.enroll_date` and join Factory/Province (`enroll.ts`, `score.ts`).
+- Factory Name Search on the nine staff lists adds `name_th ILIKE '%term%' OR name_en ILIKE '%term%'` (`src/service/factoryNameSearch.ts`). A leading wildcard cannot use a B-tree index, so this is a scan of the already-filtered rows.
+- Location endpoints filter `Districts.province_id` and `Subdistricts.district_id` (`location.ts`).
+- Factory lists filter `Factories.is_validate`, province/region, and join Enrolls (`factory.ts`). The Admin lists also accept optional `region` and `provinceId` filters, and the Evaluator lists an optional `provinceId` inside the caller's region.
 - Latest-state reads filter and order by `(cover_id, id DESC)` or `(answer_id, id DESC)`.
 - Answer reads filter by `cover_id`, frequently `(cover_id, question_id)`.
-- Refresh-token lookup filters `Accounts.hashed_refresh_token` (`authentication.ts:117-129`).
+- Refresh-token lookup filters `Accounts.hashed_refresh_token` (`authentication.ts:getUserFromRefreshToken`).
+- Invitation acceptance filters `Invitations.token_hash` (unique) and `expires_at`; invite and accept check `lower(Accounts.email)` and `lower(Accounts.username)`, which no index covers.
 
 ### Declared indexes
 
-**Verified.** Only PK indexes, unique Account username/email indexes, and several redundant explicit PK unique indexes are declared. No secondary indexes exist in the Drizzle schema for FK, latest-log, status, or date query columns (`src/drizzle/schema.ts`, `uniqueIndex` at lines 40,60,80,141,230,245-250,276).
+**Verified.** Only PK indexes, unique Account username/email indexes, several redundant explicit PK unique indexes, and the unique constraints on `Invitations` (`email`, `token_hash`) and `Awards` (`(factory_id, fiscal_year)`, `cover_id`) are declared. No secondary indexes exist in the Drizzle schema for FK, latest-log, status, or date query columns (`src/drizzle/schema.ts`, `uniqueIndex` at lines 44,64,84,145,234,249-254,280).
 
 Candidate indexes, to validate against live `EXPLAIN (ANALYZE, BUFFERS)`:
 
@@ -445,7 +452,7 @@ Candidate indexes, to validate against live `EXPLAIN (ANALYZE, BUFFERS)`:
 3. `Enrolls(factory_id, enroll_date DESC)` for current-fiscal owner lookup; extend/replace it with a fiscal-year uniqueness design if required.
 4. `CoverLogs(cover_id, id DESC)` and `AnswerLogs(answer_id, id DESC)` for latest-log queries.
 5. `Districts(province_id)`, `Subdistricts(district_id)`, `Factories(province_id)`, and `ProvincialOfficers(province_id)` for joins/FK checks.
-6. `Evaluators(region, level)`; make unique only if exactly one per pair is a durable rule.
+6. `Evaluators(region, level)`, non-unique: several Evaluators may share a pair.
 7. A partial `Accounts(hashed_refresh_token)` index excluding null/empty values, after token semantics are confirmed.
 8. Plan-dependent indexes on `Enrolls(enroll_date DESC)`, `Provinces(health_region)`, or Factory validation filters.
 
@@ -455,18 +462,18 @@ Inspect the live catalog before removing explicit PK unique indexes; they are **
 
 Read paths in `enroll.ts:enrichAndFilterCovers`, `score.ts:buildScoreReports`, evaluator Answer listing, and Factory Answer listing are batched; no classic per-row read N+1 was found.
 
-- `answer.ts:submit:290-303` inserts each unanswered standard Answer and log sequentially: 2N statements.
-- `evaluator-review.ts:finalize:458-461` inserts promotion logs sequentially: N statements.
+- `answer.ts:submit` inserts each unanswered standard Answer and log sequentially: 2N statements.
+- `evaluator-review.ts:finalize` inserts promotion logs and settled-choice updates sequentially: N statements each.
 - `factory.ts:getAllFactories` can duplicate Factory rows when multiple Enrolls match, especially when its left join is not date-bounded.
 
 ## Intended or assumed application invariants
 
 The following are not database guarantees. Some are checked on particular service paths; others are only expectations in documentation/query code and are not enforced consistently. Treat each item as an audit prompt, not a promise that every write path validates it:
 
-- One Enroll per Factory per fiscal year (`src/service/enroll.ts:create:227-245`). This is a check-then-insert race with no unique constraint.
-- One Cover per Enroll (`src/service/cover.ts:create:29-44`). Also check-then-insert.
-- One Answer per Cover/Question (`src/service/answer.ts:saveAnswer:42-49`). Also check-then-insert.
-- Exactly one Evaluator of each level per region. Seed data satisfies this, but `enroll.ts:create:259-332` selects the first match and dereferences each level without verifying all exist.
+- One Enroll per Factory per fiscal year (`src/service/enroll.ts:create`). This is a check-then-insert race with no unique constraint.
+- One Cover per Enroll (`src/service/cover.ts:create`). Also check-then-insert.
+- One Answer per Cover/Question (`src/service/answer.ts:saveAnswer`). Also check-then-insert.
+- At least one Evaluator of each level per region. Seed data satisfies this, but `enroll.ts:create` selects the newest match per level and dereferences each level without verifying all exist.
 - Enroll evaluator assignments match the intended region and level.
 - Account role matches exactly one subtype.
 - Factory location hierarchy is internally consistent.
@@ -481,14 +488,14 @@ Concurrent enrollment, Cover creation, Answer save, verdict save, submit, or fin
 
 ### Finalize is not locked or idempotent
 
-`src/service/evaluator-review.ts:finalize:329-481` checks caller level/access and latest AnswerLogs, but it does not:
+`src/service/evaluator-review.ts:finalize` checks caller level/access and latest AnswerLogs, but it does not:
 
 - read/gate on latest CoverLog status;
 - lock the Cover or Answers;
 - use a request idempotency key or optimistic version;
 - reject an already-finished Cover.
 
-Two finalizers can read the same state, append duplicate promotion AnswerLogs, and append multiple CoverLogs. A later repeated finalize can append another Cover transition. “Only finalize writes the transition” describes which code path writes; it does not provide mutual exclusion.
+Two finalizers can read the same state, append duplicate promotion AnswerLogs, and append multiple CoverLogs. The `Awards` insert uses `ON CONFLICT (cover_id) DO NOTHING`, so the stored Grade is the first one written. A later repeated finalize can append another Cover transition. “Only finalize writes the transition” describes which code path writes; it does not provide mutual exclusion.
 
 ## DTO/schema alignment
 
@@ -514,23 +521,23 @@ Current source/schema above is authoritative behavior. These older statements ar
 
 ### Finalize concurrency
 
-`CONTEXT.md:131,213` and ADR-0005 (`docs/adr/0005-per-answer-verdict-save.md:14,43,51`) claim a single-finalizer/no-cover-race model. `memory-bank/intents/004-admin-as-evaluator/requirements.md:198` admits admin/ODPC concurrency but claims the second call hits an already-finalized guard. The current `finalize` implementation has no such guard, lock, or idempotency. **Confidence: High. Decision required:** accept/document duplicate finalization semantics or implement explicit concurrency control.
+`CONTEXT.md` (Evaluator Verdict and the evaluation-flow reading notes) and ADR-0005 (`docs/adr/0005-per-answer-verdict-save.md:14,43,51`) claim a single-finalizer/no-cover-race model. `memory-bank/intents/004-admin-as-evaluator/requirements.md:198` admits admin/ODPC concurrency but claims the second call hits an already-finalized guard. The current `finalize` implementation has no such guard, lock, or idempotency. **Confidence: High. Decision required:** accept/document duplicate finalization semantics or implement explicit concurrency control.
 
 ### Cardinality guarantees
 
-`CONTEXT.md:33` and `memory-bank/intents/009-review-standard-files/requirements.md:119` describe one-assessment cardinalities as guaranteed. The schema has no uniqueness for one Enroll/fiscal year, `Covers.enroll_id`, or `(Answers.cover_id, Answers.question_id)`. **Confidence: High. Decision required:** confirm durable cardinalities and model them in PostgreSQL.
+`CONTEXT.md` (Cover) and `memory-bank/intents/009-review-standard-files/requirements.md:119` describe one-assessment cardinalities as guaranteed. The schema has no uniqueness for one Enroll/fiscal year, `Covers.enroll_id`, or `(Answers.cover_id, Answers.question_id)`. **Confidence: High. Decision required:** confirm durable cardinalities and model them in PostgreSQL.
 
 ### Verdict Cover-state guard
 
-`CONTEXT.md:110,122` says tier-1 reviewers edit their own verdicts only while the Cover is `in_review`. `saveAnswerVerdict` checks Answer status/authorship/category but not Cover status (`src/service/evaluator-review.ts:239-318`). **Confidence: High. Decision required:** decide whether Cover status is authorization and align code/docs.
+`CONTEXT.md` (Evaluator override rule, Evaluator Verdict edit guard) says tier-1 reviewers edit their own verdicts only while the Cover is `in_review`. `saveAnswerVerdict` checks region, fiscal-year writability, Answer status/authorship/category, and refuses hard rejects in the evaluation period, but does not read Cover status (`src/service/evaluator-review.ts:saveAnswerVerdict`). **Confidence: High. Decision required:** decide whether Cover status is authorization and align code/docs.
 
 ### File deletion on change-score
 
-`CONTEXT.md:125` and ADR-0005 line 28 describe deletion only for hard rejects. Current code deletes evidence for every latest `rejected` Answer, including change-score, following newer ADR-0006 (`src/service/evaluator-review.ts:417-448`, `docs/adr/0006-delete-files-on-change-score.md`). **Confidence: High.** Older prose is stale.
+**Resolved 2026-08-25 by ADR-0012.** Finalize deletes evidence only for hard rejects (`status = 'rejected'` and `verdict_choice IS NULL`), plus, on a standard-backed question, the named standard certificates (`src/service/evaluator-review.ts:finalize`). Code, `CONTEXT.md`, and ADR-0005 now agree; ADR-0006 is superseded in full. Prose written between 2026-07-07 and 2026-08-25 may still describe deletion on every change score.
 
 ### Verdict email column
 
-`CONTEXT.md:129` names `enrolls.email`; current schema/service use `Enrolls.safety_officer_email` / `enrolls.safetyOfficerEmail` (`src/drizzle/schema.ts:225`, `src/service/evaluator-review.ts:341-351`). **Confidence: High.** The documentation name is stale.
+**Resolved 2026-11-11.** Finalize addresses the verdict email to the Factory's `Accounts.email` and cc's `Enrolls.safety_officer_email` when it is present and differs (`src/service/evaluator-review.ts:finalize`, `src/service/verdictEmail.ts`). `CONTEXT.md` named a non-existent `enrolls.email` until it was corrected on 2026-11-11.
 
 ### Historical batch requirements
 
@@ -538,7 +545,7 @@ Intent 003 and portions of intent 004 specify atomic batch verdicts. ADR-0005 ex
 
 ### Production migration/import
 
-AGENTS/CLAUDE say production data is imported directly, but Compose only echoes and the repository contains no production procedure. Repository absence is **Verified**; actual operations are **Unknown / Requires Organizational Knowledge**.
+AGENTS/CLAUDE say production data is imported directly, but Compose only echoes. Since 2026-11-09 the repository has `deploy/production/` (release, `fit-check.ts` schema fit check, verified `pg_dump` backup, rollback) and one schema script, `invitations.sql`; it still has no general production schema/data migration procedure. That absence is **Verified**; actual operations are **Unknown / Requires Organizational Knowledge**.
 
 ### Drizzle full-env coupling
 

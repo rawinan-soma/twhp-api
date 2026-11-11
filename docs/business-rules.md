@@ -1,6 +1,6 @@
 # Business Rules
 
-This document records current executable behavior, verified on 2026-08-25 (ADR-0012) and re-checked on 2026-09-02. Current code is authoritative when `CONTEXT.md` or an ADR disagrees; contradictions are identified in each affected rule.
+This document records current executable behavior, verified on 2026-08-25 (ADR-0012) and re-checked on 2026-09-02 and 2026-11-11. Current code is authoritative when `CONTEXT.md` or an ADR disagrees; contradictions are identified in each affected rule.
 
 Confidence labels: **Verified** is directly present in code/schema/tests; **Inferred** follows from observed behavior but lacks direct runtime confirmation; **Unknown** cannot be established from the repository alone.
 
@@ -15,6 +15,7 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Inputs/conditions:** unique username/email, valid `subdistrictId`, correct password, validated Factory.
 - **Result:** new unvalidated Factory; DOED can validate; validated login issues cookies without OTP.
 - **Approval with Prior Awards:** `PATCH /admins/factories/validate/:id` takes an optional body `{ awards?: { fiscalYear, grade }[] }`. A missing body, a missing `awards` and an empty array are a plain approval. `fiscalYear` is a Common Era integer from 2023 to 2025 (FY2566–FY2568), and `grade` is `gold` or `consec-gold`. The approval and every `Awards` row (`cover_id` null) commit in one transaction with the Factory row locked. Each refusal returns 400, leaves the Factory pending and writes no row: invalid body, a repeated `fiscalYear`, or a year that already has an `Awards` row of any Grade (the message names the year). An already-validated Factory keeps the existing 400, so Prior Awards cannot be added after approval, and a lost approval race gets that same 400.
+- **Profile update:** `PATCH /factories` (own account) and `PATCH /admins/factories/:id` (DOED) write only the supplied fields, with the `Factories` and `Accounts` writes in one transaction, so a refused update changes nothing and an empty body is a 200 no-op. An empty `password` counts as absent. A supplied `subdistrictId` also sets province and district; an unknown one, including `0`, returns 400 `invalid subdistrict id` before any write (`factoryService.update`, `hasValues`). The DOED's own `PATCH /admins` follows the same supplied-fields-only, one-transaction rule (`adminService.editAdminData`).
 - **Edges/failure:** duplicate pre-check is race-prone, though DB uniqueness remains; invalid location 404, duplicate 400, unvalidated login 401. Validation is checked only at login. Factory deletion removes the subtype row but leaves the Account; an already-issued session is not immediately revoked.
 - **Risk of change:** High—onboarding and access compatibility.
 - **Confidence:** **Verified.**
@@ -195,7 +196,7 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 - **Implementation:** `answer.ts:62-122,246-305,451-523,743-780,822-891`.
 - **Inputs/conditions:** Question standards, matching Enrollment flag and filename.
 - **Result:** choice `3` with `in_review`, or `recommended` on accept.
-- **Edges/failure:** the independent `some()` checks can pair one standard's true flag with another relevant standard's URL. Submit can auto-credit without a certificate. Accepting an evaluator change-score on such an Answer ignores the proposed verdict and forces `3`, while returning “answer accepted.” This contradicts the negotiation prose. A later Enrollment standard change can diverge from the already-created Answer.
+- **Edges/failure:** the independent `some()` checks can pair one standard's true flag with another relevant standard's URL. Submit can auto-credit without a certificate. The `accept` branch for a standard Question still forces `3` instead of the verdict, but it is unreachable: `negotiate` refuses every score change first (BR-15, ADR-0012). A later Enrollment standard change can diverge from the already-created Answer.
 - **Failure behavior:** Answer evidence supplied 400; missing certificate 404.
 - **Risk of change:** Very high—automatic score and consensus meaning.
 - **Confidence:** **Verified.**
@@ -224,10 +225,10 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 
 ### BR-15 — Factory edit and negotiation eligibility
 
-- **Rule:** Generic update permits latest Answer state `in_review` or `rejected` and writes `in_review`. Negotiation requires Cover `in_progress` and Answer `rejected`: change-score may be accepted, any rejection may be redone, and hard reject cannot be accepted.
-- **Implementation:** `answerService.update` at `answer.ts:396-672`; `negotiate` at `answer.ts:675-1037`.
+- **Rule:** Generic update permits latest Answer state `in_review` or `rejected` and writes `in_review`. Negotiation requires Cover `in_progress`. An Answer whose latest log carries a `verdictChoice` (a settled score change, in any status) is refused with 400 `this score is final and needs no response` for both `accept` and `redo` (ADR-0012). Otherwise the Answer must be `rejected`, and only a hard reject remains, which may be redone and cannot be accepted.
+- **Implementation:** `answerService.update`; `answerService.negotiate` in `src/service/answer.ts`.
 - **Inputs/conditions:** own current-fiscal Cover/Question, latest states, action and evidence.
-- **Result:** edit/redo changes Answer and appends `in_review`; accept changes `selectedChoice` and appends `recommended`.
+- **Result:** edit/redo changes Answer and appends `in_review`. The `accept` branch remains in code and schema but is unreachable.
 - **Edges/failure:** generic update has no Cover-state check, so Factory can modify Answers during evaluator review or bypass negotiation before finalize. This contradicts `CONTEXT.md`'s no Factory/evaluator race claim. Recommended/finished are blocked.
 - **Failure behavior:** invalid state/wrong negotiation Cover state 400; missing entity 404.
 - **Risk of change:** Very high—workflow and concurrency compatibility.
@@ -258,7 +259,7 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 
 ### BR-18 — Verdict shape and edit guard
 
-- **Rule:** `approve` writes `recommended`; `change_score` requires a different `0`–`3` plus description and writes `rejected`; `reject` requires description and writes `rejected` with null verdict. Finished is immutable. Recommended is editable by its author or ODPC; rejected/in-review by any scoped reviewer.
+- **Rule:** `approve` writes `recommended`; `change_score` requires a different `0`–`3` plus description and writes `recommended` with that `verdictChoice` (terminal, ADR-0012); `reject` requires description and writes `rejected` with null verdict (a hard reject), and is refused with 400 on a Cover in the evaluation period. No evidence check runs in either direction. Finished is immutable. Recommended is editable by its author or ODPC; rejected/in-review by any scoped reviewer.
 - **Implementation:** `VerdictSaveBodySchema`; `evaluatorReviewService.saveAnswerVerdict`; save integration tests.
 - **Inputs/conditions:** accessible Answer, category, latest state/author, valid decision.
 - **Result:** exactly one AnswerLog; no file, CoverLog, or email side effect.
@@ -270,33 +271,33 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 ### BR-19 — Finalize authorization and unresolved gate
 
 - **Rule:** Only ODPC or Admin-as-ODPC may finalize. Regional ODPC needs region access. Any latest Answer state `in_review` blocks finalization.
-- **Implementation:** `evaluatorReviewService.finalize` at `evaluator-review.ts:329-404`; finalize tests.
+- **Implementation:** `evaluatorReviewService.finalize` in `src/service/evaluator-review.ts`; finalize tests.
 - **Inputs/conditions:** ODPC context, Cover access, latest AnswerLogs.
 - **Result:** proceed only when every observed Answer is recommended, rejected, or already finished.
-- **Edges/failure:** no latest Cover-status guard, idempotency key, row lock, version, or explicit nonempty/full-catalog gate. Concurrent/repeated finalizers can append duplicate promotions/transitions. This is non-idempotent despite ADR/CONTEXT race-free claims. Empty-Cover runtime behavior was not verified.
+- **Edges/failure:** no latest Cover-status guard, idempotency key, row lock, version, or explicit nonempty/full-catalog gate. A repeated finalize skips `finished` Answers but appends another CoverLog; concurrent finalizers can still append duplicate promotions/transitions. This is non-idempotent despite ADR/CONTEXT race-free claims. Empty-Cover runtime behavior was not verified.
 - **Failure behavior:** tier-1 403; wrong region/nonexistent Cover 404; unresolved Answer 400.
 - **Risk of change:** Very high—finality and audit semantics.
 - **Confidence:** Main behavior **Verified**; empty-Cover behavior **Unknown**.
 
 ### BR-20 — Finalize transition and rejected evidence
 
-- **Rule:** Finalize promotes every `recommended` Answer to `finished`. Any rejected Answer produces Cover `in_progress`; otherwise Cover `finished`. It deletes and clears evidence for **all** rejected Answers, both hard reject and change-score.
-- **Implementation:** `evaluator-review.ts:406-481`; ADR-0006; finalize tests.
+- **Rule:** Finalize promotes every Answer that is neither a hard reject nor already `finished` to `finished`, carrying its `verdictChoice` and `description` forward. A hard reject (`rejected` with null `verdictChoice`) produces Cover `in_progress`; otherwise Cover `finished`. Only hard rejects lose evidence: their evidence is deleted and cleared, every standard certificate the Question names and the Factory claims is deleted and un-claimed on `Enrolls`, and other non-`finished` Answers backed by those standards return to `in_review` instead of being promoted. Score changes keep their evidence.
+- **Implementation:** `evaluatorReviewService.finalize`; ADR-0012 (supersedes ADR-0006); finalize tests.
 - **Inputs/conditions:** resolved latest states and successful strict MinIO delete.
-- **Result:** promotions, evidence-column clearing, and one CoverLog commit atomically in PostgreSQL.
-- **Edges/failure:** older `CONTEXT.md`/ADR-0005 passages say change-score evidence is preserved; code and ADR-0006 are authoritative. MinIO success followed by DB failure leaves DB references to deleted objects. Repeated finalize appends another CoverLog.
+- **Result:** promotions, settled scores, evidence-column clearing, certificate un-claims, and one CoverLog commit atomically in PostgreSQL.
+- **Edges/failure:** legacy rows that are `rejected` with a `verdictChoice` are classified as score changes, so no backfill is needed. MinIO success followed by DB failure leaves DB references to deleted objects. Repeated finalize appends another CoverLog. During the evaluation period a hard reject makes finalize return 400.
 - **Failure behavior:** MinIO failure returns 500 before DB writes; later DB failure is not compensated.
 - **Risk of change:** Very high—irreversible evidence and finality.
 - **Confidence:** **Verified.**
 
-### BR-21 — Change-score acceptance and live choice
+### BR-21 — Score settlement and live choice
 
-- **Rule:** Factory acceptance copies the proposed verdict into `Answers.selectedChoice` and writes a new `recommended` log. Redo writes the Factory's new choice and `in_review`. The loop has no limit.
-- **Implementation:** `answerService.negotiate`; `scoreService` reads `Answers.selectedChoice` only.
-- **Inputs/conditions:** Cover `in_progress`, Answer `rejected`, action and evidence.
-- **Result:** provisional settlement or another review round.
-- **Edges/failure:** this overwrites the Factory's original claim, contrary to `CONTEXT.md` and ADR-0004. The recommended log drops verdict/description/accepting actor, so acceptance is inferred from history. Matching Standard Question acceptance forces `3` instead of the verdict. There is no deadline/escalation cap.
-- **Failure behavior:** hard-reject accept or unsupported evidence 400.
+- **Rule:** Finalize writes each settled score change's `verdictChoice` into `Answers.selectedChoice` inside its transaction, and the Grade is computed from it. The Factory cannot accept or redo a score change. Only a hard reject keeps the loop: redo writes the Factory's new choice and `in_review`, with no limit on rounds.
+- **Implementation:** `evaluatorReviewService.finalize`; `answerService.negotiate`; `scoreService` reads `Answers.selectedChoice` only. ADR-0012.
+- **Inputs/conditions:** a settled score change at finalize; for redo, Cover `in_progress` and a hard-rejected Answer.
+- **Result:** the corrected score is final at finalize, or another review round after a hard reject.
+- **Edges/failure:** this overwrites the Factory's original claim, and no column keeps the prior value (ADR-0012, consequences). There is no deadline/escalation cap on hard-reject rounds.
+- **Failure behavior:** any response to a score change, hard-reject accept, or unsupported redo evidence 400.
 - **Risk of change:** Very high—score meaning, provenance, and existing data.
 - **Confidence:** **Verified.**
 
@@ -326,11 +327,11 @@ Related references: [domain model](domain-model.md), [database](database.md), [a
 
 ### BR-24 — Finalize email
 
-- **Rule:** After commit, finalize queues one result email when `Enrollment.safetyOfficerEmail` exists: finished includes Grade; in-progress requests revision. Queue failure is logged and swallowed.
-- **Implementation:** `evaluator-review.ts:341-351,493-510`; email queue/worker; finalize tests.
-- **Inputs/conditions:** successful finalize and non-null contact email.
+- **Rule:** After commit, finalize queues one result email to the Factory's account email (`Accounts.email`, not null): finished includes Grade; in-progress requests revision. `Enrolls.safetyOfficerEmail` is added as cc when present and different from the account email. Queue failure is logged and swallowed.
+- **Implementation:** `evaluatorReviewService.finalize`; `src/service/verdictEmail.ts`; email queue/worker; finalize tests.
+- **Inputs/conditions:** successful finalize.
 - **Result:** BullMQ job; API success does not guarantee delivery.
-- **Edges/failure:** `CONTEXT.md` calls the field `enrolls.email` and says every finalize emails; actual optional field is `safetyOfficerEmail`, so missing email skips notification. Create does not validate its format. Non-idempotent repeated finalize may email repeatedly.
+- **Edges/failure:** the safety-officer address is optional and not format-validated on create, so the cc may be absent or undeliverable. Non-idempotent repeated finalize may email repeatedly. A worker built before the cc field ignores it (see `CLAUDE.md`).
 - **Failure behavior:** queue failure still returns finalize success.
 - **Risk of change:** Medium/high—notification expectations.
 - **Confidence:** **Verified.**

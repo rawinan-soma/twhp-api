@@ -1,22 +1,22 @@
 # Maintainer Handover
 
-Original audit: 2026-07-15. Refreshed for transfer: **2026-09-02**, branch `dev`.
+Original audit: 2026-07-15. Refreshed for transfer: **2026-09-02**, branch `dev`. Re-checked against source on **2026-11-11** at `f194141`, where `main`, `staging`, and `dev` are identical.
 
 This is the technical handover for the Thailand Workplace Health Promotion (TWHP) backend. Read it as the starting point, then follow links into the evidence-focused documents. Repository behavior, configuration, and tests were treated as authoritative; where they conflict with older prose, the conflict is called out rather than guessed away.
 
-**What changed since the original audit** (see [Work completed since 2026-07-15](#work-completed-since-2026-07-15) for detail): the nine staff list endpoints gained an offset-pagination envelope, Cover-status resolution was consolidated into one module, an evaluator's score change became terminal, and the Admin factory list now exposes the account email. ADRs 0007–0012 record those decisions. Deployment, configuration, authentication, and middleware source is unchanged since the original audit, so every statement about those subjects carries that earlier verification forward.
+**What changed since the original audit** (see [Work completed since 2026-07-15](#work-completed-since-2026-07-15) for detail): the nine staff list endpoints gained an offset-pagination envelope, Cover-status resolution was consolidated into one module, an evaluator's score change became terminal, and the Admin factory list now exposes the account email. ADRs 0007–0012 record those decisions. Between 2026-09-03 and 2026-11-10 the project added the `consec-gold` grade and enrolment lockout (ADR-0014), Provincial Officer read-only Cover review (ADR-0013), the 31-day evaluation period, region/province filters and Factory Name Search on the staff lists, staff Invitations (ADR-0015), Prior Awards at Factory approval, and scoped role guards; see [Work completed since 2026-09-02](#work-completed-since-2026-09-02). Object storage moved from MinIO to RustFS, and production release tooling was added under `deploy/`. `docker-compose.yaml`, `src/config.ts`, `src/middleware/`, and `src/service/authentication.ts` have all changed since the original audit; `Dockerfile` and `nginx/` have not.
 
 ## System purpose
 
-TWHP is a Bun/TypeScript API for factory registration, annual enrollment, workplace-health assessments, evidence upload, geographically scoped review, score/grade calculation, and notification. The repository does not establish an authoritative expansion of the acronym. The API is built on ElysiaJS and PostgreSQL/Drizzle. Redis/BullMQ carries OTP, reset, reminder, and result-email work; MinIO stores evidence objects. The HTTP API and queue worker are separate processes.
+TWHP is a Bun/TypeScript API for factory registration, annual enrollment, workplace-health assessments, evidence upload, geographically scoped review, score/grade calculation, and notification. The repository does not establish an authoritative expansion of the acronym. The API is built on ElysiaJS and PostgreSQL/Drizzle. Redis/BullMQ carries OTP, reset, Invitation, reminder, and result-email work; an S3-compatible object store (RustFS in Compose, still named `minio`) stores evidence objects. The HTTP API and queue worker are separate processes.
 
 See [Architecture](architecture.md), [Domain model](domain-model.md), and [Project structure](project-structure.md).
 
 ## Current implementation status
 
-The main registration, enrollment, assessment, review, scoring, OTP, email, and file paths are implemented. Reviewer saves are durable and per-answer, followed by a separate whole-cover finalize. There are 315 declared Bun test cases in 18 files, but the repository's `test` package script is still a failing placeholder. The 8 isolated files were executed on 2026-09-02 and passed — 201 tests, 0 failures. The 10 PostgreSQL integration files were not run, because their fallback targets the mutable local development database.
+The main registration, enrollment, assessment, review, scoring, OTP, email, staff-invitation, and file paths are implemented. Reviewer saves are durable and per-answer, followed by a separate whole-cover finalize. There are 53 Bun test files, 33 of them PostgreSQL integration files, but the repository's `test` package script is still a failing placeholder. [Testing](testing.md) has the current isolated-file list and its last recorded results. Do not run the integration files until `DATABASE_URL` names a disposable database, because their fallback targets the mutable local development database.
 
-Work is on `dev`, which is 6 commits ahead of `main` and identical to `staging`. This handover does not assert that any branch has been released. Deployed commit, database state, operational ownership, and release history are **Unknown / Requires Organizational Knowledge**.
+Work merges to `main` through GitHub pull requests; on 2026-11-11 `main`, `staging`, and `dev` all point at `f194141`. Production is released from `main` with `deploy/production/Makefile`. This handover does not assert which commit is deployed. Deployed commit, database state, operational ownership, and release history are **Unknown / Requires Organizational Knowledge**.
 
 ## What is stable
 
@@ -27,6 +27,8 @@ Work is on `dev`, which is 6 commits ahead of `main` and identical to `staging`.
 - Score is derived on demand from answer state; the Grade is stored in `Awards` at finalize.
 - The API prefix is `/twhp/api`, health is `/twhp/api/health`, and live OpenAPI is `/twhp/api/document` when not blocked by the production proxy.
 - Cover-status resolution has one owner, `src/service/coverStatus.ts`, and the nine staff lists share one pagination contract in `src/schema/pagination.ts`. Both are covered by isolated tests.
+- "Held gold in fiscal year Y" has one reader, `src/service/awardHistory.ts`, and Factory Name Search has one predicate, `src/service/factoryNameSearch.ts`.
+- `src/middleware/guards.test.ts` checks every autoloaded route against an access table for anonymous callers and each role, so a new route without an access entry fails the test.
 
 These statements describe consistent repository structure, not production availability.
 
@@ -38,12 +40,13 @@ These statements describe consistent repository structure, not production availa
 - Finalize has no cover-state, lock, version, or idempotency guard and may repeat transitions and emails.
 - Business policy documents conflict with code on standard-question acceptance, `n/a`, and some state gates (Gold special-question gating is settled — ADR-0014).
 - ADR-0012 withdrew the factory's right to contest a score. The `accept` branch in `answer.ts` is retained but unreachable for score changes, pending confirmation that no deployed frontend still calls it — confirm this with the frontend owner before removing it.
-- Covers finalized between 2026-07-07 and 2026-08-25 lost evidence under ADR-0006. A production backfill was deferred by explicit decision and its exposure was never measured; no code change recovers those files.
 - MinIO changes and PostgreSQL transactions are not atomic; failures can leave missing or orphaned evidence.
-- The production migration container is a successful no-op and production images use mutable tags.
+- The production migration container is a successful no-op. Schema changes reach production only through hand-run SQL such as `deploy/production/invitations.sql`. `deploy/production/Makefile` pushes immutable `<short sha>` tags, but Compose still names `:latest`, which the release re-points on the server.
 - A clean clone lacks ignored/untracked `seed_data/`, although image build and seeding require it.
 - An empty rendered `NGINX_API_KEY` can make the staging/production proxy accept a missing API-key header.
-- Health checks are liveness-only; there is no CI/CD, readiness, worker health, backup, restore, or rollback implementation in the repository.
+- Health checks are liveness-only; there is no CI, readiness check, worker health check, or tested restore. `deploy/production/` adds a manual release with a pre-release `pg_dump` and an image rollback, but no restore procedure.
+- Until 2026-11-09 (#41) the four role guards accepted any valid session. That is fixed and tested, but any deployment older than `55bc8a8` still has the defect.
+- Invitation links expire 10 minutes after they are sent, and the frontend must serve `/accept-invitation`; see [ADR-0015](adr/0015-invitations-are-separate-from-accounts.md) and [frontend invitation workflow](frontend-invitation-workflow.md).
 
 The prioritized evidence and remediation sequence are in [Technical debt](technical-debt.md).
 
@@ -55,11 +58,14 @@ The prioritized evidence and remediation sequence are in [Technical debt](techni
 - Current application paths append to `coverLogs` and `answerLogs`; current state is “latest log wins,” normally by descending serial ID. Database immutability is not enforced.
 - Score is calculated at read time; the Grade is calculated once at finalize and stored.
 - File operations occur outside database transactions. That is an intentional boundary but not a distributed transaction.
-- Staff authentication uses password plus email OTP, except first-login staff; Factory accounts do not use OTP.
+- Staff authentication uses password plus email OTP, except seeded first-login staff; Factory accounts do not use OTP. Accounts created from an Invitation use OTP from the first login ([ADR-0015](adr/0015-invitations-are-separate-from-accounts.md)).
+- An Invitation is its own `Invitations` row; no account exists until it is accepted ([ADR-0015](adr/0015-invitations-are-separate-from-accounts.md)).
 - Review is two-phase: save one answer verdict, then ODPC/admin finalizes the whole Cover.
 - An evaluator's `change_score` is **terminal** and preserves evidence; only a hard reject (`status = 'rejected'` **and** `verdict_choice IS NULL`) deletes files and bounces the Cover ([ADR-0012](adr/0012-score-changes-are-terminal.md)).
 - Cover status is resolved only through `src/service/coverStatus.ts` ([ADR-0010](adr/0010-lateral-latest-cover-log-resolution.md)).
 - The `{ items, meta }` pagination envelope is scoped to the nine staff lists; every other list is a bare array ([ADR-0007](adr/0007-pagination-envelope-scoped-exception.md), [ADR-0009](adr/0009-offset-pagination-for-staff-lists.md)).
+- A Provincial Officer reads Covers through the same `getAnswers` as reviewers, never sees an `in_progress` Cover, and sees verdicts redacted while `in_review` ([ADR-0013](adr/0013-province-scoped-read-only-cover-review.md)).
+- The Grade ladder has five tiers; `consec-gold` and the enrolment lockout read award history only through `awardHistory.ts` ([ADR-0014](adr/0014-consec-gold-and-the-gold-gate.md)).
 
 ## Work completed since 2026-07-15
 
@@ -75,7 +81,26 @@ Six commits on `dev` ahead of `main`, plus the merged pagination branch. Each wa
 | Admin factory list email (intent `admin-factory-email`) | The Admin factory list exposes the linked account's email | — |
 | Traceability reports | Requirements and evaluation traceability, English and Thai, plus spreadsheets | — |
 
-Two follow-ups were deliberately deferred and remain open: the ADR-0006 evidence backfill, and preserving the factory's original claim as a delta once finalize overwrites `selected_choice`. Both need a decision from the receiving team.
+One follow-up was deliberately deferred and remains open: preserving the factory's original claim as a delta once finalize overwrites `selected_choice`. It needs a decision from the receiving team. The other, the ADR-0006 evidence backfill, was closed after production exposure was measured on 2026-08-25: no Cover containing a score change had been finalized, so ADR-0006 had deleted no score-change evidence. ADR-0012 still lists that backfill as outstanding.
+
+## Work completed since 2026-09-02
+
+Work since 2026-11-06 is tracked in GitHub Issues and merged through pull requests; earlier tickets are under `.scratch/`.
+
+| Change | What it did | Decision record |
+|---|---|---|
+| Consecutive gold and the gold gate (2026-09-21) | Five-grade ladder with `consec-gold`; `gold` gates on `special == 1` only; the Grade is stored in `Awards` at finalize; a gold-tier award blocks enrolment for the next two fiscal years | [ADR-0014](adr/0014-consec-gold-and-the-gold-gate.md), ADR-0001 (amended) |
+| Provincial read-only review (2026-09-03) | Provincial Officers read Covers in their province; `in_progress` returns 404 and verdicts are redacted while `in_review` | [ADR-0013](adr/0013-province-scoped-read-only-cover-review.md) |
+| Evaluation period (2026-11-04, #26, #30) | Every reviewer level may save verdicts on the year that just ended through 31 Oct, or `EVALUATION_PERIOD_END`; staff lists default to that year; hard rejects are refused during it; the Factory grace was removed | ADR-0012 (amended) |
+| Weekday validation reminder (#33) | The reminder runs 08:30 Bangkok on weekdays only, with the timezone declared in the job scheduler | — |
+| RustFS object storage (2026-11-09) | The Compose `minio` service runs a digest-pinned RustFS image; code and config names are unchanged | [MinIO to RustFS migration](minio-to-rustfs-migration.md) |
+| Deploy tooling (2026-11-09) | `deploy/production/` release, fit check, backup, and rollback; `deploy/staging/` mirror and explicit `migrate` | [Deployment](deployment.md) |
+| Region and province filters (#39) | Admin lists filter by region and province; Evaluator lists filter by province inside the region; location data exposes `health_region` | — |
+| Scoped role guards (#41) | `requireRoles` now reaches routes that mount a guard; an access-matrix test covers every route | — |
+| Factory Name Search (#55) | Optional `?search=` on the nine staff lists, matching a fragment of the Thai or English name | — |
+| Staff Invitations (#61) | Admin invites Evaluators and Provincial Officers; resend, correct, cancel; `GET /admins/staff`; public `accept-invitation`; new Enrollments record the newest Evaluator per level | [ADR-0015](adr/0015-invitations-are-separate-from-accounts.md) |
+| Prior Awards (#65) | DOED approval can record gold-tier awards from fiscal years 2023–2025 CE (FY2566–FY2568) in the same transaction | ADR-0014 (amendment 2026-11-10) |
+| Atomic profile updates (#67) | Factory and DOED profile updates write only supplied fields, in one transaction | — |
 
 ## Critical business rules
 
@@ -84,14 +109,14 @@ Two follow-ups were deliberately deferred and remain open: the ADR-0006 evidence
 - Intended cardinalities are one enrollment per Factory/fiscal year, one Cover per Enrollment, and one Answer per Cover/Question. They are not currently durable database constraints.
 - Evaluator scope combines health region and level/category ownership: Mental → Mental; DOH → Disease/Safety; ODPC → all categories and finalization.
 - A save verdict is `approve`, `change_score`, or `reject`. Per-answer saves do not move the Cover; finalize is the sole evaluator/admin Cover transition and sole writer of `finished`. Cover creation and Factory submission also append Cover transitions.
-- Scores use the live selected choice and exclude `n/a` from numerator and denominator. Grade evaluation is ordered Consec-gold → Gold → Silver → Certificate → Joined ([ADR-0014](adr/0014-consec-gold-and-the-gold-gate.md)).
+- Scores use the live selected choice and exclude `n/a` from numerator and denominator. Grade evaluation is ordered Consec-gold → Gold → Silver → Certificate → Joined ([ADR-0014](adr/0014-consec-gold-and-the-gold-gate.md)). A gold-tier Award, including a Prior Award recorded at approval, blocks Enrollment in the next two fiscal years.
 - Evidence requirements depend on choice and question metadata; changing standard mappings or `seed_data/questions.json` can change validation and scoring together.
 
 The current-code rule cards, contradictions, edge cases, and change risks are in [Business rules](business-rules.md).
 
 ## Security-sensitive areas
 
-Do not modify authentication, refresh, RBAC, evaluator detail queries, presigning, OTP bypass, password recovery, or cookie behavior without reading [Authentication and authorization](authentication-authorization.md).
+Do not modify authentication, refresh, RBAC, invitations, evaluator detail queries, presigning, OTP bypass, password recovery, or cookie behavior without reading [Authentication and authorization](authentication-authorization.md).
 
 Immediate receiving-team actions:
 
@@ -100,7 +125,7 @@ Immediate receiving-team actions:
 3. Decide and implement password-change/reset refresh revocation, password-login abuse controls, and browser-edge policy.
 4. Confirm that `DEV_SKIP_OTP` can never be effective in a deployed environment; current code treats `COOKIE_SECURE=true` as the production boundary.
 
-None of these four were addressed by the work completed since 2026-07-15; they remain the top of the security backlog.
+None of these four were addressed by the work completed since 2026-07-15; they remain the top of the security backlog. The role-guard defect fixed on 2026-11-09 (#41) was separate from them.
 
 ## Known limitations
 
@@ -112,10 +137,11 @@ None of these four were addressed by the work completed since 2026-07-15; they r
 - Exact Bun runtime is not pinned; several images/dependencies float.
 - Services advertised as database-injectable still close over global Redis, queue, MinIO, or other singleton services.
 - `answer.ts`, `authentication.ts`, `enroll.ts`, and `evaluator-review.ts` are large, high-coupling change hotspots.
+- `GET /admins/staff` is an unpaginated bare array of every Evaluator, Provincial Officer, and Invitation.
 
 ## Deployment assumptions
 
-Current Compose assumes API port 3000, PostgreSQL host port 5433, Redis host port 6380, an existing `shared-web-network`, and an external public edge/TLS layer. Production startup does not prove schema compatibility because `migrate-prod` only prints a message. Do not deploy until the organization supplies an approved backup, schema/data promotion, validation, rollback, immutable artifact, and secret-management process. See [Deployment](deployment.md).
+Current Compose assumes API port 3000, PostgreSQL host port 5433, Redis host port 6380, an existing `shared-web-network`, and an external public edge/TLS layer. Production startup does not prove schema compatibility because `migrate-prod` only prints a message; `deploy/production/fit-check.ts` checks tables, columns, and enum values before a release, but not types, constraints, or indexes. Do not deploy until the organization approves the restore, schema/data promotion, and secret-management process. See [Deployment](deployment.md).
 
 ## Recommended next work
 
@@ -139,7 +165,7 @@ Follow this sequence exactly:
 2. Minutes 4–9: read the diagrams and boundaries in [Architecture](architecture.md).
 3. Minutes 9–14: read TD-01 through TD-07 in [Technical debt](technical-debt.md).
 4. Minutes 14–19: read the refresh flow and verified defects in [Authentication and authorization](authentication-authorization.md).
-5. Minutes 19–24: read BR-06 through BR-27 in [Business rules](business-rules.md) and [ADR-0012](adr/0012-score-changes-are-terminal.md), which changed the review model most recently.
+5. Minutes 19–24: read BR-06 through BR-27 in [Business rules](business-rules.md), [ADR-0012](adr/0012-score-changes-are-terminal.md) for the review model, and [ADR-0015](adr/0015-invitations-are-separate-from-accounts.md), the most recent decision.
 6. Minutes 24–27: inspect `src/index.ts`, `src/middleware/jwt.ts`, `src/service/authentication.ts`, and `src/service/evaluator-review.ts`.
 7. Minutes 27–30: read the production no-op and release preconditions in [Deployment](deployment.md). Do not execute a production change in this window.
 
@@ -152,7 +178,7 @@ Follow this sequence exactly:
 - [ ] Connect to a disposable or explicitly approved PostgreSQL database and inspect schema/seed expectations in [Database](database.md).
 - [ ] Confirm exactly one intended worker: use Compose `worker-dev` or, with explicitly approved non-production PostgreSQL/Redis/SMTP settings, native `bun run worker`. Do not start both unless an approved replica/scheduler topology requires it.
 - [ ] Authenticate once as Factory and once through the staff OTP flow using non-production accounts.
-- [ ] Run the eight safe isolated test files recorded in [Testing](testing.md). Do not run all integration tests until `DATABASE_URL` is proven disposable.
+- [ ] Run the safe isolated test files recorded in [Testing](testing.md). Do not run all integration tests until `DATABASE_URL` is proven disposable.
 - [ ] Locate API stdout/stderr and worker/container logs; no centralized observability destination is configured here.
 - [ ] Verify registration/enrollment, Cover creation, answer save/submit, scoped evaluator review, finalize, score/grade, email job, and a presigned evidence read in a disposable environment.
 - [ ] Ask the organization the unresolved questions below before accepting production on-call ownership.
@@ -164,7 +190,7 @@ For both humans and AI agents:
 - [ ] Read the task-specific documents in [Documentation index](README.md).
 - [ ] Inspect current source and tests; do not treat the legacy root `../README.md`, `CONTEXT.md`, memory-bank artifacts, ADRs, or static OpenAPI as automatically current.
 - [ ] Identify the authoritative state transition, role/region/category scope, fiscal-year boundary, and database constraint affected.
-- [ ] Check whether the change spans PostgreSQL, Redis/BullMQ, MinIO, email, cookies, or Nginx; define partial-failure behavior.
+- [ ] Check whether the change spans PostgreSQL, Redis/BullMQ, object storage, email, cookies, or Nginx; define partial-failure behavior.
 - [ ] Preserve service factory, route autoload, base-schema composition, status-response, and file-I/O boundaries unless an approved architecture change says otherwise.
 - [ ] Add focused tests. Use a disposable seeded database for integration tests.
 - [ ] Run formatting/lint/type/test/build checks that actually exist and report exact failures; do not use the failing `bun run test` stub as proof.
@@ -178,9 +204,10 @@ For both humans and AI agents:
 - `standardTypes`, standard mapping objects, Question seed metadata, choice/evidence validation, score formula, or grade ordering/thresholds.
 - Answer/Cover status values, latest-log ordering, authorship/edit guards, or finalize behavior.
 - Enrollment/Cover/Answer cardinalities or evaluator assignment semantics.
-- MinIO filename persistence, presigned URL rewriting, file delete/upload ordering, or the 130 MiB request limit.
-- Production `migrate-prod`, image tags, port 3000 assumptions, Nginx/API-key rules, or external network wiring.
-- Email job names, retry/idempotency behavior, or the daily schedule.
+- Object-storage filename persistence, presigned URL rewriting, file delete/upload ordering, or the 130 MiB request limit.
+- Production `migrate-prod`, `deploy/production/` safety checks, image tags, port 3000 assumptions, Nginx/API-key rules, or external network wiring.
+- Email job names, retry/idempotency behavior, or the weekday reminder schedule. A change under `src/worker/` or `src/queue/` needs a rebuilt worker image.
+- The `Invitations` table, token hashing and expiry, or the single-claim `DELETE` in acceptance.
 
 ## Questions the Organization Still Needs to Answer
 
@@ -192,7 +219,7 @@ Every item below is **Unknown / Requires Organizational Knowledge**:
 - Are all frontends same-origin/same-site with the API, and what CORS/CSRF/security-header policy is required?
 - Evaluator detail access is now strictly regional and Provincial Officer detail/cover-review access is strictly province-scoped (2026-09-03); what exact ownership rules must still apply to every presigned evidence file remains open.
 - What are the canonical intended rules for Standard Question acceptance, `n/a`, post-submit edits, and evidence retention? _(Score-change finality is answered — see [ADR-0012](adr/0012-score-changes-are-terminal.md).)_
-- Should the evidence lost to ADR-0006 between 2026-07-07 and 2026-08-25 be measured and remediated, and is a frontend confirmation step required before a hard reject deletes a real-world certificate?
+- Is a frontend confirmation step required before a hard reject deletes a real-world certificate? _(The ADR-0006 exposure was measured on 2026-08-25 and no backfill is needed.)_
 - What timezone is authoritative for fiscal-year queries and stored timestamps?
 - What are the maximum data volumes, email delivery SLOs, and acceptable presigned URL lifetime? _(The pagination and ordering contract is answered for the nine staff lists — see [API conventions](api-conventions.md#pagination). The data-volume question remains open.)_
 - Which environment may contain the seeded DOED credential, and has every non-disposable copy been rotated or removed?
@@ -206,9 +233,9 @@ The receiving team needs, from the outgoing owner and outside this repository:
 
 - [ ] `seed_data/` — it is git-ignored, absent from the clone, and required by both the image build and `db:seed`. Confirm its authoritative source and who may access it.
 - [ ] Environment values for each environment, and the secret store they live in. Never copy production secrets into a local `.env`.
-- [ ] Registry credentials for `rawinan/twhp-elysia-api`, plus whoever can publish and roll back an image.
+- [ ] Registry credentials for `rawinan/twhp-elysia-api`, SSH access for `deploy/production/Makefile` and `deploy/staging/Makefile`, plus whoever can publish and roll back an image.
 - [ ] Access to the deployment host, the external `shared-web-network`, the TLS/edge layer, DNS, and the SMTP account.
-- [ ] Database, Redis, and MinIO credentials, plus whatever backups exist and evidence that a restore has been tested.
+- [ ] Database, Redis, and object-storage credentials, plus the `~/twhp-backups` dumps on the production host and evidence that a restore has been tested.
 - [ ] Answers, or named owners, for every item in the section above.
 - [ ] The frontend repository and its owner — several open questions here can only be closed from that side.
 

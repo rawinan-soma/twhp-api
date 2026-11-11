@@ -32,6 +32,13 @@ maintainer rather than silently choosing.
 - `src/service/coverStatus.ts`: the single latest-cover-log rule, in both query shapes.
   `src/service/answerFileRules.ts` and `src/service/scoreHelpers.ts`: pure rule modules.
   `src/schema/pagination.ts`: the shared offset-pagination contract.
+  `src/service/factoryNameSearch.ts`: the one Factory Name Search predicate for the staff lists.
+  `src/service/invitation.ts` and `src/service/staff.ts`: staff Invitations and the Admin staff list
+  ([ADR-0015](docs/adr/0015-invitations-are-separate-from-accounts.md)).
+- `src/test/`: test preload plus shared harnesses (`authenticated-request.ts`,
+  `route-access-matrix.ts`, `route-query.ts`, `staff-list-fixtures.ts`); not runtime code.
+- `deploy/`: staging and production release helpers, including the hand-run
+  `deploy/production/invitations.sql`.
 - `.scratch/`: legacy issue tracker (tickets before 2026-11-06) and temporary investigation output, not runtime code. New issues go to GitHub Issues.
 - `.specs-fire/` and `memory-bank/`: intent, work-item, bolt, and per-run history. Read them for the
   reasoning behind a decision an ADR condenses; they are not runtime code.
@@ -53,7 +60,9 @@ partial dependency-injection boundary.
   2026-09-03.) Do not copy an endpoint's security shape without checking
   [authentication and authorization](docs/authentication-authorization.md).
 - Enrollment/Cover queries are fiscal-year scoped from Oct 1 through Sep 30. Always use
-  `utilities().getFiscalYear()`; do not hand-roll date boundaries or infer host timezone semantics.
+  `utilities().getFiscalYear()` (staff-side list reads use `utilities().getReviewerFiscalYear()`,
+  which covers the October evaluation period); do not hand-roll date boundaries or infer host
+  timezone semantics.
 - Current Cover and Answer state is latest-log-wins by greatest log ID. Scores are
   calculated on demand; the Grade is stored in `Awards` at finalize and never recomputed
   ([ADR-0001](docs/adr/0001-score-calculated-on-demand.md), amended). Workflow transitions, reviewer authority, standard
@@ -90,8 +99,13 @@ partial dependency-injection boundary.
 - Persist only MinIO object names, not presigned URLs. Use the shared upload/delete/presign helpers.
   File I/O remains outside PostgreSQL transactions; reason explicitly about orphaned objects and
   dangling references on every failure path. Finalization can irreversibly delete evidence.
-- Queue acceptance is not email delivery. The API and worker are separate processes. The daily
-  reminder's 08:30 behavior depends on process timezone; Compose sets `Asia/Bangkok`.
+- Evaluators and Provincial Officers are added by Invitation, not by account rows: a pending person
+  has no `Accounts` row and cannot log in. Acceptance is one transaction whose `DELETE` of the
+  Invitation is the claim; every refusal is the same `400 invalid token`. See
+  [ADR-0015](docs/adr/0015-invitations-are-separate-from-accounts.md).
+- Queue acceptance is not email delivery. The API and worker are separate processes. The validation
+  reminder runs at 08:30 on weekdays; its `Asia/Bangkok` time zone is pinned in
+  `src/queue/schedule.ts`, not taken from the process.
 
 ## Database workflow
 
@@ -127,11 +141,18 @@ bun run start
 # Side-effecting worker: consumes Redis jobs, sends email, and registers a repeatable reminder
 bun run worker
 
-# Safe isolated tests — all eight files, one process (201 pass as of 2026-09-02)
-bun test src/config.test.ts src/routes/authentication/index.test.ts \
-  src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
-  src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
-  src/service/pagination.test.ts src/service/score.test.ts
+# Safe isolated tests — all 20 files, one process
+# (458 pass / 1 skip / 0 fail as of 2026-11-11; see docs/testing.md)
+bun test src/config.test.ts src/middleware/guards.test.ts src/queue/schedule.test.ts \
+  src/routes/admins/factories/index.test.ts \
+  src/routes/authentication/index.test.ts src/schema/fiscal-year.test.ts \
+  src/service/admin-region-province-routes.test.ts src/service/auth-dev-bypass.test.ts \
+  src/service/authentication.2fa.test.ts src/service/coverStatus.test.ts \
+  src/service/evaluation-period.routes.test.ts src/service/evaluation-period.test.ts \
+  src/service/evaluator-province-routes.test.ts src/service/factory-closed-year.test.ts \
+  src/service/fiscal-year-routes.test.ts src/service/pagination-routes.test.ts \
+  src/service/pagination.test.ts src/service/score.test.ts src/service/verdictEmail.test.ts \
+  src/utils.fiscal-year.test.ts
 
 # Non-mutating static check
 bun ./node_modules/.bin/biome check src
@@ -141,20 +162,23 @@ docker compose --profile dev config
 docker compose --profile staging config
 docker compose --profile production config
 
-# Development stack; mutates the development DB via db:push + db:seed
+# Development stack; mutates the development DB via db:push + db:seed.
+# Needs the git-ignored docker.env and seed_data/ (migrate-dev fails without seed_data/).
 docker compose --profile dev up --build
 ```
 
 `bun run test` is a placeholder that always exits 1. Bare `bun test` includes PostgreSQL integration
-tests through the global `src/test/setup.ts` preload. Do not run it, or any `*.integration.test.ts`,
-until `DATABASE_URL` is explicitly confirmed as a disposable, migrated, seeded test database. If mock
+tests through the global `src/test/setup.ts` preload. Do not run it, any `*.integration.test.ts`, or
+`src/service/evaluator-review.pastyear.test.ts` (it writes when a database is reachable) until
+`DATABASE_URL` is explicitly confirmed as a disposable, migrated, seeded test database. If mock
 contamination reappears, fall back to one process per authentication file. See
 [testing](docs/testing.md).
 
 `bun run format`, `bun run lint`, and `bun run check` all use `--write`; do not use them for a
 read-only validation pass or let them rewrite unrelated user changes. There is no installed direct
-TypeScript compiler and no reproducible typecheck script. The read-only Biome check has a known red
-baseline, so report baseline versus introduced diagnostics rather than claiming a clean gate.
+TypeScript compiler and no reproducible typecheck script. The read-only Biome check exits 0 as of
+2026-11-11 but still reports warnings (48 warnings, 3 infos), so report baseline versus introduced
+diagnostics.
 
 Run `bun run worker` only with explicitly approved non-production PostgreSQL, Redis, and SMTP settings. It consumes queued jobs, can send real email, and registers the daily repeatable reminder; merely having environment variables present is not sufficient authorization.
 
@@ -195,8 +219,8 @@ Issues and PRDs are GitHub Issues (legacy ones stay in `.scratch/<feature>/`); f
 
 ## Dangerous assumptions
 
-- Do not assume `bun run test` works, bare `bun test` is isolated, Biome is green, or a typecheck
-  command exists.
+- Do not assume `bun run test` works, bare `bun test` is isolated, Biome is warning-free, or a
+  typecheck command exists.
 - Do not assume OpenAPI status/security declarations equal runtime behavior.
 - Do not assume a service factory isolates Redis, queues, MinIO, configuration, or other services.
 - Do not assume pre-insert checks guarantee uniqueness; several critical cardinalities lack database

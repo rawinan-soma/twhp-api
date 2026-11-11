@@ -1,6 +1,6 @@
 # Authentication and authorization
 
-Audit date: 2026-07-15; re-checked 2026-09-02. `src/middleware/` (last changed 2026-06-11), `src/service/authentication.ts` and `src/config.ts` (both 2026-07-02) are unchanged since the audit, so every finding here — including TD-01 and TD-02 — still stands as written.
+Audit date: 2026-07-15; re-checked 2026-09-02 and 2026-11-11. Since the audit, `src/middleware/guards.ts` and `rbac.ts` changed on 2026-11-09 so that a guard's role check reaches the routes that mount it (#41), and Invitations added `POST /authentication/accept-invitation` and the `/admins/invitations` and `/admins/staff` routes (#61). Both are described below. The refresh-token path in `src/middleware/jwt.ts` and `src/service/authentication.ts` is unchanged, so TD-01 and TD-02 still stand as written.
 
 This document describes the behavior visible in the current repository. Labels mean:
 
@@ -30,7 +30,7 @@ Passwords are hashed with bcrypt cost 12 on factory registration and updates, ad
 Password strength is inconsistent (**Verified**):
 
 - `UpdateAdminSchema` applies a 12-character requirement through the admin schema.
-- Factory registration/update, reset-password, and evaluator/provincial first-password routes use unconstrained `t.String()`. Empty strings are therefore accepted as passwords; this is a verified defect, not merely a weak minimum. `POST /authentication/accept-invitation` is the exception and requires at least 8 characters.
+- Factory registration/update, reset-password, and evaluator/provincial first-password routes use unconstrained `t.String()`. Registration, reset, and first-password therefore accept an empty password; this is a verified defect, not merely a weak minimum. A Factory update (`PATCH /factories`, `PATCH /admins/factories/:id`) treats an empty password as absent and keeps the current hash (#67). `POST /authentication/accept-invitation` is the exception and requires at least 8 characters.
 - Login username and password have no length bounds.
 - Changing a password does not clear `Accounts.hashedRefreshToken`; an already-issued refresh session therefore survives a password reset/change unless separately logged out or replaced (**Verified behavior; whether this is acceptable policy is Unknown**).
 
@@ -85,7 +85,7 @@ Invalid/missing sessions return 401 JSON. An exception during refresh clears bot
 
 Roles are the PostgreSQL enum and TypeScript `Role` enum values `Factory`, `Provincial`, `Evaluator`, and `DOED` (`src/drizzle/schema.ts`; `src/service/authentication.ts`).
 
-`requireRoles` in `src/middleware/rbac.ts` consumes the verified JWT role and returns HTTP 403 with the bare string `forbidden` to every authenticated role it does not allow. The check is a `derive`, so it runs before body and query validation: a wrong-role request with an invalid body gets 403, not 422. The derive is `as: "scoped"` and each guard is lifted with `.as("scoped")`, which applies the check to the mounting route without leaking onto sibling routes; `as: "global"` would leak. `src/middleware/guards.test.ts` enumerates every autoloaded route and asserts, for each, that anonymous gets 401, the owning role passes the guard, and the three other roles get exactly 403 (**Verified**). `src/middleware/guards.ts` composes:
+`requireRoles` in `src/middleware/rbac.ts` consumes the verified JWT role and returns HTTP 403 with the bare string `forbidden` to every authenticated role it does not allow. The check is a `derive`, so it runs before body and query validation: a wrong-role request with an invalid body gets 403, not 422. The derive is `as: "scoped"` and each guard is lifted with `.as("scoped")`, which applies the check to the mounting route without leaking onto sibling routes; `as: "global"` would leak. `src/middleware/guards.test.ts` enumerates every autoloaded route and asserts, for each, that anonymous gets 401, the owning role passes the guard, and the three other roles get exactly 403 (**Verified**). `PATCH /admins/factories/validate/:id` reads its body in `parse` but checks it in a `transform` hook after the guard, so a refused body still gets 401/403 first; until #71 the check ran in `parse` and answered 400 to any caller ([#69](https://github.com/rawinan-soma/twhp-api/issues/69)). `src/middleware/guards.ts` composes:
 
 | Guard | Allowed role |
 | --- | --- |

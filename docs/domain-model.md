@@ -1,14 +1,14 @@
 # Domain Model
 
-This document describes the domain as the application behaves today, verified on 2026-09-02 on branch `dev`. Where `CONTEXT.md` or an ADR disagrees with executable code, current code is authoritative and the contradiction is called out explicitly.
+This document describes the domain as the application behaves today, verified on 2026-09-02 on branch `dev` and re-checked on 2026-11-11 at `f194141` (the head of `main`, `staging`, and `dev`). Where `CONTEXT.md` or an ADR disagrees with executable code, current code is authoritative and the contradiction is called out explicitly.
 
 Related references: [business rules](business-rules.md), [database](database.md), [authentication and authorization](authentication-authorization.md), [API](api/API.md), [architecture](architecture.md), and [technical debt](technical-debt.md).
 
 ## Domain boundary
 
-TWHP manages an annual workplace health, safety, and wellbeing assessment. A Factory registers, is validated by DOED, enrolls for the current fiscal year, creates a Cover, answers the Question catalogue with evidence, and submits it for hierarchical review. Mental and DOH evaluators review category subsets; ODPC, or a DOED admin acting as national ODPC, finalizes the Cover. Provincial Officers observe factories, enrollments, and scores in their province.
+TWHP manages an annual workplace health, safety, and wellbeing assessment. A Factory registers, is validated by DOED (which may record the Factory's Prior Awards at the same time), enrolls for the current fiscal year, creates a Cover, answers the Question catalogue with evidence, and submits it for hierarchical review. Mental and DOH evaluators review category subsets; ODPC, or a DOED admin acting as national ODPC, finalizes the Cover. Provincial Officers observe factories, enrollments, and scores in their province. DOED adds Evaluators and Provincial Officers by Invitation.
 
-PostgreSQL owns durable identities, enrollments, assessments, and append-only state logs. Redis owns transient authentication challenges and queue state. MinIO owns evidence objects; PostgreSQL stores their filenames. See [database](database.md) for persistence details.
+PostgreSQL owns durable identities, enrollments, assessments, and append-only state logs. Redis owns transient authentication challenges and queue state. An S3-compatible object store (RustFS in Compose, still addressed as `minio`) owns evidence objects; PostgreSQL stores their filenames. See [database](database.md) for persistence details.
 
 The repository contains one bounded context. The Cover is the central aggregate-like unit, but its invariants are distributed across services and are not protected by one database constraint or concurrency boundary. **Confidence: Inferred.**
 
@@ -16,15 +16,15 @@ The repository contains one bounded context. The Cover is the central aggregate-
 
 | Actor | Scope | Current authority | Evidence |
 |---|---|---|---|
-| Factory | Its own current-fiscal participation | Register; log in after validation; create/update Enrollment; create Cover; save/edit/submit Answers; negotiate (redo) a hard-rejected Answer; read own score. It has **no** response to a settled score change (ADR-0012). | `factoryGuard`; `src/routes/factories/**`; `factoryService`, `enrollService`, `answerService`, `scoreService` |
-| Provincial Officer | One province | Read province-scoped Factory, Enrollment, and Score lists; read one Enrollment or Factory by id; read a Cover's Answers (open only while `in_review`/`finished`, verdicts redacted while `in_review`); first-login password/email change. No write path. | `officerGuard`; `src/routes/provincialOfficers/**`; `evaluator-review.ts:resolveProvincialOfficer` (province-scoped `ReviewerScope`) |
+| Factory | Its own current-fiscal participation | Register; log in after validation; create/update Enrollment; create Cover; save/edit/submit Answers; negotiate (redo) a hard-rejected Answer; read own score. It has **no** response to a settled score change (ADR-0012). It cannot create an Enrollment in the two fiscal years after a gold-tier award (the enrolment lockout, ADR-0014). | `factoryGuard`; `src/routes/factories/**`; `factoryService`, `enrollService`, `answerService`, `scoreService` |
+| Provincial Officer | One province | Read province-scoped Factory, Enrollment, and Score lists; read one Enrollment or Factory by id; read a Cover's Answers (open only while `in_review`/`finished`, verdicts redacted while `in_review`); seeded first-login password/email change. No other write path. | `officerGuard`; `src/routes/provincialOfficers/**`; `evaluator-review.ts:resolveProvincialOfficer` (province-scoped `ReviewerScope`) |
 | Mental Evaluator | One health region | Read and judge Mental-category Answers on Covers in that region; approvals are provisional | `CATEGORIES_FOR_LEVEL`; `assertCoverInRegion`; `saveAnswerVerdict` |
 | DOH Evaluator | One health region | Read and judge Disease/Safety Answers on Covers in that region; approvals are provisional | Same symbols |
 | ODPC Evaluator | One health region | Read/judge all categories, override any non-finished Answer, and finalize Covers in that region | `categoriesFor("ODPC")`; `finalize` |
-| DOED Admin | National | Validate/edit/delete factories; read national data; review all categories and finalize as national ODPC | `adminGuard`; `adminReviewerContext`; admin routes |
-| Safety Officer | Contact inside an Enrollment, not an Account | Receives a finalize result/revision email when `safetyOfficerEmail` is present | `Enrolls.safety_officer_*`; `evaluator-review.ts:341-351,493-507` |
+| DOED Admin | National | Validate (optionally recording Prior Awards)/edit/delete factories; read national data, filtered by region and province; review all categories and finalize as national ODPC; invite Evaluators and Provincial Officers and resend, correct, or cancel a pending Invitation; list staff with Invitation status | `adminGuard`; `adminReviewerContext`; admin routes; `adminService.approveFactoryRegister`; `invitationService`; `staffService` |
+| Safety Officer | Contact inside an Enrollment, not an Account | Is cc'd on the finalize result/revision email when `safetyOfficerEmail` is present and differs from the Factory account email. The email itself goes to the Factory account email. | `Enrolls.safety_officer_*`; `evaluator-review.ts:finalize`; `verdictEmail.ts` |
 
-The three evaluator IDs stored on an Enrollment are not authorization boundaries. Review authorization compares evaluator level and current Factory region, not the caller against `evalMentalId`, `evalDohId`, or `evalOdpcId`. Therefore an “assigned evaluator” and an “eligible regional evaluator” are different concepts in current code. **Confidence: Verified.**
+The three evaluator IDs stored on an Enrollment are not authorization boundaries. Review authorization compares evaluator level and current Factory region, not the caller against `evalMentalId`, `evalDohId`, or `evalOdpcId`. Therefore an “assigned evaluator” and an “eligible regional evaluator” are different concepts in current code. Since 2026-11-10 a new Enrollment records the newest Evaluator (highest account ID) of each level in the Factory's region. **Confidence: Verified.**
 
 ## Ubiquitous language
 
@@ -32,9 +32,11 @@ The three evaluator IDs stored on an Enrollment are not authorization boundaries
 |---|---|
 | Account | Login identity with unique username/email, password, role, and one refresh-token hash. Exactly one matching subtype is intended but not database-enforced. |
 | Staff Account | DOED, Evaluator, or Provincial Account. It normally uses email OTP after password verification. |
+| Invitation | A pending offer of an Evaluator or Provincial Officer account, held in its own `Invitations` row. No Account exists until the invitee accepts by setting a password. The link is single-use and expires 10 minutes after it is sent; resend and email correction void earlier links (ADR-0015). |
 | Factory | External workplace Account subtype. It must be validated to log in. |
 | Enrollment | Annual participation data: workforce counts, declared standards and certificates, safety-officer contact, and three evaluator references. |
-| Fiscal Year | Half-open interval from October 1 00:00 to the next October 1 00:00, calculated using the application host's local timezone. |
+| Fiscal Year | Half-open interval from October 1 00:00 to the next October 1 00:00 in Asia/Bangkok, pinned to UTC+7 in code and independent of the host timezone. Labelled by its ending Common Era year. |
+| Evaluation Period | The 31 days after the October 1 rollover (through 31 October, or `EVALUATION_PERIOD_END` when set). Every reviewer level may still save verdicts on the year that just ended, except hard rejects, and the nine staff lists default to it. |
 | Cover | One assessment instance and the unit of scoring. Its current state is the latest CoverLog, resolved through the shared `src/service/coverStatus.ts` helpers (ADR-0010). |
 | CoverLog | Append-only Cover state event. Greatest serial `id` wins; timestamp is informational. |
 | Question | Seeded assessment item with one category, choice text, optional N/A text, standards, and integer `special`. `special == 1` gates `gold`; `special == 2` additionally gates `consec-gold`; `special == 3` gates no tier (one evidence file per choice). |
@@ -45,16 +47,23 @@ The three evaluator IDs stored on an Enrollment are not authorization boundaries
 | Verdict Score | A **settled** `0`–`3` correction stored on the AnswerLog as `verdict_choice`. `n/a` is excluded at the verdict API boundary. Since [ADR-0012](adr/0012-score-changes-are-terminal.md) it is terminal on save: the Factory can neither accept nor object. No evidence check runs on a verdict in either direction. |
 | Hard reject | The **normative classification**: `status = 'rejected'` **and** `verdict_choice IS NULL`. Anything carrying a non-null `verdict_choice` is a settled score change, whatever its status. Do not narrow this to a status-only test — it is what let ADR-0012 ship without a migration over rows written under the old semantics. |
 | Live Choice | The value used by Score and Grade: `Answers.selectedChoice`. Finalize writes each settled Verdict Score into that column, so the corrected value and the live choice converge at finalize. |
-| Evidence | PDF up to 10 MB stored in MinIO; the Answer or Enrollment stores only its filename. |
+| Evidence | PDF up to 10 MB stored in object storage; the Answer or Enrollment stores only its filename. |
 | Score | Rounded, on-demand percentage calculated from current Answer choices; never persisted. |
 | Grade | Finished-Cover award, computed once at finalize and stored in `Awards` (never recomputed): `consec-gold`, `gold`, `silver`, `certificate`, or `joined`. |
+| Award | One `Awards` row per Factory per fiscal year. Finalize writes it with its Cover; a Prior Award or a backfilled row has no Cover. `src/service/awardHistory.ts` is the only reader for "held gold in year Y". |
+| Prior Award | A gold-tier award (`gold` or `consec-gold`) won in fiscal years 2023–2025 CE (FY2566–FY2568) with no Cover in this system, recorded by DOED when it approves the Factory. It counts like any other Award for the enrolment lockout and `consec-gold`. |
+| Enrolment lockout | A gold-tier Award in fiscal year A blocks Enrollment creation in A + 1 and A + 2 (ADR-0014). |
+| Factory Name Search | The optional `?search=` term on the nine staff lists: a case-insensitive fragment of the Factory's Thai or English name. It only narrows a list. |
 | 2FA Challenge | Redis-only pending staff login containing account ID, hashed OTP, and attempts. |
 
 ## Entities and relationships
 
 ```text
 Account ── intended exactly one subtype ── Factory | Evaluator | ProvincialOfficer | AdminDoed
+Invitation ── becomes one Account + Evaluator or ProvincialOfficer on acceptance, then is deleted
 Factory ── intended one Enrollment per Fiscal Year
+Factory ── at most one Award per Fiscal Year (database-enforced)
+Award ── zero or one Cover (none for a Prior Award or backfilled row)
 Enrollment ── intended zero or one Cover
 Enrollment ── stores Mental, DOH, and ODPC evaluator references
 Cover ── CoverLog history; latest ID is current Cover state
@@ -101,14 +110,14 @@ Since ADR-0012 (2026-08-25), `change_score` writes `recommended`, not `rejected`
 ### Registration and authentication
 
 1. Anyone registers a Factory Account and Factory subtype; location is derived from `subdistrictId`.
-2. DOED validates the Factory.
+2. DOED validates the Factory. The approval may carry Prior Awards; the approval and their `Awards` rows commit together, and a repeated year or a year that already has an Award refuses the whole approval with 400.
 3. Unvalidated Factories cannot log in. Validation is not rechecked on every authenticated request.
-4. Staff normally complete password then email OTP. Evaluator and Provincial first-login accounts bypass OTP until they replace their password/email. A guarded development header can also bypass OTP; see [authentication and authorization](authentication-authorization.md).
+4. Staff normally complete password then email OTP. Seeded Evaluator and Provincial first-login accounts bypass OTP until they replace their password/email. Accounts created from an Invitation use OTP from their first login (ADR-0015). A guarded development header can also bypass OTP; see [authentication and authorization](authentication-authorization.md).
 
 ### Annual enrollment and assessment
 
 1. Factory creates an Enrollment for the application-calculated current fiscal year.
-2. Service derives Factory region, chooses the first evaluator found at each level, uploads standard certificates, and inserts the Enrollment.
+2. Service refuses a second Enrollment in the fiscal year and refuses an Enrollment under the enrolment lockout, then derives Factory region, chooses the newest Evaluator at each level, uploads standard certificates, and inserts the Enrollment.
 3. Factory creates a Cover and initial `in_progress` CoverLog.
 4. Factory saves Answers. A matching standard forces choice `3`; otherwise evidence is validated by choice and Question `special`.
 5. Submit requires Cover `in_progress`, auto-fills unanswered matching-standard Questions, compares Answer count with Question count, rejects if a latest AnswerLog remains `rejected`, and appends Cover `in_review`.
@@ -136,10 +145,10 @@ These are not alternative interpretations; the left side is current behavior.
 | Finalize has no already-finished, idempotency, version, or locking guard. | ADR/CONTEXT prose claims there is no Cover-status race. |
 | `n/a` is accepted for every Question. | Question data exposes an N/A option only selectively. |
 | Cardinalities are service pre-checks, not database guarantees. | Domain prose commonly states them as unconditional “one” relationships. |
-| Fiscal timezone behavior at the database boundary is unknown. | Domain prose treats the Oct-1 boundary as unambiguous. |
+| The fiscal boundary is pinned to UTC+7 in code; the PostgreSQL server timezone was observed as UTC on 2026-08-21, and boundary membership is correct (see [database](database.md#dates-fiscal-years-and-timezone)). Fiscal-year identity is still derived per read, not stored. | Rows imported directly from CSV fall outside that verified chain. |
 | Finalize deletes evidence only for **hard-rejected** Answers; score-change evidence is preserved. A hard reject on a standard-backed question additionally deletes the named standard certificates and un-claims them for the whole fiscal year. | ADR-0006 (deletion on every change score) is fully superseded by [ADR-0012](adr/0012-score-changes-are-terminal.md); ADR-0005's preservation clause is restored. Prose written between 2026-07-07 and 2026-08-25 may still describe the ADR-0006 behavior. |
 | A finalized `finished` sibling can retain a score whose backing certificate was deleted by a later hard reject. The reset is deliberately bounded to non-`finished` Answers to keep `finished` immutable. | No prose covers this residue; it is a known consequence recorded in ADR-0012, not a bug to fix casually. |
-| A production backfill for Covers finalized under ADR-0006 remains outstanding and its exposure was never measured. | Any statement that the ADR-0012 change was fully retroactive. Evidence deleted under ADR-0006 is not recoverable by code. |
+| Production exposure to ADR-0006 was measured on 2026-08-25: no Cover containing a score change had been finalized, so ADR-0006 had deleted no score-change evidence and no backfill is required. | ADR-0012 still lists the backfill as outstanding. |
 
 Detailed inputs, failures, edge cases, and change risks are in [business rules](business-rules.md).
 

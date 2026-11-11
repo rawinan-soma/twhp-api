@@ -1,6 +1,6 @@
 # Project Structure
 
-Use this page to find the code that owns a behavior. Verified on 2026-09-02 on branch `dev`. Read [Architecture](architecture.md) first when a change crosses HTTP, persistence, files, queues, or process boundaries.
+Use this page to find the code that owns a behavior. Verified on 2026-09-02 on branch `dev`; source tree, service list, and tests re-checked against the tree on 2026-11-11. Read [Architecture](architecture.md) first when a change crosses HTTP, persistence, files, queues, or process boundaries.
 
 ## Quick navigation
 
@@ -14,8 +14,11 @@ Use this page to find the code that owns a behavior. Verified on 2026-09-02 on b
 | Email or scheduled work | `src/queue/email.ts`, `src/workers.ts`, `src/worker/email.ts` | [Architecture](architecture.md#worker-process) |
 | Cover status filter/count/pagination | `src/service/coverStatus.ts` | [ADR-0010](adr/0010-lateral-latest-cover-log-resolution.md), [ADR-0008](adr/0008-exists-subquery-for-enrolled-filter.md) |
 | A paginated staff list | `src/schema/pagination.ts`, the route's service | [API conventions](api-conventions.md#pagination), [ADR-0007](adr/0007-pagination-envelope-scoped-exception.md), [ADR-0009](adr/0009-offset-pagination-for-staff-lists.md) |
+| Factory Name Search on a staff list | `src/service/factoryNameSearch.ts`, `src/schema/factory-name-search.ts` | [API conventions](api-conventions.md) |
+| Staff Invitations or the Admin staff list | `src/routes/admins/{invitations,staff}/`, `src/service/{invitation,staff}.ts`, `src/schema/{invitation,staff}.ts` | [ADR-0015](adr/0015-invitations-are-separate-from-accounts.md) |
+| Role guard coverage of every route | `src/middleware/guards.test.ts`, `src/test/route-access-matrix.ts` | [Authentication and authorization](authentication-authorization.md) |
 | Local commands | `package.json`, `bunfig.toml`, `docker-compose.yaml` | [Development](development.md), [Testing](testing.md) |
-| Containers or proxying | `Dockerfile`, `docker-compose.yaml`, `nginx/` | [Deployment](deployment.md) |
+| Containers or proxying | `Dockerfile`, `docker-compose.yaml`, `nginx/`, `deploy/` | [Deployment](deployment.md) |
 | Incident diagnosis | relevant service plus infrastructure config | [Troubleshooting](troubleshooting.md) |
 
 ## Source tree
@@ -29,6 +32,8 @@ src/
 ├── drizzle/
 │   ├── index.ts              production Drizzle client
 │   ├── schema.ts             all tables, enums, and foreign keys
+│   ├── grades.ts             Grade values and gold-tier constants
+│   ├── fiscal-year-bounds.ts valid fiscal-year range shared by a CHECK constraint and DTOs
 │   └── seed.ts               CSV/JSON seed program
 ├── middleware/
 │   ├── jwt.ts                access verification and refresh rotation
@@ -36,17 +41,33 @@ src/
 │   └── guards.ts             role-specific guard singletons
 ├── routes/                   filesystem-routed HTTP adapters
 ├── schema/                   TypeBox request/response schemas
-│   └── pagination.ts         shared offset-pagination contract for the nine staff lists
+│   ├── pagination.ts         shared offset-pagination contract for the nine staff lists
+│   ├── fiscal-year.ts        shared fiscalYear query parameter
+│   ├── factory-name-search.ts  shared `search` query parameter for Factory Name Search
+│   ├── invitation.ts         Invitation create/correct bodies (ADR-0015)
+│   └── staff.ts              Admin staff-list entry
 ├── service/                  workflows and direct Drizzle queries
 │   ├── coverStatus.ts        the single latest-cover-log resolution (both query shapes)
+│   ├── awardHistory.ts       the single "held gold in year Y" reader (ADR-0014)
 │   ├── answerFileRules.ts    pure per-choice evidence requirements
-│   └── scoreHelpers.ts       pure score and grade rules
+│   ├── scoreHelpers.ts       pure score and grade rules
+│   ├── factoryNameSearch.ts  the one Factory Name Search predicate
+│   ├── hasValues.ts          "does this patch carry any field" check for partial profile writes
+│   ├── invitation.ts         staff Invitations: create, resend, correct, cancel, accept
+│   ├── staff.ts              Admin staff list (accounts plus pending/expired Invitations)
+│   └── verdictEmail.ts       pure verdict-email recipient and job builders
 ├── queue/
-│   └── email.ts              BullMQ producer queue singleton
+│   ├── email.ts              BullMQ producer queue singleton
+│   └── schedule.ts           validation-reminder name, weekday pattern, and time zone
 ├── worker/
-│   └── email.ts              BullMQ consumer and email templates
+│   ├── email.ts              BullMQ consumer and email templates
+│   └── gradeLabel.ts         Thai Grade labels for the result email
 └── test/
-    └── setup.ts              Bun test environment preload
+    ├── setup.ts              Bun test environment preload
+    ├── authenticated-request.ts, handle-request.ts  real-token route requests in a child process
+    ├── route-access-matrix.ts  child-process observer of every route's guard outcome per role
+    ├── route-query.ts        reads a route module's registered query schema
+    └── staff-list-fixtures.ts  shared fixtures for staff-list integration tests
 ```
 
 There is no controller or repository directory. Routes perform controller/adapter work; services combine business workflows and persistence queries.
@@ -67,10 +88,10 @@ Each module default-exports a function accepting the inferred `App` type. Route 
 | Route root | Responsibility |
 |---|---|
 | `src/routes/index.ts` | Health endpoint |
-| `src/routes/authentication/` | Login, staff OTP, reset, logout, current account |
+| `src/routes/authentication/` | Login, staff OTP, reset, logout, current account, Invitation acceptance (`/accept-invitation`) |
 | `src/routes/factories/` | Registration, profile, enrollment, assessments, evidence, score |
 | `src/routes/evaluators/` | Evaluator profile/scope, review, finalize, score |
-| `src/routes/admins/` | DOED administration and national review adapters |
+| `src/routes/admins/` | DOED administration and national review adapters, including `invitations/` (invite, resend, correct email, cancel) and `staff/` (staff list) |
 | `src/routes/provincialOfficers/` | Provincial profile, scoped lists, and province-scoped enrollment/factory/cover-review detail reads |
 | `src/routes/location/` | Public geographic lookup |
 | `src/routes/file/` | Authenticated presigned file URL |
@@ -91,18 +112,24 @@ Type-only route imports point back to `src/index.ts` for `App`. This is erased a
 | `answer.ts` | Factory answers, evidence, submission, redo of hard rejects, and the now-unreachable `accept` branch |
 | `answerFileRules.ts` | Pure per-choice evidence requirements shared by save, edit, and redo |
 | `authentication.ts` | Passwords, JWT/refresh, reset, staff OTP, dev bypass |
+| `awardHistory.ts` | The one reader of `Awards` for "held a gold-tier award in year Y" (ADR-0014) |
 | `cover.ts` | Cover creation and current cover state |
 | `coverStatus.ts` | The single latest-cover-log rule: a lateral for lists/counts and a standalone read for one Cover (ADR-0010) |
 | `enroll.ts` | Enrollment CRUD, scoped lists, standard files |
 | `evaluator-review.ts` | Reviewer access, answer verdicts, finalization |
 | `evaluator.ts` | Evaluator data and category scope |
 | `factory.ts` | Factory profile/list/update workflows |
+| `factoryNameSearch.ts` | Pure Factory Name Search predicate (case-insensitive substring on Thai or English name) shared by the factory, enrollment, and score lists |
 | `file.ts` | Presigned URL service adapter |
+| `hasValues.ts` | Pure check used by admin and factory profile updates to write only supplied fields |
+| `invitation.ts` | Staff Invitations: create, resend, email correction, cancel, and accept (ADR-0015) |
 | `location.ts` | Province/district/subdistrict queries |
 | `provincialOfficer.ts` | Provincial-officer lookup |
 | `question.ts` | Question list |
 | `score.ts` | Scoped score-report queries |
 | `scoreHelpers.ts` | Pure scoring and grade rules |
+| `staff.ts` | Admin staff list: accepted Evaluators and Provincial Officers plus pending/expired Invitations |
+| `verdictEmail.ts` | Pure verdict-email cc and job-payload builders |
 
 Most database services expose `createXxxService(database)` plus a production singleton. This only substitutes the database. Several factories retain global Redis, BullMQ, MinIO, configuration, or service collaborators; see [Architecture: Module organization](architecture.md#module-organization-and-dependency-direction).
 
@@ -137,7 +164,8 @@ A database column change can therefore affect transport types. Review both persi
 | `src/config.ts` | Mostly centralized app config; validates eagerly at import. |
 | `src/utils.ts` | Process-global MinIO client, Redis connector creation/singleton, fiscal-year helper. |
 | `src/queue/email.ts` | Process-global BullMQ producer handle. |
-| `src/workers.ts` | Starts the consumer and registers the daily repeat job. |
+| `src/queue/schedule.ts` | Validation-reminder job name, weekday pattern, and pinned time zone. |
+| `src/workers.ts` | Starts the consumer, removes legacy repeatable reminder entries, and upserts the weekday reminder scheduler. |
 | `src/worker/email.ts` | Worker dispatch, Nodemailer transport, templates, scheduled admin query. |
 | `src/middleware/jwt.ts` | Authentication plus refresh-session writes. |
 | `src/middleware/rbac.ts` | Role authorization. |
@@ -147,12 +175,12 @@ These modules instantiate infrastructure at import time. Importing a service in 
 
 ## Tests
 
-Tests are colocated as `*.test.ts` under `src/`; `bunfig.toml` preloads `src/test/setup.ts`. There are 18 test files: 8 isolated and 10 PostgreSQL integration.
+Tests are colocated as `*.test.ts` under `src/`; `bunfig.toml` preloads `src/test/setup.ts`. There are 54 test files: 20 isolated, 33 `*.integration.test.ts` PostgreSQL files, and `src/service/evaluator-review.pastyear.test.ts`, which skips without a database but writes to one when it is reachable. Shared harnesses live beside the preload in `src/test/`.
 
-The real test runner is:
+The real test runner is `bun test <files>`. Run bare `bun test` only against a disposable database (see below):
 
 ```bash
-bun test
+bun test <files>
 ```
 
 The `package.json` `test` script is stale and intentionally exits with `Error: no test specified`; do not use `bun run test` as evidence that tests are absent.
@@ -171,6 +199,7 @@ The suite includes both unit tests and PostgreSQL integration tests. Integration
 | `docker-compose.yaml` | Development, staging, and production service topology |
 | `drizzle.config.ts` | Drizzle Kit configuration |
 | `nginx/` | Development and templated staging/production proxy configuration |
+| `deploy/staging/`, `deploy/production/` | Release helpers: Makefiles, staging Compose override, production backup/preflight/fit checks, and `invitations.sql`, the hand-run DDL that creates `Invitations` because production does not run `db:push` |
 | `seed_data/` | CSV/JSON inputs used by `src/drizzle/seed.ts`; ignored and absent from Git, so supplied out of band |
 | `scripts/gen-api-docs.ts` | Generates static Markdown/HTML from OpenAPI |
 | `CONTEXT.md` | Detailed domain context and current workflow vocabulary |

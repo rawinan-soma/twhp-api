@@ -22,8 +22,8 @@ HTTP API and the email worker.
 | Framework | ElysiaJS, filesystem route autoload (`elysia-autoload`) |
 | Validation | TypeBox DTOs composed from Drizzle-generated base schemas (`src/schema/`) |
 | Database | PostgreSQL 17 via Drizzle ORM, single schema file `src/drizzle/schema.ts` |
-| Queue / cache | Redis 7 + BullMQ (`email` queue, daily 08:30 Bangkok repeat job), delivered via Nodemailer |
-| Object storage | MinIO (evidence PDFs and standard certificates) |
+| Queue / cache | Redis 7 + BullMQ (`email` queue, weekday 08:30 Bangkok validation reminder), delivered via Nodemailer |
+| Object storage | MinIO client; Compose runs RustFS (S3-compatible) as service `minio` (evidence PDFs and standard certificates) |
 | API prefix | `/twhp/api` |
 | Health | `GET /twhp/api/health` — liveness only, checks no dependency |
 | OpenAPI | `GET /twhp/api/document` (blocked by the production proxy) |
@@ -34,7 +34,7 @@ HTTP API and the email worker.
 ```text
 src/
 ├── index.ts        API composition root (autoloads src/routes)
-├── workers.ts      worker composition root + daily repeat schedule
+├── workers.ts      worker composition root + weekday reminder schedule
 ├── config.ts       eager env validation — every env var is declared here
 ├── utils.ts        fiscal year, MinIO, Redis helpers
 ├── drizzle/        schema.ts (all tables/enums), index.ts (db client), seed.ts
@@ -42,12 +42,13 @@ src/
 ├── routes/         HTTP adapters; directory path == URL path
 ├── schema/         TypeBox DTOs composed from drizzle-typebox bases
 ├── service/        business workflows + Drizzle queries (one per domain)
-├── queue/          BullMQ producer
+├── queue/          BullMQ producer + reminder schedule constants
 ├── worker/         BullMQ consumer + Nodemailer templates
-└── test/setup.ts   Bun test preload
+└── test/           Bun test preload (setup.ts) and shared test harnesses
 
+deploy/             staging and production release helpers (incl. production/invitations.sql)
 docs/               maintainer handover documentation (start here)
-docs/adr/           accepted architecture decisions, 0001–0012
+docs/adr/           accepted architecture decisions, 0001–0015
 CONTEXT.md          domain vocabulary and the current review/score model
 AGENTS.md           working agreement for AI agents on this repository
 memory-bank/        intent/story/bolt implementation history (AI-DLC)
@@ -82,13 +83,19 @@ an ISO 8601 instant with offset that extends the evaluation period). `NGINX_API_
 Uses `docker.env`. Always pass `--build` after a schema or dependency change — the `twhp-api:dev`
 image is cached.
 
+Both `docker.env` and `seed_data/` are git-ignored; obtain them out of band before the first start.
+Without `seed_data/`, `migrate-dev` fails with `ENOENT ... /app/seed_data/provinces.csv` and
+`api-dev` never starts.
+
 ```bash
 docker compose --profile dev up --build        # migrate-dev (db:push && db:seed) then api-dev
+docker network create shared-web-network       # once per host, before staging or production
 docker compose --profile production up
 ```
 
-Compose expects API port 3000, PostgreSQL host port 5433, Redis host port 6380, an existing external
-`shared-web-network`, and an external TLS/edge layer. `migrate-prod` is deliberately a no-op that
+Compose expects API port 3000, PostgreSQL host port 5433, Redis host port 6380, the external
+`shared-web-network` for the `staging` and `production` nginx services (the `dev` profile does not
+use it), and an external TLS/edge layer. `migrate-prod` is deliberately a no-op that
 prints a warning — production schema and data changes are imported manually and the procedure is not
 in this repository. See [docs/deployment.md](docs/deployment.md) before deploying anything.
 
@@ -98,7 +105,7 @@ in this repository. See [docs/deployment.md](docs/deployment.md) before deployin
 |---|---|
 | `bun run dev` | API with `--watch` and pretty logs |
 | `bun run start` | API from source (the release image command) |
-| `bun run worker` | BullMQ email worker + daily schedule |
+| `bun run worker` | BullMQ email worker + weekday reminder schedule |
 | `bun run db:push` | `drizzle-kit push` — no migration files are generated |
 | `bun run db:seed` | Seed from `seed_data/` |
 | `bun run format` / `lint` / `check` | Biome, **all with `--write`** — they mutate source |
@@ -109,14 +116,23 @@ Read-only lint: `bun ./node_modules/.bin/biome check src`.
 
 ## Tests
 
-18 test files, 315 declared cases. 8 files are isolated; 10 are PostgreSQL integration tests.
+54 test files. 20 are isolated; 33 are `*.integration.test.ts` PostgreSQL tests; and
+`src/service/evaluator-review.pastyear.test.ts` skips without a database but writes to one when it is
+reachable.
 
 ```bash
-# Isolated, safe to run anywhere. 201 pass / 0 fail as of 2026-09-02 (Bun 1.3.6).
-bun test src/config.test.ts src/routes/authentication/index.test.ts \
-  src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
-  src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
-  src/service/pagination.test.ts src/service/score.test.ts
+# Isolated, safe to run anywhere. 458 pass / 1 skip / 0 fail as of 2026-11-11 (Bun 1.3.6);
+# see docs/testing.md.
+bun test src/config.test.ts src/middleware/guards.test.ts src/queue/schedule.test.ts \
+  src/routes/admins/factories/index.test.ts \
+  src/routes/authentication/index.test.ts src/schema/fiscal-year.test.ts \
+  src/service/admin-region-province-routes.test.ts src/service/auth-dev-bypass.test.ts \
+  src/service/authentication.2fa.test.ts src/service/coverStatus.test.ts \
+  src/service/evaluation-period.routes.test.ts src/service/evaluation-period.test.ts \
+  src/service/evaluator-province-routes.test.ts src/service/factory-closed-year.test.ts \
+  src/service/fiscal-year-routes.test.ts src/service/pagination-routes.test.ts \
+  src/service/pagination.test.ts src/service/score.test.ts src/service/verdictEmail.test.ts \
+  src/utils.fiscal-year.test.ts
 ```
 
 > **Do not run bare `bun test`** until `DATABASE_URL` names a disposable database. The integration
@@ -136,7 +152,10 @@ bun test src/config.test.ts src/routes/authentication/index.test.ts \
   ([ADR-0010](docs/adr/0010-lateral-latest-cover-log-resolution.md)).
 - **Score is computed on demand**; the **Grade is stored** in `Awards` at finalize and never recomputed
   ([ADR-0001](docs/adr/0001-score-calculated-on-demand.md)).
-- **A fiscal year runs Oct 1 → Oct 1.** Always call `utilities().getFiscalYear()`.
+- **A fiscal year runs Oct 1 → Oct 1.** Always call `utilities().getFiscalYear()`; staff-side list
+  reads use `utilities().getReviewerFiscalYear()` for the October evaluation period.
+- **Evaluators and Provincial Officers join by Invitation**, a separate table; no account exists until
+  acceptance ([ADR-0015](docs/adr/0015-invitations-are-separate-from-accounts.md)).
 - **File I/O happens outside database transactions** — upload or delete first, then run the
   transaction. Every such workflow needs explicit compensation.
 - **An evaluator's score change is terminal**; only a hard reject returns the Cover to the factory
@@ -151,7 +170,8 @@ Summarized here so they are not discovered late; the evidence is in
 [docs/technical-debt.md](docs/technical-debt.md).
 
 - Refresh JWTs are not cryptographically verified before a hash match mints a new session.
-- Evaluator detail routes and file presigning do not check resource ownership.
+- File presigning does not check resource ownership. (Evaluator and Provincial Officer detail reads
+  were region/province-scoped on 2026-09-03.)
 - Core cardinalities (one enrollment per factory-year, one cover per enrollment, one answer per
   cover-question) are service pre-checks, not database constraints.
 - Finalize has no idempotency, lock, or already-finished guard.
@@ -166,7 +186,7 @@ Summarized here so they are not discovered late; the evidence is in
 | [docs/handover.md](docs/handover.md) | **Start here.** Status, stable/fragile areas, first-day checklist, open organizational questions |
 | [docs/README.md](docs/README.md) | Documentation index, reading order, and task-to-document map |
 | [CONTEXT.md](CONTEXT.md) | Domain vocabulary, verdict/score model, evaluation flow diagram |
-| [docs/adr/](docs/adr/) | Accepted decisions 0001–0012 — read before changing scoring, review, auth, or pagination |
+| [docs/adr/](docs/adr/) | Accepted decisions 0001–0015 — read before changing scoring, review, auth, pagination, or invitations |
 | [AGENTS.md](AGENTS.md) | Working agreement for AI agents |
 | [CLAUDE.md](CLAUDE.md) | Claude Code project instructions |
 | [docs/api/](docs/api/) | Generated OpenAPI snapshot — useful for discovery, known to drift |

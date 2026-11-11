@@ -20,19 +20,25 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 ```
 
 `package.json`'s `test` script is a placeholder that exits 1. The real runner is `bun test <files>`.
-There are 54 test files: the 13 isolated ones listed below, 33 `*.integration.test.ts` files that need a disposable PostgreSQL, and a few more that tolerate a missing database.
+There are 54 test files: the 20 isolated ones listed below, 33 `*.integration.test.ts` files that need
+a disposable PostgreSQL, and `src/service/evaluator-review.pastyear.test.ts`, which skips without a
+database but writes to one when `DATABASE_URL` is reachable — treat it as an integration file.
 
 ```bash
-# Isolated only — safe anywhere. 349 tests as of 2026-11-11; 341 pass / 8 fail in a fresh worktree. Bun runs
-# the files in filesystem order, not this order; when auth-dev-bypass's `utilities: () => ({})`
-# stub loads before evaluation-period.test.ts, that file's 8 getReviewerFiscalYear tests fail.
-bun test src/config.test.ts src/routes/authentication/index.test.ts \
-  src/service/auth-dev-bypass.test.ts src/service/authentication.2fa.test.ts \
-  src/service/coverStatus.test.ts src/service/pagination-routes.test.ts \
-  src/service/pagination.test.ts src/service/score.test.ts \
-  src/service/evaluation-period.test.ts src/service/evaluation-period.routes.test.ts \
-  src/service/factory-closed-year.test.ts src/middleware/guards.test.ts \
-  src/routes/admins/factories/index.test.ts
+# Isolated only — safe anywhere. 458 pass / 1 skip / 0 fail as of 2026-11-11 (macOS, Bun 1.3.6).
+# Bun runs the files in filesystem order, not this order; when auth-dev-bypass's
+# `utilities: () => ({})` stub loads before evaluation-period.test.ts (seen on Linux), that file's
+# 8 getReviewerFiscalYear tests fail.
+bun test src/config.test.ts src/middleware/guards.test.ts src/queue/schedule.test.ts \
+  src/routes/admins/factories/index.test.ts \
+  src/routes/authentication/index.test.ts src/schema/fiscal-year.test.ts \
+  src/service/admin-region-province-routes.test.ts src/service/auth-dev-bypass.test.ts \
+  src/service/authentication.2fa.test.ts src/service/coverStatus.test.ts \
+  src/service/evaluation-period.routes.test.ts src/service/evaluation-period.test.ts \
+  src/service/evaluator-province-routes.test.ts src/service/factory-closed-year.test.ts \
+  src/service/fiscal-year-routes.test.ts src/service/pagination-routes.test.ts \
+  src/service/pagination.test.ts src/service/score.test.ts src/service/verdictEmail.test.ts \
+  src/utils.fiscal-year.test.ts
 
 bun ./node_modules/.bin/biome check src   # read-only lint; the package scripts all --write
 ```
@@ -46,6 +52,10 @@ docker compose --profile dev up --build        # Dev with hot-reload (rebuild on
 docker compose --profile production up         # Production build
 ```
 The `migrate-dev` service runs `db:push && db:seed` as a one-shot before `api-dev` starts. If schema changes don't apply after `down -v && up`, always pass `--build` — Docker caches the `twhp-api:dev` image.
+Both `docker.env` and `seed_data/` are git-ignored and must be supplied out of band; without
+`seed_data/`, `migrate-dev` fails with `ENOENT ... /app/seed_data/provinces.csv` and `api-dev` never
+starts. The `staging` and `production` profiles also need the external network:
+`docker network create shared-web-network`.
 
 `worker-dev` bakes its source in at `build` (`target: build`) — it has **no bind mount**, so it does
 not hot-reload and `up -d` without `--build` keeps running the old code indefinitely, even while
@@ -190,13 +200,13 @@ current fiscal year and after the 31-day end, and unset it changes nothing (ADR-
 
 ### File storage
 
-MinIO object storage. Use `utilities().uploadFile(file)` / `utilities().deleteFile(url)` / `utilities().getPresignedUrl(name)` from `src/utils.ts`. Files are stored with UUID filenames; only the filename (not full URL) is persisted to DB — the presigned URL helper rewrites internal Docker hostnames to public-facing ones via `MINIO_PUBLIC_URL`.
+MinIO-client object storage (Compose runs RustFS, S3-compatible, under the service name `minio`). Use `utilities().uploadFile(file)` / `utilities().deleteFile(url)` / `utilities().getPresignedUrl(name)` from `src/utils.ts`. Files are stored with UUID filenames; only the filename (not full URL) is persisted to DB — the presigned URL helper rewrites internal Docker hostnames to public-facing ones via `MINIO_PUBLIC_URL`.
 
 **File I/O is always done outside DB transactions** — upload first, then run the transaction with resulting URLs. See `src/service/answer.ts` for the pattern.
 
 ### Background jobs
 
-BullMQ + Redis. Queue in `src/queue/email.ts`, worker in `src/worker/email.ts`, entrypoint `src/workers.ts` (run as separate process via `bun run worker`). `src/workers.ts` also registers a daily repeatable job at 8:30 AM Bangkok time.
+BullMQ + Redis. Queue in `src/queue/email.ts`, worker in `src/worker/email.ts`, entrypoint `src/workers.ts` (run as separate process via `bun run worker`). `src/workers.ts` also registers the `factory-validation-reminder` job scheduler at 08:30 on weekdays (`30 8 * * 1-5`, time zone `Asia/Bangkok` pinned in `src/queue/schedule.ts`).
 
 ### Config
 
@@ -248,7 +258,8 @@ reading order and task-to-document map. `README.md` is the project entry point. 
 working agreement for agents on this repository — read it before non-trivial work.
 
 Read the relevant ADR before changing scoring, authentication, review/finalization, evidence
-deletion, list pagination, Cover-status resolution, or what a reader role may see of a Cover.
+deletion, list pagination, Cover-status resolution, what a reader role may see of a Cover, or staff
+invitations (ADR-0015).
 ADR-0006 is superseded in full by ADR-0012;
 ADR-0004's consensus loop is superseded in part by it.
 

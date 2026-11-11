@@ -1,6 +1,6 @@
 # Development
 
-This guide documents the development commands and service topology that are currently implemented in the repository. Verified 2026-07-15; re-checked 2026-09-02 — `package.json` scripts, `bunfig.toml`, `docker-compose.yaml`, `Dockerfile`, and `src/config.ts` are unchanged since, so it still holds. For system design, see [Architecture](architecture.md). For schema and seed behavior, see [Database](database.md). For the current test inventory and safe commands, see [Testing](testing.md).
+This guide documents the development commands and service topology that are currently implemented in the repository. Verified 2026-07-15; re-checked 2026-11-11 against `package.json`, `bunfig.toml`, `docker-compose.yaml`, `Dockerfile`, `src/config.ts`, and `src/workers.ts`. For system design, see [Architecture](architecture.md). For schema and seed behavior, see [Database](database.md). For the current test inventory and safe commands, see [Testing](testing.md).
 
 ## Prerequisites
 
@@ -40,7 +40,7 @@ Start the BullMQ worker in a separate process:
 bun run worker
 ```
 
-The worker consumes the `email` queue and registers the daily factory-validation reminder. Compose sets `TZ=Asia/Bangkok`; native worker execution otherwise uses the host process timezone.
+The worker consumes the `email` queue and registers the `factory-validation-reminder` job scheduler: 08:30 on weekdays (`30 8 * * 1-5`). Its `Asia/Bangkok` time zone is pinned in `src/queue/schedule.ts`, so the reminder time no longer depends on the host process timezone. At startup the worker also removes any legacy repeatable entry for that job, which older releases registered as a daily job.
 
 The API routes are:
 
@@ -90,11 +90,16 @@ bun run lint
 bun run check
 ```
 
-All three currently use Biome's write mode and can modify source files. There is no repository-defined non-mutating CI quality command.
+All three currently use Biome's write mode and can modify source files. There is no repository-defined non-mutating CI quality command; run `bun ./node_modules/.bin/biome check src` for a read-only check.
 
 ## Docker development stack
 
 **Mutation guard:** the development profile automatically runs `db:push` and `db:seed` using `docker.env`. Verify that its destination is disposable development data before starting the profile. The staging profile runs the same automatic mutations and must not be treated as a safe or production-like target.
+
+Before the first start, supply two git-ignored inputs out of band:
+
+- `docker.env` — every Compose service reads it through `env_file`.
+- `seed_data/` — `migrate-dev` runs `db:seed`, which reads it from `/app/seed_data`. Without it, `migrate-dev` fails with `ENOENT ... /app/seed_data/provinces.csv`, and `api-dev` and `worker-dev` never start because they wait on it.
 
 Build and start the development profile:
 
@@ -113,6 +118,10 @@ minio ------------------------------------------------> nginx-backend
 ```
 
 `migrate-dev` runs `db:push` followed by `db:seed` and must finish successfully before `api-dev` starts. `worker-dev` waits for API liveness and Redis health.
+
+The `minio` service runs RustFS, an S3-compatible server, under the name `minio` because `MINIO_ENDPOINT` and both Nginx configurations address it by that name. It has no profile, so it starts with every profile.
+
+`worker-dev` has no bind mount: it runs the source baked in at build time and does not hot-reload. After any change under `src/worker/` or `src/queue/`, rebuild it with `docker compose --profile dev up -d --build worker-dev`.
 
 ### Development ports
 
@@ -142,6 +151,12 @@ A clean clone also lacks `seed_data/`: the directory is ignored and no files und
 ## Staging profile caveat
 
 The `staging` profile is not production-equivalent. It uses the development build target, hot-reload API command, development worker command, and automatic `db:push` plus `db:seed`. Its Nginx configuration adds the API-key gate and joins the external shared network, but the application and database lifecycle remain development-oriented.
+
+Compose does not create the external network. Create it once per host before starting the `staging` (or `production`) profile:
+
+```bash
+docker network create shared-web-network
+```
 
 ## Troubleshooting
 
