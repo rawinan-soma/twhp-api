@@ -7,7 +7,7 @@ For environment setup and service ports, see [Development](./development.md). Fo
 ## Current status
 
 - **55 test files and about 736 declared test cases** were found.
-- **19 files are isolated** unit, configuration, schema, route-contract, guard, or in-process route tests. None needs PostgreSQL, Redis, MinIO, or SMTP.
+- **20 files are isolated** unit, configuration, schema, route-contract, guard, or in-process route tests. None needs PostgreSQL, Redis, MinIO, or SMTP.
 - **34 files are `*.integration.test.ts` PostgreSQL tests.**
 - **`src/service/evaluator-review.pastyear.test.ts` is an integration test without the suffix.** It probes `DATABASE_URL`, skips when no database answers, and inserts and deletes rows when one does. Treat it like a `*.integration.test.ts` file.
 - The 20 isolated files were run together on 2026-11-11 with Bun 1.3.6: **458 passed, 1 skipped, 0 failed across 20 files.** The run count exceeds the declared count because several files generate cases from tables.
@@ -25,7 +25,7 @@ Do not summarize the repository as having "no tests," and do not describe the fu
 
 The isolated table gives the number of tests each file **ran** on 2026-11-11 when run alone. The integration table gives **declared** `it(...)`/`test(...)` calls counted in source; a `.each` table counts once.
 
-### Isolated tests (19 files, 439 executed)
+### Isolated tests (20 files, 442 executed)
 
 | File | Ran | Scope |
 |---|---:|---|
