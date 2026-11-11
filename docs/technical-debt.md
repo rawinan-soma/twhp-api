@@ -29,7 +29,7 @@ Reviewed again on 2026-11-11 at `f194141` (`main`, `staging`, and `dev` identica
 |---|---|
 | TD-03 | Narrowed. `deploy/production/` builds immutable `<short sha>` image tags from `origin/main`, checks schema fit, writes a verified `pg_dump`, and supports rollback. RustFS is digest-pinned. The `migrate-prod` no-op, the `:latest` Compose tag, floating Bun/Nginx images, and the out-of-band `seed_data/` stand. |
 | TD-08 | Invitation acceptance requires an 8-character password; every other credential route is unchanged. |
-| TD-10 | Inventory refreshed: 54 test files, 33 of them integration. An access-matrix test now covers every route's role guard. The gate itself is still absent. |
+| TD-10 | Inventory refreshed; [Testing](testing.md) owns the counts. An access-matrix test now covers every route's role guard. The gate itself is still absent. |
 | TD-12 | A verified `pg_dump` is written before each production release. Restore, readiness, and worker health stand. |
 | TD-14 | Line counts refreshed; `evaluator-review.ts` and `answer.ts` grew. |
 

@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "bun:test";
+import { openapi } from "@elysiajs/openapi";
 import { eq, inArray, or } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
+import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
+import { Elysia } from "elysia";
 import { Pool } from "pg";
 import {
   accounts,
@@ -14,12 +16,15 @@ import {
 import { Role } from "../../../service/authentication";
 import {
   authenticatedRequest,
+  removeProvincialOfficerAccount,
   seedAdminAccount,
   seedEvaluatorAccount,
   seedProvincialOfficerAccount,
   signAccessToken,
   type TestIdentity,
 } from "../../../test/authenticated-request";
+import { seedEnrollWithCover, seedFactoryInProvince } from "../../../test/staff-list-fixtures";
+import factoryRoute from "./[id]";
 
 const pool = new Pool({ connectionString: Bun.env.DATABASE_URL });
 const db = drizzle(pool);
@@ -34,9 +39,9 @@ const UNKNOWN_ID = 99924;
 const STAFF_IDS = [DOED_ID, EVALUATOR_ID, OFFICER_ID];
 const ALL_IDS = [...STAFF_IDS, FACTORY_ID];
 const PROVINCE_ID = 10;
-const DISTRICT_ID = 1001;
 const SUBDISTRICT_ID = 100101;
-const USERNAME = `test_factory_delete_${FACTORY_ID}`;
+const GEO = { districtId: 1001, subdistrictId: SUBDISTRICT_ID };
+const USERNAME = `test_staff_list_${FACTORY_ID}`;
 const EMAIL = `${USERNAME}@test.com`;
 
 let doed: TestIdentity;
@@ -55,73 +60,13 @@ const sendDelete = (id: number, token: string | undefined = doedToken) =>
 const messageOf = (response: Awaited<ReturnType<typeof sendDelete>>) =>
   response.json<{ message: string }>().message;
 
-const seedFactory = async (isValidate: boolean) => {
-  await db.insert(accounts).values({
-    id: FACTORY_ID,
-    username: USERNAME,
-    password: "hashed",
-    email: EMAIL,
-    role: "Factory",
-  });
-  await db.insert(factories).values({
-    accountId: FACTORY_ID,
-    factoryType: 1,
-    nameTh: `โรงงานทดสอบการลบ ${FACTORY_ID}`,
-    nameEn: `Test Factory Delete ${FACTORY_ID}`,
-    tsicCode: "1011",
-    addressNo: "1",
-    zipcode: "10000",
-    phoneNumber: "0000000000",
-    provinceId: PROVINCE_ID,
-    districtId: DISTRICT_ID,
-    subdistrictId: SUBDISTRICT_ID,
-    isValidate,
-  });
-};
+const seedFactory = (isValidate: boolean) =>
+  seedFactoryInProvince(db, FACTORY_ID, PROVINCE_ID, GEO, { isValidate });
 
 const award = { factoryId: FACTORY_ID, fiscalYear: 2025, grade: "gold" as const };
 
-const enroll = () => ({
-  factoryId: FACTORY_ID,
-  evalDohId: EVALUATOR_ID,
-  evalOdpcId: EVALUATOR_ID,
-  evalMentalId: EVALUATOR_ID,
-  employeeThM: 1,
-  employeeMmM: 0,
-  employeeKhM: 0,
-  employeeLaM: 0,
-  employeeVnM: 0,
-  employeeCnM: 0,
-  employeePhM: 0,
-  employeeJpM: 0,
-  employeeInM: 0,
-  employeeOtherM: 0,
-  employeeThF: 1,
-  employeeMmF: 0,
-  employeeKhF: 0,
-  employeeLaF: 0,
-  employeeVnF: 0,
-  employeeCnF: 0,
-  employeePhF: 0,
-  employeeJpF: 0,
-  employeeInF: 0,
-  employeeOtherF: 0,
-  standardHc: false,
-  standardSan: false,
-  standardSanPlus: false,
-  standardWellness: false,
-  standardSafety: false,
-  standardTis18001: false,
-  standardIso45001: false,
-  standardIso14001: false,
-  standardZero: false,
-  standard5S: false,
-  standardHas: false,
-  safetyOfficerPrefix: "นาย",
-  safetyOfficerFirstName: "ทดสอบ",
-  safetyOfficerLastName: "ทดสอบ",
-  safetyOfficerPosition: "จป.",
-});
+const seedEnroll = (database: NodePgDatabase) =>
+  seedEnrollWithCover(database, FACTORY_ID, new Date().toISOString(), "none");
 
 const rowCounts = async (id = FACTORY_ID) => ({
   accounts: (await db.select().from(accounts).where(eq(accounts.id, id))).length,
@@ -138,7 +83,7 @@ const removeFactoryFixtures = async () => {
 
 const removeAllFixtures = async () => {
   await removeFactoryFixtures();
-  await db.delete(provincialOfficers).where(eq(provincialOfficers.accountId, OFFICER_ID));
+  await removeProvincialOfficerAccount(db, OFFICER_ID);
   await db.delete(accounts).where(inArray(accounts.id, ALL_IDS));
 };
 
@@ -185,7 +130,7 @@ describe("DELETE /admins/factories/:id", () => {
 
   it("refuses a Factory that holds an Enroll and no Award and changes nothing", async () => {
     await seedFactory(true);
-    await db.insert(enrolls).values(enroll());
+    await seedEnroll(db);
 
     const response = await sendDelete(FACTORY_ID);
 
@@ -279,14 +224,11 @@ describe("DELETE /admins/factories/:id", () => {
     [
       "Award",
       "awards",
-      (client: ReturnType<typeof drizzle>) => client.insert(awards).values(award),
+      (client: NodePgDatabase) => client.insert(awards).values(award),
+      { awards: 1, enrolls: 0 },
     ],
-    [
-      "Enroll",
-      "enrolls",
-      (client: ReturnType<typeof drizzle>) => client.insert(enrolls).values(enroll()),
-    ],
-  ] as const)("gives 400 when a new row (%s) commits while the delete waits on it", async (_, reason, insert) => {
+    ["Enroll", "enrolls", seedEnroll, { awards: 0, enrolls: 1 }],
+  ] as const)("gives 400 when a new row (%s) commits while the delete waits on it", async (_, reason, insert, held) => {
     await seedFactory(true);
     const client = await pool.connect();
     try {
@@ -310,9 +252,20 @@ describe("DELETE /admins/factories/:id", () => {
     } finally {
       client.release();
     }
-    const counts = await rowCounts();
-    expect(counts.accounts).toBe(1);
-    expect(counts.factories).toBe(1);
+    expect(await rowCounts()).toEqual({ accounts: 1, factories: 1, ...held });
+  });
+
+  it("lists the 400 in the OpenAPI document", async () => {
+    const app = new Elysia()
+      .use(openapi({ path: "document" }))
+      .use(new Elysia({ prefix: "/admins/factories/:id" }).use(factoryRoute));
+
+    const response = await app.handle(new Request("http://localhost/document/json"));
+    const { paths } = (await response.json()) as {
+      paths: Record<string, { delete: { responses: Record<string, unknown> } }>;
+    };
+
+    expect(Object.keys(paths["/admins/factories/{id}"]!.delete.responses)).toContain("400");
   });
 
   it("answers 401 to an anonymous caller and leaves the Factory in place", async () => {

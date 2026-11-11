@@ -116,9 +116,9 @@ Read-only lint: `bun ./node_modules/.bin/biome check src`.
 
 ## Tests
 
-55 test files. 20 are isolated; 34 are `*.integration.test.ts` PostgreSQL tests; and
-`src/service/evaluator-review.pastyear.test.ts` skips without a database but writes to one when it is
-reachable.
+Test files are isolated, `*.integration.test.ts` PostgreSQL tests, or
+`src/service/evaluator-review.pastyear.test.ts`, which skips without a database but writes to one
+when it is reachable. [docs/testing.md](docs/testing.md) owns the counts.
 
 ```bash
 # Isolated, safe to run anywhere. 458 pass / 1 skip / 0 fail as of 2026-11-11 (Bun 1.3.6);

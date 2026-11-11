@@ -1,18 +1,25 @@
 import * as bcrypt from "bcrypt";
-import { DrizzleQueryError, eq, inArray } from "drizzle-orm";
+import { eq, getTableName, inArray } from "drizzle-orm";
 import { ElysiaCustomStatusResponse, status } from "elysia";
-import { DatabaseError } from "pg";
 import { db } from "../drizzle";
-import { accounts, adminsDoed, awards, factories, provinces } from "../drizzle/schema";
+import { accounts, adminsDoed, awards, enrolls, factories, provinces } from "../drizzle/schema";
 import type { UpdateAdminDto } from "../schema/admin";
 import type { PriorAwardDto } from "../schema/factory";
 import { hasValues } from "./hasValues";
+import { pgErrorOf } from "./pgError";
 
-const isFactoryHistoryViolation = (error: unknown) =>
-  error instanceof DrizzleQueryError &&
-  error.cause instanceof DatabaseError &&
-  error.cause.code === "23503" &&
-  (error.cause.table === "Awards" || error.cause.table === "Enrolls");
+const FOREIGN_KEY_VIOLATION = "23503";
+// PostgreSQL 18 reports an ON DELETE RESTRICT refusal with this code instead of 23503.
+const RESTRICT_VIOLATION = "23001";
+const FACTORY_HISTORY_TABLES = [getTableName(awards), getTableName(enrolls)];
+
+const isFactoryHistoryViolation = (error: unknown) => {
+  const cause = pgErrorOf(error);
+  return (
+    (cause?.code === FOREIGN_KEY_VIOLATION || cause?.code === RESTRICT_VIOLATION) &&
+    FACTORY_HISTORY_TABLES.includes(cause.table ?? "")
+  );
+};
 
 export const createAdminService = (database: typeof db) => {
   return {
