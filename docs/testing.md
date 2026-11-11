@@ -6,9 +6,9 @@ For environment setup and service ports, see [Development](./development.md). Fo
 
 ## Current status
 
-- **54 test files and about 725 declared test cases** were found.
+- **55 test files and about 736 declared test cases** were found.
 - **19 files are isolated** unit, configuration, schema, route-contract, guard, or in-process route tests. None needs PostgreSQL, Redis, MinIO, or SMTP.
-- **33 files are `*.integration.test.ts` PostgreSQL tests.**
+- **34 files are `*.integration.test.ts` PostgreSQL tests.**
 - **`src/service/evaluator-review.pastyear.test.ts` is an integration test without the suffix.** It probes `DATABASE_URL`, skips when no database answers, and inserts and deletes rows when one does. Treat it like a `*.integration.test.ts` file.
 - The 20 isolated files were run together on 2026-11-11 with Bun 1.3.6: **458 passed, 1 skipped, 0 failed across 20 files.** The run count exceeds the declared count because several files generate cases from tables.
 - **The guards failure seen earlier on 2026-11-11 is fixed:** `src/middleware/guards.test.ts` › `role guards on every autoloaded route > DOED: PATCH /twhp/api/admins/factories/validate/:id`. The test expects anonymous → 401 and Factory/Provincial/Evaluator → 403, but every caller, anonymous included, gets 400, which the test counts as "past the guard". The route's JSON-only `parse` hook (#65) runs before the role guard and rejects the probe's multipart body. It is not an authorization bypass, because the handler never runs, but a caller without access learns about the body format before it gets 401 or 403. #71 moved the body check after the guard and added `src/routes/admins/factories/index.test.ts` to pin the order ([#69](https://github.com/rawinan-soma/twhp-api/issues/69)).
@@ -50,11 +50,12 @@ The isolated table gives the number of tests each file **ran** on 2026-11-11 whe
 | `src/service/verdictEmail.test.ts` | 6 | Verdict-email cc selection and finished-job payload |
 | `src/utils.fiscal-year.test.ts` | 28 | Bangkok Sep 30/Oct 1 boundaries, leap years, host-timezone independence, single clock read (1 skipped unless the host is in Bangkok time) |
 
-### PostgreSQL integration tests (34 files, about 481 declared)
+### PostgreSQL integration tests (35 files, about 492 declared)
 
 | File | Declared | Scope |
 |---|---:|---|
 | `src/routes/admins/factories/index.authenticated.integration.test.ts` | 24 | `PATCH /admins/factories/validate/:id`: plain approval, Prior Awards, refused bodies, existing `Awards` rows |
+| `src/routes/admins/factories/delete.authenticated.integration.test.ts` | 11 | `DELETE /admins/factories/:id`: refusal for `Awards` and `Enrolls`, full removal, 404 for non-Factory ids, a racing insert, the OpenAPI 400, access |
 | `src/routes/evaluators/enrolls/index.authenticated.integration.test.ts` | 6 | Evaluator enrollment list province filter through a real token |
 | `src/routes/evaluators/factories/index.authenticated.integration.test.ts` | 5 | Evaluator factory list province filter through a real token |
 | `src/routes/evaluators/score/index.authenticated.integration.test.ts` | 6 | Evaluator score list province filter through a real token |
@@ -189,6 +190,7 @@ gate.
 - The offset-pagination contract: query coercion and bounds, `meta` arithmetic, envelope composition at the route layer, and envelope parity across the nine staff lists (ADR-0007, ADR-0009).
 - Role guards on every autoloaded route, for anonymous and each role, against an access table (`src/middleware/guards.test.ts`).
 - The fiscal-year query parameter, the evaluation period, the closed-year Factory write block, and the weekday reminder schedule.
+- Factory deletion: refusal for a Factory with history, full removal, and 404 for any id that is not a Factory, including an insert that races the delete.
 - At the integration-test source level: Cover-status filters, score queries and page-scoped answer hydration, evaluator regional/category reads and detail-read region scope, province and region filters, Factory Name Search, per-Answer verdict editing, terminal score changes and hard-reject certificate deletion (ADR-0012), finalization outcomes and atomicity, `Awards` and gold-tier history (ADR-0014), Prior Awards on factory approval, staff Invitations and the staff list (ADR-0015), partial atomic profile updates, token renewal, answer verdict enrichment, standard-file filtering, and paginated factory/enrollment/score lists.
 
 The integration bullet describes existing test source, not a current passing result.
@@ -203,7 +205,7 @@ The integration bullet describes existing test source, not a current passing res
 | Fiscal year | **Covered.** `src/utils.fiscal-year.test.ts` asserts the Bangkok Sep 30/Oct 1 boundaries, leap-year spans, host-timezone independence, single clock read, and parity with the pre-2026 algorithm. `src/service/fiscal-year-addressing.integration.test.ts` covers query scoping and role scoping for an addressed year; `src/service/fiscal-year-routes.test.ts` proves all 13 fiscal-scoped endpoints compose the shared parameter |
 | Updates and concurrency | Double-submit, concurrent finalizers, idempotency, stale writes, uniqueness/conflict paths, and transaction rollback under races |
 | Files and external services | Answer/enrollment upload replacement and compensation, real MinIO behavior, Redis integration, BullMQ processing/retry, SMTP failure, and the worker's scheduler registration (only the cron pattern and time zone are tested) |
-| Untested domains | Standalone behavior for Cover, file, and question services; admin, evaluator, factory, location, and provincial-officer services are covered only for the list filters, detail scoping, factory approval, and profile updates listed above |
+| Untested domains | Standalone behavior for Cover, file, and question services; admin, evaluator, factory, location, and provincial-officer services are covered only for the list filters, detail scoping, factory approval, factory deletion, and profile updates listed above |
 
 Prioritize auth/RBAC, fiscal-year boundaries, concurrency/idempotency, and destructive file/update workflows. See [Technical debt](./technical-debt.md) for the consolidated risk backlog.
 

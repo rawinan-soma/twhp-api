@@ -1,11 +1,25 @@
 import * as bcrypt from "bcrypt";
-import { eq } from "drizzle-orm";
+import { eq, getTableName, inArray } from "drizzle-orm";
 import { ElysiaCustomStatusResponse, status } from "elysia";
 import { db } from "../drizzle";
-import { accounts, adminsDoed, awards, factories, provinces } from "../drizzle/schema";
+import { accounts, adminsDoed, awards, enrolls, factories, provinces } from "../drizzle/schema";
 import type { UpdateAdminDto } from "../schema/admin";
 import type { PriorAwardDto } from "../schema/factory";
 import { hasValues } from "./hasValues";
+import { pgErrorOf } from "./pgError";
+
+const FOREIGN_KEY_VIOLATION = "23503";
+// PostgreSQL 18 reports an ON DELETE RESTRICT refusal with this code instead of 23503.
+const RESTRICT_VIOLATION = "23001";
+const FACTORY_HISTORY_TABLES = [getTableName(awards), getTableName(enrolls)];
+
+const isFactoryHistoryViolation = (error: unknown) => {
+  const cause = pgErrorOf(error);
+  return (
+    (cause?.code === FOREIGN_KEY_VIOLATION || cause?.code === RESTRICT_VIOLATION) &&
+    FACTORY_HISTORY_TABLES.includes(cause.table ?? "")
+  );
+};
 
 export const createAdminService = (database: typeof db) => {
   return {
@@ -47,24 +61,31 @@ export const createAdminService = (database: typeof db) => {
     },
 
     deleteFactory: async (factoryId: number) => {
-      const existingFactory = await database
-        .select({ id: accounts.id })
-        .from(accounts)
-        .where(eq(accounts.id, factoryId))
-        .limit(1)
-        .then((res) => res[0]);
+      try {
+        const deleted = await database
+          .delete(accounts)
+          .where(
+            inArray(
+              accounts.id,
+              database
+                .select({ id: factories.accountId })
+                .from(factories)
+                .where(eq(factories.accountId, factoryId)),
+            ),
+          )
+          .returning({ id: accounts.id });
 
-      if (!existingFactory) {
-        return status(404, { message: "factory not found" });
+        if (deleted.length === 0) {
+          return status(404, { message: "factory not found" });
+        }
+
+        return { message: "factory deleted!" };
+      } catch (error) {
+        if (isFactoryHistoryViolation(error)) {
+          return status(400, { message: "factory holds awards or enrolls and cannot be deleted" });
+        }
+        throw error;
       }
-
-      await database
-        .delete(factories)
-        .where(eq(factories.accountId, factoryId))
-        .returning({ deletedId: factories.accountId })
-        .then((res) => res[0]);
-
-      return { message: "factory deleted!" };
     },
     approveFactoryRegister: async (accountId: number, priorAwards: PriorAwardDto[] = []) => {
       const years = priorAwards.map((award) => award.fiscalYear);

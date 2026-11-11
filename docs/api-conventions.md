@@ -131,6 +131,16 @@ Clients must follow each endpoint schema and must not apply a global case conver
 
 On the two Factory routes, an empty `password` counts as absent and keeps the current password. A supplied `subdistrictId` also sets the province and district. An unknown `subdistrictId`, including `0`, returns 400 `invalid subdistrict id`. On `PATCH /admins`, a password needs at least 12 characters.
 
+### Factory deletion
+
+`DELETE /admins/factories/{id}` returns one of three results:
+
+| Status | Condition | Effect |
+| --- | --- | --- |
+| 200 | The Factory has no `Awards` or `Enrolls` row. | The `Factories` and `Accounts` rows go together. The username and email can register again. |
+| 400 | The Factory has an `Awards` or `Enrolls` row, including one that commits during the delete. | Nothing changes. `message` states the reason. |
+| 404 | The id has no `Factories` row. | Nothing changes. This covers staff accounts and a repeat delete. |
+
 ### Parameters, filtering, and ordering
 
 Path identifiers are numeric. Current routes mix `t.Number()` and `t.Numeric()`; clients should send plain decimal path segments.

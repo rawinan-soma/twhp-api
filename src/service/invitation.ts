@@ -1,9 +1,8 @@
 import { randomBytes } from "node:crypto";
 import * as bcrypt from "bcrypt";
-import { and, DrizzleQueryError, eq, gt, ne, or, sql, TransactionRollbackError } from "drizzle-orm";
+import { and, eq, gt, ne, or, sql, TransactionRollbackError } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { status } from "elysia";
-import { DatabaseError } from "pg";
 import { db } from "../drizzle";
 import {
   accounts,
@@ -15,6 +14,7 @@ import {
 } from "../drizzle/schema";
 import { emailQueue } from "../queue/email";
 import type { CreateInvitationDto } from "../schema/invitation";
+import { pgErrorOf } from "./pgError";
 
 export const INVITATION_TTL_SECONDS = 600;
 
@@ -152,11 +152,10 @@ export const issueLink = async (
 
 const invitationNotFound = () => status(404, { message: "invitation not found" });
 
-const isInvitedEmailTaken = (error: unknown) =>
-  error instanceof DrizzleQueryError &&
-  error.cause instanceof DatabaseError &&
-  error.cause.code === "23505" &&
-  error.cause.constraint === "Invitations_email_key";
+const isInvitedEmailTaken = (error: unknown) => {
+  const cause = pgErrorOf(error);
+  return cause?.code === "23505" && cause.constraint === "Invitations_email_key";
+};
 
 export const createInvitationService = (database: typeof db) => ({
   create: async (input: CreateInvitationDto) => {

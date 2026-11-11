@@ -1,6 +1,6 @@
 # Elysia Documentation
 
-> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-11-10
+> Version `0.0.0` · OpenAPI `3.0.3` · Generated 2026-11-11
 
 60 operations across 8 groups.
 
@@ -650,6 +650,12 @@ update ข้อมูลของ สปก. ตาม id ของสปก.
 **Responses**
 
 - `200` — Response for status 200
+
+  | Field | Type | Required | Description |
+  | --- | --- | --- | --- |
+  | `message` | `string` | yes |  |
+
+- `400` — Response for status 400
 
   | Field | Type | Required | Description |
   | --- | --- | --- | --- |
