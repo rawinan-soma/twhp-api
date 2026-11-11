@@ -45,6 +45,11 @@ export default (app: App) =>
             200: t.Object({
               message: t.String({ default: "factory delete succesfully" }),
             }),
+            400: t.Object({
+              message: t.String({
+                default: "factory holds awards or enrolls and cannot be deleted",
+              }),
+            }),
             404: t.Object({
               message: t.String({ default: "factory not found" }),
             }),

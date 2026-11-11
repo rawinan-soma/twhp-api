@@ -6,9 +6,9 @@ For environment setup and service ports, see [Development](./development.md). Fo
 
 ## Current status
 
-- **54 test files and about 725 declared test cases** were found.
+- **55 test files and about 735 declared test cases** were found.
 - **19 files are isolated** unit, configuration, schema, route-contract, guard, or in-process route tests. None needs PostgreSQL, Redis, MinIO, or SMTP.
-- **33 files are `*.integration.test.ts` PostgreSQL tests.**
+- **34 files are `*.integration.test.ts` PostgreSQL tests.**
 - **`src/service/evaluator-review.pastyear.test.ts` is an integration test without the suffix.** It probes `DATABASE_URL`, skips when no database answers, and inserts and deletes rows when one does. Treat it like a `*.integration.test.ts` file.
 - The 20 isolated files were run together on 2026-11-11 with Bun 1.3.6: **458 passed, 1 skipped, 0 failed across 20 files.** The run count exceeds the declared count because several files generate cases from tables.
 - **The guards failure seen earlier on 2026-11-11 is fixed:** `src/middleware/guards.test.ts` › `role guards on every autoloaded route > DOED: PATCH /twhp/api/admins/factories/validate/:id`. The test expects anonymous → 401 and Factory/Provincial/Evaluator → 403, but every caller, anonymous included, gets 400, which the test counts as "past the guard". The route's JSON-only `parse` hook (#65) runs before the role guard and rejects the probe's multipart body. It is not an authorization bypass, because the handler never runs, but a caller without access learns about the body format before it gets 401 or 403. #71 moved the body check after the guard and added `src/routes/admins/factories/index.test.ts` to pin the order ([#69](https://github.com/rawinan-soma/twhp-api/issues/69)).
@@ -50,11 +50,12 @@ The isolated table gives the number of tests each file **ran** on 2026-11-11 whe
 | `src/service/verdictEmail.test.ts` | 6 | Verdict-email cc selection and finished-job payload |
 | `src/utils.fiscal-year.test.ts` | 28 | Bangkok Sep 30/Oct 1 boundaries, leap years, host-timezone independence, single clock read (1 skipped unless the host is in Bangkok time) |
 
-### PostgreSQL integration tests (34 files, about 481 declared)
+### PostgreSQL integration tests (35 files, about 491 declared)
 
 | File | Declared | Scope |
 |---|---:|---|
 | `src/routes/admins/factories/index.authenticated.integration.test.ts` | 24 | `PATCH /admins/factories/validate/:id`: plain approval, Prior Awards, refused bodies, existing `Awards` rows |
+| `src/routes/admins/factories/delete.authenticated.integration.test.ts` | 10 | `DELETE /admins/factories/:id`: refusal for `Awards` and `Enrolls`, full removal, 404 for non-Factory ids, a racing insert, access |
 | `src/routes/evaluators/enrolls/index.authenticated.integration.test.ts` | 6 | Evaluator enrollment list province filter through a real token |
 | `src/routes/evaluators/factories/index.authenticated.integration.test.ts` | 5 | Evaluator factory list province filter through a real token |
 | `src/routes/evaluators/score/index.authenticated.integration.test.ts` | 6 | Evaluator score list province filter through a real token |

@@ -1,11 +1,18 @@
 import * as bcrypt from "bcrypt";
-import { eq } from "drizzle-orm";
+import { DrizzleQueryError, eq, inArray } from "drizzle-orm";
 import { ElysiaCustomStatusResponse, status } from "elysia";
+import { DatabaseError } from "pg";
 import { db } from "../drizzle";
 import { accounts, adminsDoed, awards, factories, provinces } from "../drizzle/schema";
 import type { UpdateAdminDto } from "../schema/admin";
 import type { PriorAwardDto } from "../schema/factory";
 import { hasValues } from "./hasValues";
+
+const isFactoryHistoryViolation = (error: unknown) =>
+  error instanceof DrizzleQueryError &&
+  error.cause instanceof DatabaseError &&
+  error.cause.code === "23503" &&
+  (error.cause.table === "Awards" || error.cause.table === "Enrolls");
 
 export const createAdminService = (database: typeof db) => {
   return {
@@ -47,24 +54,31 @@ export const createAdminService = (database: typeof db) => {
     },
 
     deleteFactory: async (factoryId: number) => {
-      const existingFactory = await database
-        .select({ id: accounts.id })
-        .from(accounts)
-        .where(eq(accounts.id, factoryId))
-        .limit(1)
-        .then((res) => res[0]);
+      try {
+        const deleted = await database
+          .delete(accounts)
+          .where(
+            inArray(
+              accounts.id,
+              database
+                .select({ id: factories.accountId })
+                .from(factories)
+                .where(eq(factories.accountId, factoryId)),
+            ),
+          )
+          .returning({ id: accounts.id });
 
-      if (!existingFactory) {
-        return status(404, { message: "factory not found" });
+        if (deleted.length === 0) {
+          return status(404, { message: "factory not found" });
+        }
+
+        return { message: "factory deleted!" };
+      } catch (error) {
+        if (isFactoryHistoryViolation(error)) {
+          return status(400, { message: "factory holds awards or enrolls and cannot be deleted" });
+        }
+        throw error;
       }
-
-      await database
-        .delete(factories)
-        .where(eq(factories.accountId, factoryId))
-        .returning({ deletedId: factories.accountId })
-        .then((res) => res[0]);
-
-      return { message: "factory deleted!" };
     },
     approveFactoryRegister: async (accountId: number, priorAwards: PriorAwardDto[] = []) => {
       const years = priorAwards.map((award) => award.fiscalYear);

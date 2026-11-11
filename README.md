@@ -116,7 +116,7 @@ Read-only lint: `bun ./node_modules/.bin/biome check src`.
 
 ## Tests
 
-54 test files. 20 are isolated; 33 are `*.integration.test.ts` PostgreSQL tests; and
+55 test files. 20 are isolated; 34 are `*.integration.test.ts` PostgreSQL tests; and
 `src/service/evaluator-review.pastyear.test.ts` skips without a database but writes to one when it is
 reachable.
 
