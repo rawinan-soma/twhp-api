@@ -116,14 +116,15 @@ Read-only lint: `bun ./node_modules/.bin/biome check src`.
 
 ## Tests
 
-53 test files. 19 are isolated; 33 are `*.integration.test.ts` PostgreSQL tests; and
+54 test files. 20 are isolated; 33 are `*.integration.test.ts` PostgreSQL tests; and
 `src/service/evaluator-review.pastyear.test.ts` skips without a database but writes to one when it is
 reachable.
 
 ```bash
-# Isolated, safe to run anywhere. 437 pass / 1 skip / 1 fail as of 2026-11-11 (Bun 1.3.6);
-# the fail is a known open guards.test.ts case — see docs/testing.md.
+# Isolated, safe to run anywhere. 458 pass / 1 skip / 0 fail as of 2026-11-11 (Bun 1.3.6);
+# see docs/testing.md.
 bun test src/config.test.ts src/middleware/guards.test.ts src/queue/schedule.test.ts \
+  src/routes/admins/factories/index.test.ts \
   src/routes/authentication/index.test.ts src/schema/fiscal-year.test.ts \
   src/service/admin-region-province-routes.test.ts src/service/auth-dev-bypass.test.ts \
   src/service/authentication.2fa.test.ts src/service/coverStatus.test.ts \

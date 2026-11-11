@@ -20,18 +20,17 @@ bun run db:seed    # Seed from seed_data/ (CSV + JSON)
 ```
 
 `package.json`'s `test` script is a placeholder that exits 1. The real runner is `bun test <files>`.
-There are 53 test files: the 19 isolated ones listed below, 33 `*.integration.test.ts` files that need
+There are 54 test files: the 20 isolated ones listed below, 33 `*.integration.test.ts` files that need
 a disposable PostgreSQL, and `src/service/evaluator-review.pastyear.test.ts`, which skips without a
 database but writes to one when `DATABASE_URL` is reachable — treat it as an integration file.
 
 ```bash
-# Isolated only — safe anywhere. 437 pass / 1 skip / 1 fail as of 2026-11-11 (macOS, Bun 1.3.6).
-# The fail is known and open: guards.test.ts "DOED: PATCH /twhp/api/admins/factories/validate/:id"
-# (issue #69: the route's JSON-only `parse` hook answers 400 to every caller before the guard runs;
-# not a bypass, the handler never runs). Bun runs the files in filesystem order,
-# not this order; when auth-dev-bypass's `utilities: () => ({})` stub loads before
-# evaluation-period.test.ts (seen on Linux), that file's 8 getReviewerFiscalYear tests also fail.
+# Isolated only — safe anywhere. 458 pass / 1 skip / 0 fail as of 2026-11-11 (macOS, Bun 1.3.6).
+# Bun runs the files in filesystem order, not this order; when auth-dev-bypass's
+# `utilities: () => ({})` stub loads before evaluation-period.test.ts (seen on Linux), that file's
+# 8 getReviewerFiscalYear tests fail.
 bun test src/config.test.ts src/middleware/guards.test.ts src/queue/schedule.test.ts \
+  src/routes/admins/factories/index.test.ts \
   src/routes/authentication/index.test.ts src/schema/fiscal-year.test.ts \
   src/service/admin-region-province-routes.test.ts src/service/auth-dev-bypass.test.ts \
   src/service/authentication.2fa.test.ts src/service/coverStatus.test.ts \

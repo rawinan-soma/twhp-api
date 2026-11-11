@@ -141,9 +141,10 @@ bun run start
 # Side-effecting worker: consumes Redis jobs, sends email, and registers a repeatable reminder
 bun run worker
 
-# Safe isolated tests — all 19 files, one process
-# (437 pass / 1 skip / 1 known fail in guards.test.ts as of 2026-11-11; see docs/testing.md)
+# Safe isolated tests — all 20 files, one process
+# (458 pass / 1 skip / 0 fail as of 2026-11-11; see docs/testing.md)
 bun test src/config.test.ts src/middleware/guards.test.ts src/queue/schedule.test.ts \
+  src/routes/admins/factories/index.test.ts \
   src/routes/authentication/index.test.ts src/schema/fiscal-year.test.ts \
   src/service/admin-region-province-routes.test.ts src/service/auth-dev-bypass.test.ts \
   src/service/authentication.2fa.test.ts src/service/coverStatus.test.ts \

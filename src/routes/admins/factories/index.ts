@@ -53,25 +53,28 @@ export default (app: App) =>
           // On an optional body Elysia swallows a JSON parse error, does not validate a value that is
           // not an object, and copies anything with a length into an array before validating it.
           // Each would approve the Factory and drop or hide Prior Awards, so this route reads only
-          // JSON and checks the body as sent. The named parser never runs; it is what makes the OpenAPI
-          // document list the JSON body.
-          parse: [
-            async ({ request }) => {
-              const raw = await request.text();
-              if (raw.trim() === "") return {};
-              let parsed: unknown;
-              try {
-                parsed = JSON.parse(raw);
-              } catch {
-                throw new ParseError();
-              }
-              if (!approveBodyValidator.Check(parsed)) {
-                throw new ParseError();
-              }
-              return parsed;
-            },
-            "application/json",
-          ],
+          // JSON and checks the body as sent. The check is in `transform` because `parse` runs before
+          // adminGuard and `transform` after it, so a caller the guard refuses never learns the body
+          // rules. The named parser never runs; it is what makes the OpenAPI document list the JSON
+          // body.
+          parse: [({ request }) => request.text(), "application/json"],
+          transform: (context) => {
+            const raw = context.body as unknown as string;
+            if (raw.trim() === "") {
+              context.body = {};
+              return;
+            }
+            let parsed: unknown;
+            try {
+              parsed = JSON.parse(raw);
+            } catch {
+              throw new ParseError();
+            }
+            if (!approveBodyValidator.Check(parsed)) {
+              throw new ParseError();
+            }
+            context.body = parsed as typeof context.body;
+          },
           body: ApproveFactoryBodySchema,
           response: {
             200: t.Object({

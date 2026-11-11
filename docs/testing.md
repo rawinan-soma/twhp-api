@@ -6,12 +6,12 @@ For environment setup and service ports, see [Development](./development.md). Fo
 
 ## Current status
 
-- **53 test files and about 725 declared test cases** were found.
+- **54 test files and about 725 declared test cases** were found.
 - **19 files are isolated** unit, configuration, schema, route-contract, guard, or in-process route tests. None needs PostgreSQL, Redis, MinIO, or SMTP.
 - **33 files are `*.integration.test.ts` PostgreSQL tests.**
 - **`src/service/evaluator-review.pastyear.test.ts` is an integration test without the suffix.** It probes `DATABASE_URL`, skips when no database answers, and inserts and deletes rows when one does. Treat it like a `*.integration.test.ts` file.
-- The 19 isolated files were run together on 2026-11-11 with Bun 1.3.6: **437 passed, 1 skipped, 1 failed, 840 `expect()` calls, 910 ms across 19 files.** The run count exceeds the declared count because several files generate cases from tables.
-- **The one failure is known and open:** `src/middleware/guards.test.ts` › `role guards on every autoloaded route > DOED: PATCH /twhp/api/admins/factories/validate/:id`. The test expects anonymous → 401 and Factory/Provincial/Evaluator → 403, but every caller, anonymous included, gets 400, which the test counts as "past the guard". The route's JSON-only `parse` hook (#65) runs before the role guard and rejects the probe's multipart body. It is not an authorization bypass, because the handler never runs, but a caller without access learns about the body format before it gets 401 or 403. Tracked in [#69](https://github.com/rawinan-soma/twhp-api/issues/69). It fails the same way when the file runs alone (61 pass, 1 fail).
+- The 20 isolated files were run together on 2026-11-11 with Bun 1.3.6: **458 passed, 1 skipped, 0 failed across 20 files.** The run count exceeds the declared count because several files generate cases from tables.
+- **The guards failure seen earlier on 2026-11-11 is fixed:** `src/middleware/guards.test.ts` › `role guards on every autoloaded route > DOED: PATCH /twhp/api/admins/factories/validate/:id`. The test expects anonymous → 401 and Factory/Provincial/Evaluator → 403, but every caller, anonymous included, gets 400, which the test counts as "past the guard". The route's JSON-only `parse` hook (#65) runs before the role guard and rejects the probe's multipart body. It is not an authorization bypass, because the handler never runs, but a caller without access learns about the body format before it gets 401 or 403. #71 moved the body check after the guard and added `src/routes/admins/factories/index.test.ts` to pin the order ([#69](https://github.com/rawinan-soma/twhp-api/issues/69)).
 - The skip is an `it.skipIf(!hostIsBangkok)` case in `src/utils.fiscal-year.test.ts`; it runs only on a host whose time zone is Bangkok.
 - The integration tests were **not run** during this refresh. Their setup performs real inserts and deletes against `DATABASE_URL`, whose test preload fallback names the ordinary local `twhp` database.
 - `bun run test` is still not usable: the `package.json` script prints `Error: no test specified` and exits 1.
@@ -30,8 +30,9 @@ The isolated table gives the number of tests each file **ran** on 2026-11-11 whe
 | File | Ran | Scope |
 |---|---:|---|
 | `src/config.test.ts` | 8 | Import-time configuration validation, including development OTP bypass variables |
-| `src/middleware/guards.test.ts` | 62 | Every autoloaded route against an access table, for anonymous and each role; runs `src/test/route-access-matrix.ts` in a child process with unreachable backing services. **1 known failure** (see above) |
+| `src/middleware/guards.test.ts` | 62 | Every autoloaded route against an access table, for anonymous and each role; runs `src/test/route-access-matrix.ts` in a child process with unreachable backing services. |
 | `src/queue/schedule.test.ts` | 1 | The validation-reminder cron pattern and time zone fire on weekdays at 08:30 Bangkok |
+| `src/routes/admins/factories/index.test.ts` | 3 (table-driven) | `PATCH /admins/factories/validate/:id` answers 401/403 before it judges the body; DOED gets 400 for a refused body (#71) |
 | `src/routes/authentication/index.test.ts` | 22 | In-process Elysia login, OTP, bypass, error, and request-validation behavior with mocked authentication/JWT modules |
 | `src/schema/fiscal-year.test.ts` | 14 | `FiscalYearQuery` acceptance, rejection, and composition with pagination |
 | `src/service/admin-region-province-routes.test.ts` | 5 | Admin list query contracts for the region and province filters |
@@ -90,10 +91,11 @@ The isolated table gives the number of tests each file **ran** on 2026-11-11 whe
 
 ## Safely running the isolated tests
 
-All 19 isolated files run in one process:
+All 20 isolated files run in one process:
 
 ```bash
 bun test src/config.test.ts src/middleware/guards.test.ts src/queue/schedule.test.ts \
+  src/routes/admins/factories/index.test.ts \
   src/routes/authentication/index.test.ts src/schema/fiscal-year.test.ts \
   src/service/admin-region-province-routes.test.ts src/service/auth-dev-bypass.test.ts \
   src/service/authentication.2fa.test.ts src/service/coverStatus.test.ts \
@@ -104,7 +106,7 @@ bun test src/config.test.ts src/middleware/guards.test.ts src/queue/schedule.tes
   src/utils.fiscal-year.test.ts
 ```
 
-Observed on 2026-11-11 with Bun 1.3.6 on macOS: **437 pass, 1 skip, 1 fail (the known `guards.test.ts` case), 840 expect() calls, 910 ms.** The run can print `[ioredis] Unhandled error event` lines because module-level imports create a Redis client that finds no server; they do not fail the run.
+Observed on 2026-11-11 with Bun 1.3.6 on macOS: **458 pass, 1 skip, 0 fail.** The run can print `[ioredis] Unhandled error event` lines because module-level imports create a Redis client that finds no server; they do not fail the run.
 
 ### Mock leakage between files
 
@@ -117,6 +119,7 @@ If a test fails in the combined run but passes alone, suspect leakage first and 
 
 ```bash
 for f in src/config.test.ts src/middleware/guards.test.ts src/queue/schedule.test.ts \
+  src/routes/admins/factories/index.test.ts \
   src/routes/authentication/index.test.ts src/schema/fiscal-year.test.ts \
   src/service/admin-region-province-routes.test.ts src/service/auth-dev-bypass.test.ts \
   src/service/authentication.2fa.test.ts src/service/coverStatus.test.ts \
@@ -184,7 +187,7 @@ gate.
 - Score calculation, `n/a` exclusion, category aggregation, numeric boundaries, and nested response schemas.
 - The shared latest-cover-log resolution: serial-`id` ordering, the correctness role of `LIMIT 1`, and parity between the lateral and single-cover shapes (ADR-0010).
 - The offset-pagination contract: query coercion and bounds, `meta` arithmetic, envelope composition at the route layer, and envelope parity across the nine staff lists (ADR-0007, ADR-0009).
-- Role guards on every autoloaded route, for anonymous and each role, against an access table (`src/middleware/guards.test.ts`; one case currently failing).
+- Role guards on every autoloaded route, for anonymous and each role, against an access table (`src/middleware/guards.test.ts`).
 - The fiscal-year query parameter, the evaluation period, the closed-year Factory write block, and the weekday reminder schedule.
 - At the integration-test source level: Cover-status filters, score queries and page-scoped answer hydration, evaluator regional/category reads and detail-read region scope, province and region filters, Factory Name Search, per-Answer verdict editing, terminal score changes and hard-reject certificate deletion (ADR-0012), finalization outcomes and atomicity, `Awards` and gold-tier history (ADR-0014), Prior Awards on factory approval, staff Invitations and the staff list (ADR-0015), partial atomic profile updates, token renewal, answer verdict enrichment, standard-file filtering, and paginated factory/enrollment/score lists.
 

@@ -175,7 +175,7 @@ These modules instantiate infrastructure at import time. Importing a service in 
 
 ## Tests
 
-Tests are colocated as `*.test.ts` under `src/`; `bunfig.toml` preloads `src/test/setup.ts`. There are 53 test files: 19 isolated, 33 `*.integration.test.ts` PostgreSQL files, and `src/service/evaluator-review.pastyear.test.ts`, which skips without a database but writes to one when it is reachable. Shared harnesses live beside the preload in `src/test/`.
+Tests are colocated as `*.test.ts` under `src/`; `bunfig.toml` preloads `src/test/setup.ts`. There are 54 test files: 20 isolated, 33 `*.integration.test.ts` PostgreSQL files, and `src/service/evaluator-review.pastyear.test.ts`, which skips without a database but writes to one when it is reachable. Shared harnesses live beside the preload in `src/test/`.
 
 The real test runner is `bun test <files>`. Run bare `bun test` only against a disposable database (see below):
 
