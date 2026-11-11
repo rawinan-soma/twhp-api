@@ -27,7 +27,8 @@ database but writes to one when `DATABASE_URL` is reachable — treat it as an i
 ```bash
 # Isolated only — safe anywhere. 437 pass / 1 skip / 1 fail as of 2026-11-11 (macOS, Bun 1.3.6).
 # The fail is known and open: guards.test.ts "DOED: PATCH /twhp/api/admins/factories/validate/:id"
-# (every caller, anonymous included, gets past the guard). Bun runs the files in filesystem order,
+# (issue #69: the route's JSON-only `parse` hook answers 400 to every caller before the guard runs;
+# not a bypass, the handler never runs). Bun runs the files in filesystem order,
 # not this order; when auth-dev-bypass's `utilities: () => ({})` stub loads before
 # evaluation-period.test.ts (seen on Linux), that file's 8 getReviewerFiscalYear tests also fail.
 bun test src/config.test.ts src/middleware/guards.test.ts src/queue/schedule.test.ts \

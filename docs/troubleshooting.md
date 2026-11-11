@@ -399,7 +399,7 @@ docker exec twhp-minio date -u
 - Application JWT middleware returns JSON 401. RBAC returns HTTP 403 with bare string `forbidden` when JWT role is absent/not one of the route guard’s roles.
 - Roles are exact enum values: `Factory`, `Provincial`, `Evaluator`, `DOED`.
 - A domain service can separately return JSON 403 for resource/category/finalize rules. Evaluator and Provincial Officer detail reads are region/province-scoped (closed 2026-09-03), but filename presigning still checks only authentication; that is a verified security finding, not a support workaround.
-- `requireRoles` derives with `as: "scoped"` and each guard is lifted with `.as("scoped")` (#41); before that fix any valid session passed every guard. `src/middleware/guards.test.ts` checks every autoloaded route against `src/test/route-access-matrix.ts`; as of 2026-11-11 its `DOED: PATCH /twhp/api/admins/factories/validate/:id` case fails because every caller, anonymous included, gets past the guard in that test.
+- `requireRoles` derives with `as: "scoped"` and each guard is lifted with `.as("scoped")` (#41); before that fix any valid session passed every guard. `src/middleware/guards.test.ts` checks every autoloaded route against `src/test/route-access-matrix.ts`; as of 2026-11-11 its `DOED: PATCH /twhp/api/admins/factories/validate/:id` case fails because every caller, anonymous included, gets 400. The route's JSON-only `parse` hook runs before the guard. This is not a bypass, because the handler never runs ([#69](https://github.com/rawinan-soma/twhp-api/issues/69)).
 
 **Diagnostic steps, evidence, and commands**
 
